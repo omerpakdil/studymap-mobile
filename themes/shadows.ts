@@ -1,105 +1,133 @@
 // Shadow System
-// Elevation and depth definitions for StudyMap
+// Modern elevation and depth definitions for StudyMap - 2025 trends
 
 import { Platform } from 'react-native';
 import { ShadowLevels } from './types';
 
-// iOS shadow styles
+// iOS shadow styles - Modern soft shadows with natural depth
 const iosShadows: ShadowLevels = {
+  // Ultra subtle shadow - barely perceptible
   xs: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 0.5 },
+    shadowOpacity: 0.03,
     shadowRadius: 1,
   },
   
+  // Gentle elevation - modern cards
   sm: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
     shadowRadius: 3,
   },
   
+  // Standard elevation - floating elements
   md: {
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   
+  // Prominent elevation - modals, dropdowns
   lg: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
   },
   
+  // Maximum elevation - overlays
   xl: {
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.1,
-    shadowRadius: 25,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.15,
+    shadowRadius: 32,
   },
   
-  // Dark mode shadows (lighter, more subtle)
+  // New: Glass morphism effects
+  glass: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+  },
+  
+  // Dark mode shadows (subtle colored shadows)
   dark: {
     sm: {
       shadowColor: '#FFFFFF',
       shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.1,
-      shadowRadius: 3,
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
     },
     
     md: {
       shadowColor: '#FFFFFF',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
     },
     
     lg: {
       shadowColor: '#FFFFFF',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.2,
-      shadowRadius: 15,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
+    },
+    
+    glass: {
+      shadowColor: '#FFFFFF',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
     },
   },
 };
 
-// Android shadow styles (using elevation)
+// Android shadow styles (using elevation) - Modern Material 3 inspired
 const androidShadows: ShadowLevels = {
   xs: {
     elevation: 1,
   },
   
   sm: {
-    elevation: 2,
+    elevation: 3,
   },
   
   md: {
-    elevation: 4,
+    elevation: 6,
   },
   
   lg: {
-    elevation: 8,
+    elevation: 12,
   },
   
   xl: {
-    elevation: 16,
+    elevation: 24,
+  },
+  
+  glass: {
+    elevation: 4,
   },
   
   // Dark mode shadows (same elevation values)
   dark: {
     sm: {
-      elevation: 2,
+      elevation: 3,
     },
     
     md: {
-      elevation: 4,
+      elevation: 6,
     },
     
     lg: {
-      elevation: 8,
+      elevation: 12,
+    },
+    
+    glass: {
+      elevation: 4,
     },
   },
 };
@@ -111,46 +139,50 @@ const shadows: ShadowLevels = Platform.select({
   default: iosShadows,
 });
 
-// Component-specific shadow presets
+// Component-specific shadow presets - Modern design system
 export const componentShadows = {
-  // Cards
+  // Cards - Glass morphism inspired
   card: {
     default: shadows.sm,
     hover: shadows.md,
     pressed: shadows.xs,
+    glass: shadows.glass,
   },
   
-  // Buttons
+  // Buttons - Subtle elevation
   button: {
     primary: shadows.sm,
     secondary: shadows.xs,
     floating: shadows.lg,
+    ghost: { shadowOpacity: 0 }, // No shadow for ghost buttons
   },
   
-  // Modals
+  // Modals - Strong depth separation
   modal: {
     backdrop: shadows.xl,
     content: shadows.lg,
     bottomSheet: shadows.md,
+    glass: shadows.glass,
   },
   
-  // Navigation
+  // Navigation - Minimal elevation
   navigation: {
     header: shadows.sm,
-    tabBar: shadows.md,
+    tabBar: shadows.glass,
     fab: shadows.lg,
   },
   
-  // Study components
+  // Study components - Context-specific elevation
   study: {
     progressCard: shadows.sm,
     timerCard: shadows.md,
     achievementBadge: shadows.sm,
     calendarCell: shadows.xs,
+    subjectCard: shadows.glass,
   },
 };
 
-// Shadow utilities
+// Modern shadow utilities
 export const createShadowStyle = (
   level: keyof ShadowLevels,
   isDark: boolean = false
@@ -161,17 +193,18 @@ export const createShadowStyle = (
   return shadows[level];
 };
 
-// Custom shadow generator
+// Advanced shadow generator - Supports modern shadow techniques
 export const createCustomShadow = (
   offsetX: number = 0,
   offsetY: number,
   blur: number,
-  opacity: number = 0.1,
-  color: string = '#000000'
+  opacity: number = 0.08,
+  color: string = '#000000',
+  spread: number = 0 // Not supported on mobile but good for web
 ) => {
   if (Platform.OS === 'android') {
-    // Android doesn't support custom shadows, use closest elevation
-    const elevation = Math.min(Math.max(Math.round(offsetY / 2), 1), 16);
+    // Android elevation approximation
+    const elevation = Math.min(Math.max(Math.round(offsetY + blur / 2), 1), 24);
     return { elevation };
   }
   
@@ -183,89 +216,135 @@ export const createCustomShadow = (
   };
 };
 
-// Glow effects (using colored shadows)
+// Glass morphism and modern glow effects
 export const glowEffects = {
-  primary: createCustomShadow(0, 0, 10, 0.3, '#6366F1'),
-  success: createCustomShadow(0, 0, 10, 0.3, '#10B981'),
-  warning: createCustomShadow(0, 0, 10, 0.3, '#F59E0B'),
-  error: createCustomShadow(0, 0, 10, 0.3, '#EF4444'),
+  // Popular app-inspired brand color glows
+  primary: createCustomShadow(0, 0, 16, 0.25, '#3B82F6'),     // Soft Blue
+  secondary: createCustomShadow(0, 0, 12, 0.2, '#F97316'),    // Coral
+  accent: createCustomShadow(0, 0, 14, 0.22, '#22C55E'),      // Sage Green
   
-  // Subtle glow for focus states
-  focus: createCustomShadow(0, 0, 8, 0.2, '#6366F1'),
+  // Semantic glows
+  success: createCustomShadow(0, 0, 12, 0.2, '#22C55E'),
+  warning: createCustomShadow(0, 0, 12, 0.2, '#F59E0B'),
+  error: createCustomShadow(0, 0, 12, 0.2, '#EF4444'),
+  
+  // Popular app interaction states
+  focus: createCustomShadow(0, 0, 8, 0.15, '#3B82F6'),        // Soft Blue focus
+  hover: createCustomShadow(0, 2, 8, 0.1, '#000000'),
+  
+  // Lifestyle & Education app inspired glows
+  lifestyle: {
+    blue: createCustomShadow(0, 0, 20, 0.3, '#3B82F6'),       // Instagram/Coursera blue
+    coral: createCustomShadow(0, 0, 16, 0.25, '#F97316'),     // Pinterest/lifestyle coral
+    green: createCustomShadow(0, 0, 18, 0.28, '#22C55E'),     // Headspace/wellness green
+  },
+  
+  // Glass effects
+  glass: {
+    light: createCustomShadow(0, 2, 12, 0.08, '#000000'),
+    dark: createCustomShadow(0, 2, 12, 0.12, '#FFFFFF'),
+  },
+};
+
+// Liquid glass inspired shadows
+export const liquidGlassShadows = {
+  // Floating glass panels
+  panel: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+  },
+  
+  // Interactive glass surfaces
+  interactive: {
+    default: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+    },
+    hover: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+    },
+    pressed: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.02,
+      shadowRadius: 4,
+    },
+  },
+  
+  // Backdrop blur simulation
+  backdrop: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 40,
+  },
 };
 
 // Inner shadow simulation (using borders and backgrounds)
 export const innerShadowStyles = {
   pressed: {
     borderTopWidth: 1,
-    borderLeftWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
-    borderLeftColor: 'rgba(0, 0, 0, 0.1)',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(0, 0, 0, 0.05)',
   },
   
   inset: {
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  
-  well: {
     borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.15)',
-    borderLeftColor: 'rgba(0, 0, 0, 0.15)',
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  
+  // Glass morphism inset
+  glassInset: {
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
 };
 
-// Animation-friendly shadow presets
-export const animatedShadows = {
-  // For button press animations
-  button: {
-    rest: shadows.sm,
-    pressed: shadows.xs,
-    hover: shadows.md,
-  },
+// Multi-layer shadow system for complex depth
+export const layeredShadows = {
+  // Card with realistic depth
+  realisticCard: [
+    { // Ambient shadow
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 3,
+    },
+    { // Directional shadow
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+    },
+  ],
   
-  // For card interactions
-  card: {
-    rest: shadows.sm,
-    hover: shadows.md,
-    active: shadows.lg,
-  },
-  
-  // For floating action buttons
-  fab: {
-    rest: shadows.lg,
-    pressed: shadows.md,
-    hover: shadows.xl,
-  },
-};
-
-// Shadow removal utility
-export const noShadow = {
-  shadowOpacity: 0,
-  elevation: 0,
-};
-
-// Text shadow utilities (iOS only)
-export const textShadows = {
-  subtle: {
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  
-  strong: {
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  
-  glow: {
-    textShadowColor: 'rgba(255, 255, 255, 0.8)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
+  // Floating action button
+  fab: [
+    {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+    },
+  ],
 };
 
 export default shadows; 

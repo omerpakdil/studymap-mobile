@@ -67,6 +67,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     colors: theme.colors,
     spacing: theme.spacing,
     typography: theme.typography,
+    shadows: theme.shadows,
+    borders: theme.borders,
+    components: theme.components,
+    animations: theme.animations,
   };
 
   return (

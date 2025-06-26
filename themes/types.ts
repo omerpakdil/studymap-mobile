@@ -34,42 +34,8 @@ export interface ColorPalette {
     900: string;
   };
   
-  // Semantic Colors
-  success: {
-    50: string;
-    100: string;
-    500: string;
-    600: string;
-    700: string;
-  };
-  
-  warning: {
-    50: string;
-    100: string;
-    500: string;
-    600: string;
-    700: string;
-  };
-  
-  error: {
-    50: string;
-    100: string;
-    500: string;
-    600: string;
-    700: string;
-  };
-  
-  info: {
-    50: string;
-    100: string;
-    500: string;
-    600: string;
-    700: string;
-  };
-  
-  // Neutral Colors
-  neutral: {
-    0: string;
+  // Accent Colors (New)
+  accent: {
     50: string;
     100: string;
     200: string;
@@ -82,12 +48,86 @@ export interface ColorPalette {
     900: string;
   };
   
-  // Gradient Definitions
+  // Semantic Colors (Extended)
+  success: {
+    50: string;
+    100: string;
+    200: string;
+    300: string;
+    400: string;
+    500: string;
+    600: string;
+    700: string;
+    800: string;
+    900: string;
+  };
+  
+  warning: {
+    50: string;
+    100: string;
+    200: string;
+    300: string;
+    400: string;
+    500: string;
+    600: string;
+    700: string;
+    800: string;
+    900: string;
+  };
+  
+  error: {
+    50: string;
+    100: string;
+    200: string;
+    300: string;
+    400: string;
+    500: string;
+    600: string;
+    700: string;
+    800: string;
+    900: string;
+  };
+  
+  // Neutral Colors (Extended)
+  neutral: {
+    0: string;
+    25: string;   // New
+    50: string;
+    100: string;
+    200: string;
+    300: string;
+    400: string;
+    500: string;
+    600: string;
+    700: string;
+    800: string;
+    900: string;
+    950: string;  // New
+  };
+  
+  // Moonlit Colors (New trend color)
+  moonlit: {
+    50: string;
+    100: string;
+    200: string;
+    300: string;
+    400: string;
+    500: string;
+    600: string;
+    700: string;
+    800: string;
+    900: string;
+  };
+  
+  // Gradient Definitions (Extended)
   gradients: {
     primary: string;
     secondary: string;
-    success: string;
+    ethereal: string;     // New
     subtle: string;
+    glass: string;        // New
+    sunset: string;       // New
+    luxury: string;       // New premium gradient
   };
 }
 
@@ -96,6 +136,7 @@ export interface TypographyScale {
     primary: string;
     mono: string;
     display?: string;
+    variable?: string;  // New variable font
   };
   
   fontSize: {
@@ -108,13 +149,16 @@ export interface TypographyScale {
     '3xl': number;
     '4xl': number;
     '5xl': number;
+    '6xl': number;     // New size
   };
   
   fontWeight: {
+    light: '300';      // New light weight
     normal: '400';
     medium: '500';
     semibold: '600';
     bold: '700';
+    extrabold: '800';  // New extra bold
   };
   
   lineHeight: {
@@ -127,25 +171,32 @@ export interface TypographyScale {
     '3xl': number;
     '4xl': number;
     '5xl': number;
+    '6xl': number;     // New line height
   };
   
   letterSpacing: {
+    tighter: number;   // New tighter option
     tight: number;
     normal: number;
     wide: number;
+    wider: number;     // New wider option
   };
   
-  // Predefined text styles
+  // Predefined text styles (expanded)
   styles: {
+    display: TextStyle;  // New display style
     h1: TextStyle;
     h2: TextStyle;
     h3: TextStyle;
     h4: TextStyle;
+    h5: TextStyle;       // New h5
     bodyLg: TextStyle;
     body: TextStyle;
     bodySm: TextStyle;
     label: TextStyle;
     caption: TextStyle;
+    overline: TextStyle; // New overline style
+    code: TextStyle;     // New code style
   };
 }
 
@@ -171,12 +222,14 @@ export interface ShadowLevels {
   md: ViewStyle;
   lg: ViewStyle;
   xl: ViewStyle;
+  glass: ViewStyle;   // New glass effect
   
   // Dark mode shadows
   dark: {
     sm: ViewStyle;
     md: ViewStyle;
     lg: ViewStyle;
+    glass: ViewStyle; // New glass effect for dark mode
   };
 }
 
@@ -347,4 +400,8 @@ export interface ThemeContextValue {
   colors: ColorPalette;
   spacing: SpacingScale;
   typography: TypographyScale;
+  shadows: ShadowLevels;
+  borders: BorderRadius;
+  components: ComponentStyles;
+  animations: AnimationConfig;
 } 
