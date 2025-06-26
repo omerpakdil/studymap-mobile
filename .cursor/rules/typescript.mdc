@@ -1,0 +1,42 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# TypeScript Guidelines
+
+## Type Safety
+- Use TypeScript for better type safety and developer experience
+- Define proper interfaces for component props and state
+- Create type definitions for API responses and data models
+- Use strict TypeScript configuration for maximum type safety
+
+## Component Typing
+- Type all component props with interfaces or type aliases
+- Use generic types for reusable components
+- Properly type event handlers and callback functions
+- Use React.FC or explicit function typing for components
+
+## Advanced TypeScript Features
+- Use union types for limited value sets
+- Implement discriminated unions for complex state management
+- Utilize mapped types and conditional types when appropriate
+- Use utility types (Partial, Pick, Omit, etc.) for type transformations
+
+## API and Data Typing
+- Create comprehensive types for API responses
+- Use enums for constants that won't change
+- Type async functions and Promise returns properly
+- Implement proper error typing for error handling
+
+## Development Workflow
+- Configure TypeScript strict mode in tsconfig.json
+- Use TypeScript-aware linting rules
+- Set up proper path mapping for imports
+- Leverage TypeScript's IntelliSense for better development experience
+
+## Migration and Adoption
+- Gradually adopt TypeScript in existing JavaScript projects
+- Start with .ts/.tsx extensions for new files
+- Add type annotations incrementally
+- Use @ts-ignore sparingly and document why it's needed

@@ -1,0 +1,34 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# JavaScript Usage Guidelines
+
+## Modern JavaScript Features
+- Use ES6+ Features: Leverage ES6+ features like arrow functions, destructuring, and template literals to write concise code
+- Prefer `const` and `let` over `var`
+- Use arrow functions for cleaner syntax, especially in callbacks
+- Utilize destructuring for object and array assignments
+- Use template literals for string interpolation
+
+## Variable Management
+- Avoid Global Variables: Minimize the use of global variables to prevent unintended side effects
+- Declare variables in the smallest scope possible
+- Initialize variables when declaring them when possible
+
+## Type Safety
+- PropTypes: Use PropTypes for type checking in components if you're not using TypeScript
+- Consider using TypeScript for better type safety and developer experience
+- Validate props and provide default values where appropriate
+
+## Function Practices
+- Use pure functions where possible (no side effects)
+- Keep functions small and focused on a single task
+- Use meaningful parameter names
+- Prefer function declarations for named functions and arrow functions for callbacks
+
+## Error Handling
+- Use try-catch blocks for error-prone operations
+- Provide meaningful error messages
+- Handle async errors properly with Promise.catch() or try-catch with async/await

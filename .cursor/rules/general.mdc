@@ -1,0 +1,21 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# General Code Style and Structure
+
+## Code Quality Principles
+- Write Clean, Readable Code: Ensure your code is easy to read and understand. Use descriptive names for variables and functions.
+- Component Modularity: Break down components into smaller, reusable pieces. Keep components focused on a single responsibility.
+- Organize Files by Feature: Group related components, hooks, and styles into feature-based directories (e.g., user-profile, chat-screen).
+
+## Component Guidelines
+- Use Functional Components: Prefer functional components with hooks (useState, useEffect, etc.) over class components.
+- Focus on Single Responsibility: Each component should have one clear purpose.
+- Keep components small and focused for better maintainability and testing.
+
+## File Organization
+- Group related files by feature rather than by file type
+- Use clear directory structures that reflect app functionality
+- Separate business logic from UI components when possible

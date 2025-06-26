@@ -1,0 +1,30 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Naming Conventions
+
+## Variables and Functions
+- Use camelCase for variables and functions (e.g., `isFetchingData`, `handleUserInput`)
+- Use descriptive names that clearly indicate purpose
+- Boolean variables should start with `is`, `has`, `can`, or `should` (e.g., `isLoading`, `hasPermission`)
+
+## Components
+- Use PascalCase for component names (e.g., `UserProfile`, `ChatScreen`)
+- Component files should match the component name
+- Use descriptive names that indicate the component's purpose
+
+## Directories
+- Use lowercase and hyphenated names for directories (e.g., `user-profile`, `chat-screen`)
+- Directory names should be descriptive and match their feature area
+- Avoid abbreviations unless they're commonly understood
+
+## Constants
+- Use SCREAMING_SNAKE_CASE for constants (e.g., `API_BASE_URL`, `MAX_RETRY_ATTEMPTS`)
+- Group related constants in dedicated files
+
+## Files
+- Use kebab-case for utility files and non-component files
+- Use PascalCase for component files
+- Use descriptive file names that indicate their content

@@ -1,0 +1,37 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Expo Guidelines
+
+## Expo Tools and Services
+- Use Expo Tools: Utilize Expo's EAS Build and Updates for continuous deployment and Over-The-Air (OTA) updates
+- Leverage Expo's managed workflow when possible for simplified development
+- Use Expo CLI for project management and development tasks
+- Take advantage of Expo's extensive library of APIs and components
+
+## Expo Router
+- Expo Router: Use Expo Router for file-based routing in your React Native app
+- It provides native navigation, deep linking, and works across Android, iOS, and web
+- Refer to the official documentation for setup and usage: https://docs.expo.dev/router/introduction/
+- Organize route files in the `app` directory following the file-based routing convention
+- Use layout files for shared UI across multiple routes
+
+## Development Workflow
+- Use Expo Go for quick testing during development
+- Implement EAS Build for production builds
+- Set up EAS Update for over-the-air updates
+- Use Expo's environment variables for configuration management
+
+## Platform Compatibility
+- Ensure features work across Android, iOS, and web when using Expo Router
+- Test thoroughly on all target platforms
+- Use platform-specific code when necessary with Platform.select()
+- Consider web compatibility when building universal apps
+
+## Configuration
+- Properly configure app.json/app.config.js for your project needs
+- Set up proper deep linking configuration
+- Configure splash screens and app icons through Expo tools
+- Use Expo's prebuild process when ejecting to bare workflow

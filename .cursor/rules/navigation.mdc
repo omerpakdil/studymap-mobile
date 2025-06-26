@@ -1,0 +1,42 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Navigation Guidelines
+
+## Expo Router Implementation
+- Use Expo Router for file-based routing in React Native applications
+- Organize route files in the `app` directory following file-based routing conventions
+- Use layout files (_layout.tsx) for shared UI across multiple routes
+- Implement proper deep linking configuration in app configuration
+
+## Route Organization
+- Structure routes hierarchically using nested folders
+- Use dynamic routes with square brackets (e.g., [id].tsx) for parameterized routes
+- Implement catch-all routes with (...slug) when needed
+- Use groups with parentheses to organize routes without affecting URL structure
+
+## Navigation Patterns
+- Use the `router` object for programmatic navigation
+- Implement proper back navigation handling
+- Use `router.push()` for forward navigation and `router.back()` for back navigation
+- Handle navigation state persistence across app restarts
+
+## Deep Linking
+- Configure URL schemes in app configuration
+- Test deep links thoroughly on both platforms
+- Handle link validation and error cases
+- Implement proper fallback URLs for unsupported routes
+
+## Performance Considerations
+- Implement lazy loading for heavy screens
+- Use proper loading states during navigation
+- Avoid unnecessary re-renders during navigation transitions
+- Optimize bundle splitting for better initial load times
+
+## User Experience
+- Provide clear navigation feedback and loading states
+- Implement proper error boundaries for navigation errors
+- Use consistent navigation patterns throughout the app
+- Test navigation flows on both iOS and Android platforms

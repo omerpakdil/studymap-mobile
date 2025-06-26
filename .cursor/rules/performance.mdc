@@ -1,0 +1,36 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Performance Optimization
+
+## State Management
+- Optimize State Management: Avoid unnecessary state updates and use local state only when needed
+- Use state only for values that trigger re-renders
+- Consider using useReducer for complex state logic
+- Minimize the number of state variables
+
+## React Optimization
+- Memoization: Use React.memo() for functional components to prevent unnecessary re-renders
+- Use useMemo() for expensive calculations
+- Use useCallback() for functions passed as props to prevent child re-renders
+- Avoid creating objects and functions inside render methods
+
+## List Performance
+- FlatList Optimization: Optimize FlatList with props like `removeClippedSubviews`, `maxToRenderPerBatch`, and `windowSize`
+- Avoid Anonymous Functions: Refrain from using anonymous functions in `renderItem` or event handlers to prevent re-renders
+- Use `keyExtractor` prop for efficient list updates
+- Implement `getItemLayout` when item heights are known and consistent
+
+## Memory Management
+- Clean up subscriptions and timers in useEffect cleanup functions
+- Avoid memory leaks by properly managing event listeners
+- Use lazy loading for heavy components
+- Optimize image sizes and formats
+
+## Threading and Performance
+- Follow React Native's Threading Model: Be aware of how React Native handles threading to ensure smooth UI performance
+- Avoid heavy computations on the main thread
+- Use InteractionManager for deferring work until after interactions
+- Consider using background tasks for heavy operations

@@ -1,0 +1,38 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# UI and Styling Guidelines
+
+## Styling Approach
+- Consistent Styling: Use StyleSheet.create() for consistent styling or Styled Components for dynamic styles
+- Create reusable style objects and themes
+- Avoid inline styles except for dynamic values
+- Use consistent spacing and sizing scales
+
+## Responsive Design
+- Responsive Design: Ensure your design adapts to various screen sizes and orientations
+- Consider using responsive units and libraries like react-native-responsive-screen
+- Use Flexbox for layout management
+- Test on multiple screen sizes and orientations
+- Consider safe area handling for different devices
+
+## Image Optimization
+- Optimize Image Handling: Use optimized image libraries like react-native-fast-image to handle images efficiently
+- Use appropriate image formats (WebP when possible)
+- Implement proper image caching strategies
+- Provide multiple image resolutions for different screen densities
+
+## Design System
+- Establish a consistent color palette and typography system
+- Create reusable UI components with consistent styling
+- Use consistent spacing and layout patterns
+- Implement dark mode support when applicable
+
+## Accessibility
+- Follow accessibility guidelines for mobile apps
+- Use proper semantic elements and roles
+- Ensure adequate color contrast
+- Provide alternative text for images
+- Test with screen readers
