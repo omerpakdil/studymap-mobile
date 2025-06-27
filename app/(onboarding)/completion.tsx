@@ -64,8 +64,8 @@ export default function CompletionScreen() {
   }, []);
 
   const handleGetStarted = () => {
-    // Navigate to main app (will replace with actual main screen)
-    router.replace('/');
+    // Navigate to main app dashboard
+    router.replace('/(tabs)/dashboard');
   };
 
   return (
