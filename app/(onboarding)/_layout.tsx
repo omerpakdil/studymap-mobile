@@ -31,6 +31,8 @@ export default function OnboardingLayout() {
             presentation: 'modal',
           }}
         />
+        <Stack.Screen name="subject-selection" />
+        <Stack.Screen name="learning-style" />
       </Stack>
     </ThemeProvider>
   );

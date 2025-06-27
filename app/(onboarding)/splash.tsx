@@ -2,11 +2,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Easing,
-    StyleSheet,
-    View,
+  Animated,
+  Dimensions,
+  Easing,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 import { Text } from '@/components';
@@ -19,11 +19,11 @@ const createNeuralNodes = () => {
   const nodes = [];
   const nodeCount = 12;
   const centerX = width / 2;
-  const centerY = height / 2;
+  const centerY = height / 2 + 40; // Neural network merkezi biraz aşağıda
   
   for (let i = 0; i < nodeCount; i++) {
     const angle = (i * Math.PI * 2) / nodeCount;
-    const radius = 120 + Math.sin(i * 0.7) * 40;
+    const radius = 140 + Math.sin(i * 0.7) * 30; // Daha moderate radius
     nodes.push({
       id: i,
       x: centerX + Math.cos(angle) * radius,
@@ -318,6 +318,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     alignItems: 'center',
     zIndex: 10,
+    marginTop: -60,
   },
   logoContainer: {
     marginBottom: 32,
@@ -369,7 +370,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 14,
-    fontWeight: '400',
+    fontWeight: '700',
     letterSpacing: 1,
     textAlign: 'center',
     lineHeight: 20,
