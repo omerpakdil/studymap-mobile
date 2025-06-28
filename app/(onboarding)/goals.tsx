@@ -14,6 +14,7 @@ import {
     View,
 } from 'react-native';
 
+import { GoalsData as OnboardingGoalsData, saveGoalsData } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
@@ -77,9 +78,27 @@ export default function GoalsScreen() {
     }
   };
 
-  const handleComplete = () => {
-    // Navigate to completion page
-    router.push('/(onboarding)/completion');
+  const handleComplete = async () => {
+    try {
+      // Save goals data
+      const goalsForSave: OnboardingGoalsData = {
+        examDate: goalsData.examDate,
+        targetScore: goalsData.targetScore,
+        studyIntensity: goalsData.studyIntensity,
+        reminderFrequency: goalsData.reminderFrequency,
+        motivation: goalsData.motivation,
+      };
+      
+      await saveGoalsData(goalsForSave);
+      console.log('Goals data saved:', goalsForSave);
+      
+      // Navigate to completion page
+      router.push('/(onboarding)/completion');
+    } catch (error) {
+      console.error('Error saving goals data:', error);
+      // Continue anyway for better UX
+      router.push('/(onboarding)/completion');
+    }
   };
 
   const formatDateInput = (text: string) => {
@@ -96,14 +115,72 @@ export default function GoalsScreen() {
     }
   };
 
+  const validateDate = (dateString: string): { isValid: boolean; message?: string } => {
+    if (!dateString || dateString.length < 10) {
+      return { isValid: false, message: 'Please enter a complete date (MM/DD/YYYY)' };
+    }
+
+    const dateParts = dateString.split('/');
+    if (dateParts.length !== 3) {
+      return { isValid: false, message: 'Invalid date format' };
+    }
+
+    const month = parseInt(dateParts[0], 10);
+    const day = parseInt(dateParts[1], 10);
+    const year = parseInt(dateParts[2], 10);
+
+    // Basic range validation
+    if (month < 1 || month > 12) {
+      return { isValid: false, message: 'Month must be between 1-12' };
+    }
+    if (day < 1 || day > 31) {
+      return { isValid: false, message: 'Day must be between 1-31' };
+    }
+    if (year < 2024 || year > 2030) {
+      return { isValid: false, message: 'Year must be between 2024-2030' };
+    }
+
+    // Create date and validate
+    const examDate = new Date(year, month - 1, day);
+    if (examDate.getFullYear() !== year || 
+        examDate.getMonth() !== month - 1 || 
+        examDate.getDate() !== day) {
+      return { isValid: false, message: 'Invalid date (e.g., Feb 30th doesn\'t exist)' };
+    }
+
+    // Check if date is in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+    if (examDate <= today) {
+      return { isValid: false, message: 'Exam date must be in the future' };
+    }
+
+    // Check minimum preparation time (at least 1 week)
+    const oneWeekFromNow = new Date(today);
+    oneWeekFromNow.setDate(today.getDate() + 7);
+    if (examDate < oneWeekFromNow) {
+      return { isValid: false, message: 'Please allow at least 1 week for preparation' };
+    }
+
+    return { isValid: true };
+  };
+
   const handleDateChange = (text: string) => {
     const formatted = formatDateInput(text);
     setGoalsData(prev => ({ ...prev, examDate: formatted }));
   };
 
+  const getDateValidation = () => {
+    if (goalsData.examDate.length === 0) return null;
+    return validateDate(goalsData.examDate);
+  };
+
   const isStepValid = () => {
     switch (currentStep) {
-      case 1: return goalsData.examDate.length >= 10; // MM/DD/YYYY format
+      case 1: {
+        const dateValidation = validateDate(goalsData.examDate);
+        return dateValidation.isValid;
+      }
       case 2: return goalsData.targetScore.length > 0;
       case 3: return goalsData.studyIntensity.length > 0;
       case 4: return goalsData.reminderFrequency.length > 0;
@@ -265,7 +342,7 @@ export default function GoalsScreen() {
               <TextInput
                 style={[styles.textInput, { 
                   backgroundColor: colors.neutral[0],
-                  borderColor: colors.neutral[200],
+                  borderColor: getDateValidation()?.isValid === false ? colors.error[500] : colors.neutral[200],
                   color: colors.neutral[900]
                 }]}
                 placeholder="MM/DD/YYYY"
@@ -275,6 +352,16 @@ export default function GoalsScreen() {
                 keyboardType="numeric"
                 maxLength={10}
               />
+              {getDateValidation()?.isValid === false && (
+                <Text style={[styles.validationMessage, { color: colors.error[600] }]}>
+                  {getDateValidation()?.message}
+                </Text>
+              )}
+              {goalsData.examDate.length >= 10 && getDateValidation()?.isValid && (
+                <Text style={[styles.validationMessage, { color: colors.success[600] }]}>
+                  ✓ Valid exam date
+                </Text>
+              )}
             </View>
           </View>
         );
@@ -823,5 +910,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: -1,
+  },
+  validationMessage: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
   },
 }); 

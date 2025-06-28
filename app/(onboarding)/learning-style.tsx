@@ -14,6 +14,7 @@ import {
     View,
 } from 'react-native';
 
+import { LearningStyleData, saveLearningStyleData } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width, height } = Dimensions.get('window');
@@ -206,9 +207,32 @@ export default function LearningStyleScreen() {
     setShowResults(true);
   };
 
-  const handleContinue = () => {
-    // Navigate to next onboarding step (Schedule Setup)
-    router.push('/(onboarding)/schedule');
+  const handleContinue = async () => {
+    try {
+      // Prepare learning style data
+      const primaryStyle = getSelectedLearningStyles()[0];
+      const secondaryStyle = getSelectedLearningStyles()[1];
+      
+      const learningStyleData: LearningStyleData = {
+        primaryStyle: primaryStyle?.id || 'visual',
+        preferences: {
+          studyEnvironment: primaryStyle?.id === 'auditory' ? 'with_background_sounds' : 'quiet',
+          sessionLength: primaryStyle?.id === 'kinesthetic' ? 'short_frequent' : 'medium',
+          breakFrequency: primaryStyle?.id === 'kinesthetic' ? 'frequent' : 'moderate',
+        },
+      };
+      
+      // Save learning style data
+      await saveLearningStyleData(learningStyleData);
+      console.log('Learning style data saved:', learningStyleData);
+      
+      // Navigate to next onboarding step (Schedule Setup)
+      router.push('/(onboarding)/schedule');
+    } catch (error) {
+      console.error('Error saving learning style data:', error);
+      // Continue anyway for better UX
+      router.push('/(onboarding)/schedule');
+    }
   };
 
   const handleBack = () => {

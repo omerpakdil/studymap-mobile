@@ -2,18 +2,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Dimensions,
-  FlatList,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    FlatList,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
+import { ExamData, saveExamData } from '@/app/utils/onboardingData';
 import { Button } from '@/components';
 import { useTheme } from '@/themes';
 
@@ -107,10 +108,31 @@ export default function AssessmentScreen() {
     setSelectedExam(examId);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedExam) {
-             // Navigate to subject selection with selected exam
-       router.push('/(onboarding)/subject-selection');
+      try {
+        // Find selected exam data
+        const selectedExamData = examTypes.find(exam => exam.id === selectedExam);
+        if (selectedExamData) {
+          // Save exam data
+          const examData: ExamData = {
+            id: selectedExamData.id,
+            name: selectedExamData.name,
+            fullName: selectedExamData.fullName,
+            subjects: selectedExamData.subjects,
+          };
+          
+          await saveExamData(examData);
+          console.log('Exam data saved:', examData);
+        }
+        
+        // Navigate to subject selection with selected exam
+        router.push('/(onboarding)/subject-selection');
+      } catch (error) {
+        console.error('Error saving exam data:', error);
+        // Continue anyway for better UX
+        router.push('/(onboarding)/subject-selection');
+      }
     }
   };
 

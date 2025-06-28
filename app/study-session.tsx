@@ -1,16 +1,18 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  Modal,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { useTheme } from '@/themes';
@@ -124,11 +126,16 @@ export default function StudySessionScreen() {
   }>();
 
   // Timer state
-  const [timerState, setTimerState] = useState<TimerState>('study');
-  const [timeLeft, setTimeLeft] = useState(25 * 60); // 25 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(parseInt(params?.duration || '25') * 60); // seconds
   const [isRunning, setIsRunning] = useState(false);
-  const [currentSession, setCurrentSession] = useState(1);
-  const [totalSessions, setTotalSessions] = useState(4);
+  const [timerState, setTimerState] = useState<TimerState>('study');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Duration settings
+  const [focusDuration, setFocusDuration] = useState(parseInt(params?.duration || '25')); // minutes
+  const [showDurationModal, setShowDurationModal] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   // Content state
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
@@ -137,7 +144,60 @@ export default function StudySessionScreen() {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [totalAnswered, setTotalAnswered] = useState(0);
 
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Notes state
+  const [notes, setNotes] = useState('');
+  const [isSessionCompleted, setIsSessionCompleted] = useState(false);
+
+  // Storage functions
+  const getStorageKeys = () => {
+    const taskId = params?.taskId || 'default';
+    return {
+      notes: `session_notes_${taskId}`,
+      completed: `session_completed_${taskId}`,
+      completionTime: `session_completion_time_${taskId}`,
+    };
+  };
+
+  const loadSessionData = async () => {
+    try {
+      const keys = getStorageKeys();
+      const [savedNotes, completionStatus] = await Promise.all([
+        AsyncStorage.getItem(keys.notes),
+        AsyncStorage.getItem(keys.completed),
+      ]);
+      
+      if (savedNotes) {
+        setNotes(savedNotes);
+      }
+      
+      if (completionStatus === 'true') {
+        setIsSessionCompleted(true);
+      }
+    } catch (error) {
+      console.log('Error loading session data:', error);
+    }
+  };
+
+  const saveNotes = async (noteText: string) => {
+    try {
+      const keys = getStorageKeys();
+      await AsyncStorage.setItem(keys.notes, noteText);
+    } catch (error) {
+      console.log('Error saving notes:', error);
+    }
+  };
+
+  const saveCompletionStatus = async (completed: boolean) => {
+    try {
+      const keys = getStorageKeys();
+      await AsyncStorage.setItem(keys.completed, completed.toString());
+      if (completed) {
+        await AsyncStorage.setItem(keys.completionTime, new Date().toISOString());
+      }
+    } catch (error) {
+      console.log('Error saving completion status:', error);
+    }
+  };
 
   // Get content for current subject/topic
   const getContent = () => {
@@ -173,7 +233,7 @@ export default function StudySessionScreen() {
   const resetTimer = () => {
     pauseTimer();
     if (timerState === 'study') {
-      setTimeLeft(25 * 60);
+      setTimeLeft(focusDuration * 60);
     } else if (timerState === 'break') {
       setTimeLeft(5 * 60);
     } else if (timerState === 'longBreak') {
@@ -181,27 +241,23 @@ export default function StudySessionScreen() {
     }
   };
 
+  const changeFocusDuration = (minutes: number) => {
+    setFocusDuration(minutes);
+    if (timerState === 'study') {
+      setTimeLeft(minutes * 60);
+      pauseTimer();
+    }
+    setShowDurationModal(false);
+  };
+
+  const openDurationModal = () => {
+    setShowDurationModal(true);
+  };
+
   const handleTimerComplete = () => {
     pauseTimer();
-    
-    if (timerState === 'study') {
-      if (currentSession % 4 === 0) {
-        // Long break after 4 sessions
-        setTimerState('longBreak');
-        setTimeLeft(15 * 60);
-      } else {
-        // Short break
-        setTimerState('break');
-        setTimeLeft(5 * 60);
-      }
-      Alert.alert('Study Session Complete!', 'Time for a break. Great job! 🎉');
-    } else {
-      // Break complete, start next study session
-      setTimerState('study');
-      setTimeLeft(25 * 60);
-      setCurrentSession(prev => prev + 1);
-      Alert.alert('Break Over!', 'Ready for the next study session? 💪');
-    }
+    setTimerState('completed');
+    Alert.alert('Timer Complete!', 'Focus session finished. Great job! 🎉');
   };
 
   const handleAnswer = (answerIndex: number) => {
@@ -238,28 +294,24 @@ export default function StudySessionScreen() {
   const handleSessionComplete = () => {
     pauseTimer();
     setTimerState('completed');
-    
-    const accuracy = totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 0;
-    
-    Alert.alert(
-      'Session Complete! 🎉',
-      `Great work! You got ${correctAnswers}/${totalAnswered} questions right (${accuracy}% accuracy).`,
-      [
-        { text: 'Review Session', onPress: () => {} },
-        { text: 'Back to Dashboard', onPress: () => router.back() },
-      ]
-    );
+    setIsSessionCompleted(true);
+    saveCompletionStatus(true);
+    setShowCompletionModal(true);
+  };
+
+  const resetSession = async () => {
+    try {
+      const keys = getStorageKeys();
+      await AsyncStorage.multiRemove([keys.completed, keys.completionTime]);
+      setIsSessionCompleted(false);
+      resetTimer();
+    } catch (error) {
+      console.log('Error resetting session:', error);
+    }
   };
 
   const exitSession = () => {
-    Alert.alert(
-      'Exit Study Session?',
-      'Your progress will be saved. Are you sure you want to exit?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Exit', onPress: () => router.back() },
-      ]
-    );
+    setShowExitModal(true);
   };
 
   // Format time display
@@ -288,6 +340,18 @@ export default function StudySessionScreen() {
     };
   }, []);
 
+  // Load session data on mount
+  useEffect(() => {
+    loadSessionData();
+  }, []);
+
+  // Auto-save notes when they change
+  useEffect(() => {
+    if (notes) {
+      saveNotes(notes);
+    }
+  }, [notes]);
+
   const renderTimer = () => (
     <View style={styles.timerContainer}>
       <View style={[styles.timerCircle, { borderColor: getTimerColor() }]}>
@@ -308,6 +372,13 @@ export default function StudySessionScreen() {
         >
           <Text style={[styles.timerButtonText, { color: colors.neutral[700] }]}>Reset</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.timerButton, { backgroundColor: colors.warning[100] }]}
+          onPress={openDurationModal}
+        >
+          <Text style={[styles.timerButtonText, { color: colors.warning[700] }]}>{focusDuration}m</Text>
+        </TouchableOpacity>
         
         <TouchableOpacity
           style={[styles.timerButton, { backgroundColor: getTimerColor() }]}
@@ -318,208 +389,305 @@ export default function StudySessionScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-      
-      <View style={styles.sessionProgress}>
-        <Text style={[styles.sessionText, { color: colors.neutral[600] }]}>
-          Session {currentSession} of {totalSessions}
-        </Text>
-        <View style={styles.sessionDots}>
-          {Array.from({ length: totalSessions }, (_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.sessionDot,
-                {
-                  backgroundColor: i < currentSession 
-                    ? colors.success[500] 
-                    : i === currentSession - 1 
-                    ? getTimerColor() 
-                    : colors.neutral[200]
-                }
-              ]}
-            />
-          ))}
-        </View>
-      </View>
     </View>
   );
 
-  const renderContent = () => {
-    if (!currentContent) {
-      return (
-        <View style={styles.noContentContainer}>
-          <Text style={[styles.noContentText, { color: colors.neutral[500] }]}>
-            📚 No content available for this topic yet
-          </Text>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.contentContainer}>
-        <View style={styles.contentHeader}>
-          <Text style={[styles.contentSubject, { color: colors.primary[600] }]}>
-            {params?.subject} • {params?.topic}
-          </Text>
-          <Text style={[styles.contentProgress, { color: colors.neutral[500] }]}>
-            {currentContentIndex + 1} / {content.length}
-          </Text>
-        </View>
-
-        <ScrollView style={styles.contentScroll} showsVerticalScrollIndicator={false}>
-          {currentContent.type === 'question' && (
-            <View style={styles.questionContainer}>
-              <Text style={[styles.questionText, { color: colors.neutral[900] }]}>
-                {currentContent.question}
-              </Text>
-              
-                             <View style={styles.optionsContainer}>
-                 {'options' in currentContent && currentContent.options?.map((option: string, index: number) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.optionButton,
-                                             {
-                         backgroundColor: selectedAnswer === index 
-                           ? ('correct' in currentContent && index === currentContent.correct ? colors.success[100] : colors.error[100])
-                           : colors.neutral[50],
-                         borderColor: selectedAnswer === index 
-                           ? ('correct' in currentContent && index === currentContent.correct ? colors.success[500] : colors.error[500])
-                           : colors.neutral[200],
-                       }
-                    ]}
-                    onPress={() => handleAnswer(index)}
-                    disabled={selectedAnswer !== null}
-                  >
-                    <Text style={[
-                      styles.optionText,
-                                             {
-                         color: selectedAnswer === index 
-                           ? ('correct' in currentContent && index === currentContent.correct ? colors.success[700] : colors.error[700])
-                           : colors.neutral[800]
-                       }
-                    ]}>
-                      {String.fromCharCode(65 + index)}. {option}
-                    </Text>
-                                         {selectedAnswer !== null && 'correct' in currentContent && index === currentContent.correct && (
-                       <Text style={styles.correctIcon}>✓</Text>
-                     )}
-                     {selectedAnswer === index && 'correct' in currentContent && index !== currentContent.correct && (
-                       <Text style={styles.incorrectIcon}>✗</Text>
-                     )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-                             {showExplanation && 'explanation' in currentContent && (
-                 <View style={[styles.explanationContainer, { backgroundColor: colors.primary[50] }]}>
-                   <Text style={[styles.explanationLabel, { color: colors.primary[700] }]}>
-                     Explanation:
-                   </Text>
-                   <Text style={[styles.explanationText, { color: colors.primary[600] }]}>
-                     {currentContent.explanation}
-                   </Text>
-                 </View>
-               )}
-            </View>
-          )}
-
-          {currentContent.type === 'passage' && (
-            <View style={styles.passageContainer}>
-              <Text style={[styles.passageText, { color: colors.neutral[800] }]}>
-                {currentContent.passage}
-              </Text>
-              
-              <Text style={[styles.questionText, { color: colors.neutral[900] }]}>
-                {currentContent.question}
-              </Text>
-              
-              {/* Similar options rendering as above */}
-            </View>
-          )}
-
-          {currentContent.type === 'prompt' && (
-            <View style={styles.promptContainer}>
-              <Text style={[styles.promptText, { color: colors.neutral[900] }]}>
-                {currentContent.prompt}
-              </Text>
-              
-              {currentContent.sampleAnswer && (
-                <View style={[styles.sampleContainer, { backgroundColor: colors.success[50] }]}>
-                  <Text style={[styles.sampleLabel, { color: colors.success[700] }]}>
-                    Sample Answer:
-                  </Text>
-                  <Text style={[styles.sampleText, { color: colors.success[600] }]}>
-                    {currentContent.sampleAnswer}
-                  </Text>
-                </View>
-              )}
-
-              {currentContent.tips && (
-                <View style={[styles.tipsContainer, { backgroundColor: colors.warning[50] }]}>
-                  <Text style={[styles.tipsLabel, { color: colors.warning[700] }]}>
-                    Writing Tips:
-                  </Text>
-                  {currentContent.tips.map((tip, index) => (
-                    <Text key={index} style={[styles.tipText, { color: colors.warning[600] }]}>
-                      • {tip}
-                    </Text>
-                  ))}
-                </View>
-              )}
-            </View>
-          )}
-        </ScrollView>
-
-        <View style={styles.contentNavigation}>
-          <TouchableOpacity
-            style={[
-              styles.navButton,
-              {
-                backgroundColor: currentContentIndex > 0 ? colors.neutral[100] : colors.neutral[50],
-                opacity: currentContentIndex > 0 ? 1 : 0.5,
-              }
-            ]}
-            onPress={previousContent}
-            disabled={currentContentIndex === 0}
-          >
-            <Text style={[styles.navButtonText, { color: colors.neutral[700] }]}>Previous</Text>
-          </TouchableOpacity>
-
-          <View style={styles.accuracyDisplay}>
-            <Text style={[styles.accuracyText, { color: colors.neutral[600] }]}>
-              {correctAnswers}/{totalAnswered} correct
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.navButton,
-              {
-                backgroundColor: showExplanation || currentContent.type === 'prompt' 
-                  ? colors.primary[500] 
-                  : colors.neutral[200],
-                opacity: showExplanation || currentContent.type === 'prompt' ? 1 : 0.5,
-              }
-            ]}
-            onPress={nextContent}
-            disabled={!showExplanation && currentContent.type !== 'prompt'}
-          >
-            <Text style={[
-              styles.navButtonText, 
-              { 
-                color: showExplanation || currentContent.type === 'prompt' 
-                  ? '#FFFFFF' 
-                  : colors.neutral[500] 
-              }
-            ]}>
-              {currentContentIndex === content.length - 1 ? 'Complete' : 'Next'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+  const renderContent = () => (
+    <View style={styles.contentContainer}>
+      <View style={styles.contentHeader}>
+        <Text style={[styles.contentSubject, { color: colors.primary[600] }]}>
+          {params?.subject} • {params?.topic}
+        </Text>
+        <Text style={[styles.contentType, { color: colors.neutral[500] }]}>
+          📝 Focus & Notes
+        </Text>
       </View>
+
+      {/* Notes Panel */}
+      <View style={[styles.notesContainer, { backgroundColor: colors.neutral[0] }]}>
+        <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
+          {isSessionCompleted ? '✅ Study Notes (Completed)' : '📝 Study Notes'}
+        </Text>
+        
+        <TextInput
+          style={[
+            styles.notesInput,
+            {
+              backgroundColor: colors.neutral[50],
+              borderColor: colors.neutral[200],
+              color: colors.neutral[900],
+            }
+          ]}
+          placeholder="Take notes during your study session..."
+          placeholderTextColor={colors.neutral[400]}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          textAlignVertical="top"
+        />
+      </View>
+
+      {/* Complete Session Button */}
+      {!isSessionCompleted ? (
+        <TouchableOpacity
+          style={[styles.completeButton, { backgroundColor: colors.success[500] }]}
+          onPress={handleSessionComplete}
+        >
+          <Text style={styles.completeButtonText}>Complete Session 🎉</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.completeButton, { backgroundColor: colors.primary[500] }]}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.completeButtonText}>Back to Dashboard 📚</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const renderDurationModal = () => {
+    const presetDurations = [5, 15, 25, 30, 45, 60];
+    
+    return (
+      <Modal
+        visible={showDurationModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDurationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.neutral[0] }]}>
+            <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
+              ⏱️ Set Focus Duration
+            </Text>
+            
+            <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
+              Choose how long you want to focus
+            </Text>
+
+            <View style={styles.presetGrid}>
+              {presetDurations.map((duration) => (
+                <TouchableOpacity
+                  key={duration}
+                  style={[
+                    styles.presetButton,
+                    {
+                      backgroundColor: duration === focusDuration ? colors.primary[500] : colors.neutral[100],
+                      borderColor: duration === focusDuration ? colors.primary[500] : colors.neutral[200],
+                    }
+                  ]}
+                  onPress={() => changeFocusDuration(duration)}
+                >
+                  <Text style={[
+                    styles.presetButtonText,
+                    { color: duration === focusDuration ? '#FFFFFF' : colors.neutral[700] }
+                  ]}>
+                    {duration}m
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: colors.neutral[100] }]}
+                onPress={() => setShowDurationModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.neutral[700] }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     );
   };
+
+  const renderCompletionModal = () => {
+    const notesLength = notes.trim().length;
+    const focusMinutes = parseInt(params?.duration || '25');
+    const focusSeconds = focusMinutes * 60;
+    const actualStudyTime = focusSeconds - timeLeft;
+    const totalStudyTime = formatTime(actualStudyTime > 0 ? actualStudyTime : focusSeconds);
+    
+    return (
+      <Modal
+        visible={showCompletionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCompletionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.completionModalContent, { backgroundColor: colors.neutral[0] }]}>
+            {/* Success Animation/Icon */}
+            <View style={[styles.successCircle, { backgroundColor: colors.success[100] }]}>
+              <Text style={styles.successIcon}>🎉</Text>
+            </View>
+            
+            {/* Title */}
+            <Text style={[styles.completionTitle, { color: colors.neutral[900] }]}>
+              Session Complete!
+            </Text>
+            
+            {/* Subtitle */}
+            <Text style={[styles.completionSubtitle, { color: colors.neutral[600] }]}>
+              Great focus session! Here's what you accomplished:
+            </Text>
+
+            {/* Stats Cards */}
+            <View style={styles.statsContainer}>
+              <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
+                <Text style={styles.statIcon}>⏱️</Text>
+                <Text style={[styles.statNumber, { color: colors.primary[700] }]}>
+                  {totalStudyTime}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.primary[600] }]}>
+                  Focused Time
+                </Text>
+              </View>
+              
+              <View style={[styles.statCard, { backgroundColor: colors.success[50] }]}>
+                <Text style={styles.statIcon}>📝</Text>
+                <Text style={[styles.statNumber, { color: colors.success[700] }]}>
+                  {notesLength}
+                </Text>
+                <Text style={[styles.statLabel, { color: colors.success[600] }]}>
+                  Note Characters
+                </Text>
+              </View>
+            </View>
+
+            {/* Message */}
+            <Text style={[styles.completionMessage, { color: colors.neutral[700] }]}>
+              {notesLength > 0 
+                ? "Excellent note-taking! Your insights will help with retention." 
+                : "Consider taking notes next time to improve retention and recall."}
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={styles.completionActions}>
+              <TouchableOpacity
+                style={[styles.completionButton, styles.secondaryButton, { borderColor: colors.neutral[200] }]}
+                onPress={() => setShowCompletionModal(false)}
+              >
+                <Text style={[styles.completionButtonText, { color: colors.neutral[700] }]}>
+                  Review Session
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.completionButton, styles.primaryButton, { backgroundColor: colors.primary[500] }]}
+                onPress={() => {
+                  setShowCompletionModal(false);
+                  router.back();
+                }}
+              >
+                <Text style={[styles.completionButtonText, { color: '#FFFFFF' }]}>
+                  Back to Dashboard
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderExitModal = () => (
+    <Modal
+      visible={showExitModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowExitModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.exitModalContent, { backgroundColor: colors.neutral[0] }]}>
+          {/* Icon */}
+          <View style={[styles.exitIconContainer, { backgroundColor: colors.warning[100] }]}>
+            <Text style={styles.exitIcon}>⚠️</Text>
+          </View>
+          
+          {/* Title & Message */}
+          <Text style={[styles.exitModalTitle, { color: colors.neutral[900] }]}>
+            {isSessionCompleted ? 'Session Options' : 'Exit Study Session?'}
+          </Text>
+          
+          <Text style={[styles.exitModalMessage, { color: colors.neutral[600] }]}>
+            {isSessionCompleted 
+              ? 'This session is already completed. What would you like to do?'
+              : 'Your progress will be saved. Are you sure you want to exit?'
+            }
+          </Text>
+
+          {/* Actions */}
+          <View style={styles.exitModalActions}>
+            {isSessionCompleted ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.exitModalButton, styles.secondaryButton]}
+                  onPress={() => {
+                    setShowExitModal(false);
+                    resetSession();
+                  }}
+                >
+                  <Text style={[styles.exitModalButtonText, { color: colors.neutral[700] }]}>
+                    Reset Session
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.exitModalButton, styles.primaryButton, { backgroundColor: colors.primary[500] }]}
+                  onPress={() => {
+                    setShowExitModal(false);
+                    router.back();
+                  }}
+                >
+                  <Text style={[styles.exitModalButtonText, { color: '#FFFFFF' }]}>
+                    Back to Dashboard
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.exitModalButton, styles.secondaryButton]}
+                  onPress={() => setShowExitModal(false)}
+                >
+                  <Text style={[styles.exitModalButtonText, { color: colors.neutral[700] }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[styles.exitModalButton, styles.dangerButton, { backgroundColor: '#EF4444' }]}
+                  onPress={() => {
+                    setShowExitModal(false);
+                    router.back();
+                  }}
+                >
+                  <Text style={[styles.exitModalButtonText, { color: '#FFFFFF' }]}>
+                    Exit Session
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+          
+          {/* Cancel Button for completed state */}
+          {isSessionCompleted && (
+            <TouchableOpacity
+              style={styles.exitModalCancelButton}
+              onPress={() => setShowExitModal(false)}
+            >
+              <Text style={[styles.exitModalCancelText, { color: colors.neutral[500] }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
@@ -536,7 +704,7 @@ export default function StudySessionScreen() {
         
         <View style={styles.headerContent}>
           <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-            Study Session
+            {isSessionCompleted ? '✅ Completed Session' : 'Study Session'}
           </Text>
           <Text style={[styles.headerSubtitle, { color: colors.neutral[600] }]}>
             {params?.type} • {params?.duration} min planned
@@ -549,6 +717,15 @@ export default function StudySessionScreen() {
 
       {/* Content Section */}
       {renderContent()}
+
+      {/* Duration Modal */}
+      {renderDurationModal()}
+
+      {/* Completion Modal */}
+      {renderCompletionModal()}
+
+      {/* Exit Modal */}
+      {renderExitModal()}
     </SafeAreaView>
   );
 }
@@ -614,35 +791,20 @@ const styles = StyleSheet.create({
   },
   timerControls: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     marginBottom: 20,
+    justifyContent: 'center',
   },
   timerButton: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
-    minWidth: 80,
+    minWidth: 70,
     alignItems: 'center',
   },
   timerButtonText: {
     fontSize: 16,
     fontWeight: '600',
-  },
-  sessionProgress: {
-    alignItems: 'center',
-  },
-  sessionText: {
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  sessionDots: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sessionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
   },
 
   // Content Styles
@@ -660,150 +822,246 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  contentProgress: {
+  contentType: {
     fontSize: 14,
   },
-  contentScroll: {
+
+  // Notes Styles
+  notesContainer: {
     flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
   },
-  noContentContainer: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  notesInput: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    fontSize: 16,
+    textAlignVertical: 'top',
+  },
+  completeButton: {
+    padding: 16,
+    borderRadius: 24,
+    alignItems: 'center',
+  },
+  completeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
+  // Duration Modal Styles
+  modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  noContentText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-
-  // Question Styles
-  questionContainer: {
-    marginBottom: 20,
-  },
-  questionText: {
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 26,
-    marginBottom: 20,
-  },
-  optionsContainer: {
-    gap: 12,
-    marginBottom: 20,
-  },
-  optionButton: {
-    padding: 16,
+  modalContent: {
+    width: '80%',
+    padding: 20,
     borderRadius: 12,
-    borderWidth: 2,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  presetGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     justifyContent: 'space-between',
+  },
+  presetButton: {
+    width: '30%',
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
     alignItems: 'center',
   },
-  optionText: {
+  presetButtonText: {
     fontSize: 16,
-    flex: 1,
-  },
-  correctIcon: {
-    fontSize: 18,
-    color: '#10B981',
-    fontWeight: '700',
-  },
-  incorrectIcon: {
-    fontSize: 18,
-    color: '#EF4444',
-    fontWeight: '700',
-  },
-  explanationContainer: {
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  explanationLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  explanationText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-
-  // Passage Styles
-  passageContainer: {
-    marginBottom: 20,
-  },
-  passageText: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-  },
-
-  // Prompt Styles
-  promptContainer: {
-    marginBottom: 20,
-  },
-  promptText: {
-    fontSize: 18,
     fontWeight: '600',
-    lineHeight: 26,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+  },
+  modalButton: {
+    padding: 12,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+
+  // Completion Modal Styles
+  completionModalContent: {
+    width: '85%',
+    maxWidth: 400,
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  successCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  sampleContainer: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+  successIcon: {
+    fontSize: 48,
+    fontWeight: '700',
   },
-  sampleLabel: {
+  completionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  completionSubtitle: {
     fontSize: 14,
+    marginBottom: 20,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
+  },
+  statCard: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  statIcon: {
+    fontSize: 18,
     fontWeight: '700',
     marginBottom: 8,
   },
-  sampleText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  tipsContainer: {
-    padding: 16,
-    borderRadius: 12,
-  },
-  tipsLabel: {
-    fontSize: 14,
+  statNumber: {
+    fontSize: 24,
     fontWeight: '700',
-    marginBottom: 8,
-  },
-  tipText: {
-    fontSize: 14,
-    lineHeight: 20,
     marginBottom: 4,
   },
-
-  // Navigation Styles
-  contentNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
-  },
-  navButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  navButtonText: {
+  statLabel: {
     fontSize: 14,
+    fontWeight: '500',
+  },
+  completionMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  completionActions: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  completionButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  secondaryButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+  },
+  primaryButton: {
+    borderWidth: 0,
+  },
+  completionButtonText: {
+    fontSize: 16,
     fontWeight: '600',
   },
-  accuracyDisplay: {
+
+  // Exit Modal Styles
+  exitModalContent: {
+    width: '80%',
+    maxWidth: 400,
+    padding: 20,
+    borderRadius: 12,
     alignItems: 'center',
   },
-  accuracyText: {
-    fontSize: 12,
-    fontWeight: '500',
+  exitIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  exitIcon: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  exitModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  exitModalMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  exitModalActions: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  exitModalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  exitModalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  exitModalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  exitModalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dangerButton: {
+    borderWidth: 0,
   },
 }); 

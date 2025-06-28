@@ -2,17 +2,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
+import { saveScheduleData } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
@@ -77,9 +78,19 @@ export default function ScheduleScreen() {
     return Object.values(selectedSchedule).filter(daySlots => daySlots.length > 0).length;
   };
 
-  const handleContinue = () => {
-    // Navigate to next onboarding step (goals page)
-    router.push('/(onboarding)/goals');
+  const handleContinue = async () => {
+    try {
+      // Save schedule data
+      await saveScheduleData(selectedSchedule);
+      console.log('Schedule data saved:', selectedSchedule);
+      
+      // Navigate to next onboarding step (goals page)
+      router.push('/(onboarding)/goals');
+    } catch (error) {
+      console.error('Error saving schedule data:', error);
+      // Continue anyway for better UX
+      router.push('/(onboarding)/goals');
+    }
   };
 
   const handleBack = () => {

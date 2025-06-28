@@ -1,6 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect as useFocusEffectNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
   Platform,
@@ -53,8 +55,44 @@ export default function DashboardScreen() {
     return 'Good evening';
   });
 
-  const progressPercentage = (mockUser.completedToday / mockUser.todayGoal) * 100;
-  const completedTasks = mockTodayTasks.filter(task => task.completed).length;
+  // Task completion tracking
+  const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
+  
+  // Daily goal tracking
+  const [dailyGoal] = useState(180); // minutes - could be made dynamic later
+  const [completedToday, setCompletedToday] = useState(0);
+
+  const progressPercentage = (completedToday / dailyGoal) * 100;
+  const completedTasks = Object.values(taskCompletions).filter(Boolean).length;
+
+  // Load task completion status
+  const loadTaskCompletions = async () => {
+    try {
+      const completions: Record<string, boolean> = {};
+      let totalCompleted = 0;
+      
+      for (const task of todayTasks) {
+        const key = `session_completed_${task.id}`;
+        const status = await AsyncStorage.getItem(key);
+        const isCompleted = status === 'true';
+        completions[task.id] = isCompleted;
+        
+        // Add duration to completed time if task is completed
+        if (isCompleted) {
+          totalCompleted += task.duration;
+        }
+      }
+      
+      setTaskCompletions(completions);
+      setCompletedToday(totalCompleted);
+    } catch (error) {
+      console.log('Error loading task completions:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadTaskCompletions();
+  }, []);
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
@@ -125,6 +163,12 @@ export default function DashboardScreen() {
     });
   };
 
+  const focusEffectCallback = useCallback(() => {
+    loadTaskCompletions();
+  }, []);
+
+  useFocusEffectNavigation(focusEffectCallback);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
@@ -161,8 +205,8 @@ export default function DashboardScreen() {
             >
               <View style={styles.progressContent}>
                 <View style={styles.progressLeft}>
-                  <Text style={styles.progressPercentage}>{mockUser.overallProgress}%</Text>
-                  <Text style={styles.progressLabel}>Complete</Text>
+                  <Text style={styles.progressPercentage}>{Math.round(progressPercentage)}%</Text>
+                  <Text style={styles.progressLabel}>Daily Goal</Text>
                 </View>
                 <View style={styles.progressRight}>
                   <View style={styles.progressStat}>
@@ -170,8 +214,8 @@ export default function DashboardScreen() {
                     <Text style={styles.progressStatLabel}>Days Left</Text>
                   </View>
                   <View style={styles.progressStat}>
-                    <Text style={styles.progressStatValue}>{mockUser.streakDays}</Text>
-                    <Text style={styles.progressStatLabel}>Day Streak</Text>
+                    <Text style={styles.progressStatValue}>{Math.round((completedTasks / todayTasks.length) * 100)}%</Text>
+                    <Text style={styles.progressStatLabel}>Tasks Done</Text>
                   </View>
                 </View>
               </View>
@@ -192,7 +236,7 @@ export default function DashboardScreen() {
             <View style={[styles.statCard, { backgroundColor: colors.warning[50] }]}>
               <Text style={styles.statEmoji}>⏱️</Text>
               <Text style={[styles.statValue, { color: colors.warning[700] }]}>
-                {mockUser.completedToday}m
+                {completedToday}m
               </Text>
               <Text style={[styles.statLabel, { color: colors.warning[600] }]}>
                 Studied Today
@@ -230,7 +274,7 @@ export default function DashboardScreen() {
                 Daily Goal Progress
               </Text>
               <Text style={[styles.dailyProgressText, { color: colors.neutral[600] }]}>
-                {mockUser.completedToday}/{mockUser.todayGoal} min
+                {completedToday}/{dailyGoal} min
               </Text>
             </View>
             <View style={[styles.progressBarBg, { backgroundColor: colors.neutral[200] }]}>
@@ -248,45 +292,47 @@ export default function DashboardScreen() {
 
           {/* Task List */}
           <View style={styles.taskList}>
-            {todayTasks.map((task, index) => (
-              <TouchableOpacity
-                key={task.id}
-                style={[
-                  styles.taskItem,
-                  { backgroundColor: colors.neutral[0] },
-                  task.completed && { opacity: 0.7 }
-                ]}
-                onPress={() => !task.completed && handleStartStudySession(task)}
-                disabled={task.completed}
-              >
-                <View style={styles.taskCheckbox}>
-                  {task.completed ? (
-                    <View style={[styles.checkbox, styles.checkboxCompleted, { backgroundColor: colors.success[500] }]}>
-                      <Text style={styles.checkmark}>✓</Text>
+            {todayTasks.map((task, index) => {
+              const isCompleted = taskCompletions[task.id] || false;
+              return (
+                <TouchableOpacity
+                  key={task.id}
+                  style={[
+                    styles.taskItem,
+                    { backgroundColor: colors.neutral[0] },
+                    isCompleted && { opacity: 0.7 }
+                  ]}
+                  onPress={() => handleStartStudySession(task)}
+                >
+                  <View style={styles.taskCheckbox}>
+                    {isCompleted ? (
+                      <View style={[styles.checkbox, styles.checkboxCompleted, { backgroundColor: colors.success[500] }]}>
+                        <Text style={styles.checkmark}>✓</Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.checkbox, { borderColor: colors.neutral[300] }]} />
+                    )}
+                  </View>
+                  
+                  <View style={styles.taskContent}>
+                    <View style={styles.taskHeader}>
+                      <Text style={[styles.taskSubject, { color: colors.neutral[900] }]}>
+                        {task.subject}
+                      </Text>
+                      <Text style={[styles.taskType, { color: colors.neutral[500] }]}>
+                        {task.icon} {task.type}
+                      </Text>
                     </View>
-                  ) : (
-                    <View style={[styles.checkbox, { borderColor: colors.neutral[300] }]} />
-                  )}
-                </View>
-                
-                <View style={styles.taskContent}>
-                  <View style={styles.taskHeader}>
-                    <Text style={[styles.taskSubject, { color: colors.neutral[900] }]}>
-                      {task.subject}
+                    <Text style={[styles.taskTopic, { color: colors.neutral[600] }]}>
+                      {task.topic}
                     </Text>
-                    <Text style={[styles.taskType, { color: colors.neutral[500] }]}>
-                      {task.icon} {task.type}
+                    <Text style={[styles.taskDuration, { color: colors.neutral[500] }]}>
+                      {task.duration} minutes {isCompleted ? '(Completed ✅)' : ''}
                     </Text>
                   </View>
-                  <Text style={[styles.taskTopic, { color: colors.neutral[600] }]}>
-                    {task.topic}
-                  </Text>
-                  <Text style={[styles.taskDuration, { color: colors.neutral[500] }]}>
-                    {task.duration} minutes
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -401,6 +447,7 @@ const styles = StyleSheet.create({
   progressCard: {
     borderRadius: 16,
     marginBottom: 16,
+    marginTop: 16, 
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,

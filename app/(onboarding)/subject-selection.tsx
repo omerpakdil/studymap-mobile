@@ -2,17 +2,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Animated,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
+import { saveTopicProficiency } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width, height } = Dimensions.get('window');
@@ -238,10 +239,20 @@ export default function SubjectSelectionScreen() {
     return Math.round(totalHours);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     const assessedCount = getAssessedCount();
     if (assessedCount >= 4) {
-      router.push('/(onboarding)/learning-style');
+      try {
+        // Save topic proficiency data
+        await saveTopicProficiency(topicProficiency);
+        console.log('Topic proficiency saved:', topicProficiency);
+        
+        router.push('/(onboarding)/learning-style');
+      } catch (error) {
+        console.error('Error saving topic proficiency:', error);
+        // Continue anyway for better UX
+        router.push('/(onboarding)/learning-style');
+      }
     }
   };
 

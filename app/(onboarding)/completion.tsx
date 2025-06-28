@@ -13,7 +13,10 @@ import {
     View,
 } from 'react-native';
 
+import { loadCompleteOnboardingData, markOnboardingComplete } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
+import { generateStudyProgram } from '@/utils/aiStudyGenerator';
+import { saveDailyTasks, saveStudyProgram } from '@/utils/studyProgramStorage';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -27,6 +30,9 @@ const achievements = [
 
 export default function CompletionScreen() {
   const { colors } = useTheme();
+  const [isGeneratingProgram, setIsGeneratingProgram] = useState(false);
+  const [programGenerated, setProgramGenerated] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [animationValues] = useState({
     scale: new Animated.Value(0),
     opacity: new Animated.Value(0),
@@ -61,12 +67,102 @@ export default function CompletionScreen() {
         )
       ),
     ]).start();
+
+    // Start AI program generation after animation
+    generateAIStudyProgram();
   }, []);
 
-  const handleGetStarted = () => {
-    // Navigate to main app dashboard
-    router.replace('/(tabs)/dashboard');
+  const generateAIStudyProgram = async () => {
+    try {
+      setIsGeneratingProgram(true);
+      setGenerationError(null);
+      
+      // Mark onboarding as complete
+      await markOnboardingComplete();
+      
+      // Load complete onboarding data
+      const onboardingData = await loadCompleteOnboardingData();
+      console.log('Onboarding data loaded:', {
+        hasExamData: !!onboardingData.examData,
+        hasGoalsData: !!onboardingData.goalsData,
+        hasProficiency: Object.keys(onboardingData.topicProficiency).length > 0,
+        hasSchedule: Object.keys(onboardingData.scheduleData).length > 0,
+        examDate: onboardingData.goalsData?.examDate
+      });
+      
+      // Generate AI study program
+      const studyProgram = await generateStudyProgram(onboardingData);
+      
+      if (studyProgram) {
+        // Save the generated program
+        await saveStudyProgram(studyProgram);
+        await saveDailyTasks(studyProgram.dailyTasks);
+        
+        console.log('AI Study Program Generated Successfully:', {
+          examType: studyProgram.examType,
+          totalTasks: studyProgram.dailyTasks.length,
+          weeklyHours: studyProgram.weeklyHours,
+          subjects: Object.keys(studyProgram.subjectAllocation),
+        });
+        
+        setProgramGenerated(true);
+      } else {
+        console.warn('Failed to generate study program');
+        setGenerationError('Unable to generate study program. Please check your exam date and try again.');
+      }
+    } catch (error) {
+      console.error('Error generating AI study program:', error);
+      let errorMessage = 'An unexpected error occurred while generating your study program.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Date')) {
+          errorMessage = 'Invalid exam date format. Please check your exam date and try again.';
+        } else if (error.message.includes('proficiency')) {
+          errorMessage = 'Missing assessment data. Please complete the knowledge assessment.';
+        }
+      }
+      
+      setGenerationError(errorMessage);
+    } finally {
+      setIsGeneratingProgram(false);
+    }
   };
+
+  const handleGetStarted = () => {
+    if (generationError) {
+      // Retry generation
+      generateAIStudyProgram();
+    } else {
+      // Navigate to main app dashboard
+      router.replace('/(tabs)/dashboard');
+    }
+  };
+
+  const getStatusMessage = () => {
+    if (isGeneratingProgram) {
+      return {
+        title: '🧠 Generating Your Study Plan',
+        description: 'AI is analyzing your assessment and creating a personalized study program...',
+      };
+    } else if (generationError) {
+      return {
+        title: '⚠️ Generation Failed',
+        description: generationError,
+      };
+    } else if (programGenerated) {
+      return {
+        title: '🚀 Ready to Launch',
+        description: 'Your AI-powered study plan is optimized and ready. Time to start your journey to success!',
+      };
+    } else {
+      return {
+        title: '🚀 Ready to Launch',
+        description: 'Your personalized study plan is being prepared...',
+      };
+    }
+  };
+
+  const statusMessage = getStatusMessage();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
@@ -152,15 +248,54 @@ export default function CompletionScreen() {
           </View>
         </View>
 
-        {/* Stats Preview */}
-        <View style={[styles.statsContainer, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}>
+        {/* AI Generation Status */}
+        <View style={[
+          styles.statsContainer, 
+          { 
+            backgroundColor: isGeneratingProgram 
+              ? colors.warning[50] 
+              : generationError 
+                ? colors.error[50] 
+                : colors.primary[50], 
+            borderColor: isGeneratingProgram 
+              ? colors.warning[200] 
+              : generationError 
+                ? colors.error[200] 
+                : colors.primary[200] 
+          }
+        ]}>
           <View style={styles.statsContent}>
-            <Text style={[styles.statsTitle, { color: colors.primary[800] }]}>
-              🚀 Ready to Launch
+            <Text style={[
+              styles.statsTitle, 
+              { 
+                color: isGeneratingProgram 
+                  ? colors.warning[800] 
+                  : generationError 
+                    ? colors.error[800] 
+                    : colors.primary[800] 
+              }
+            ]}>
+              {statusMessage.title}
             </Text>
-            <Text style={[styles.statsDesc, { color: colors.primary[600] }]}>
-              Your AI-powered study plan is optimized and ready. Time to start your journey to success!
+            <Text style={[
+              styles.statsDesc, 
+              { 
+                color: isGeneratingProgram 
+                  ? colors.warning[600] 
+                  : generationError 
+                    ? colors.error[600] 
+                    : colors.primary[600] 
+              }
+            ]}>
+              {statusMessage.description}
             </Text>
+            {isGeneratingProgram && (
+              <View style={styles.loadingIndicator}>
+                <View style={[styles.loadingDot, { backgroundColor: colors.warning[500] }]} />
+                <View style={[styles.loadingDot, { backgroundColor: colors.warning[500] }]} />
+                <View style={[styles.loadingDot, { backgroundColor: colors.warning[500] }]} />
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -168,12 +303,48 @@ export default function CompletionScreen() {
       {/* Bottom Action */}
       <View style={styles.bottomSection}>
         <TouchableOpacity
-          style={[styles.getStartedButton, { backgroundColor: colors.primary[500] }]}
+          style={[
+            styles.getStartedButton, 
+            { 
+              backgroundColor: (programGenerated && !isGeneratingProgram) 
+                ? colors.primary[500] 
+                : generationError 
+                  ? colors.warning[500]
+                  : colors.neutral[300],
+              opacity: isGeneratingProgram ? 0.6 : 1,
+            }
+          ]}
           onPress={handleGetStarted}
           activeOpacity={0.9}
+          disabled={isGeneratingProgram}
         >
-          <Text style={styles.getStartedButtonText}>Start Learning</Text>
-          <Text style={styles.buttonArrow}>→</Text>
+          <Text style={[
+            styles.getStartedButtonText,
+            { 
+              color: (programGenerated && !isGeneratingProgram) || generationError
+                ? colors.neutral[0] 
+                : colors.neutral[500] 
+            }
+          ]}>
+            {isGeneratingProgram 
+              ? 'Generating...' 
+              : generationError 
+                ? 'Retry Generation'
+                : 'Start Learning'
+            }
+          </Text>
+          {!isGeneratingProgram && (
+            <Text style={[
+              styles.buttonArrow,
+              { 
+                color: (programGenerated && !isGeneratingProgram) || generationError
+                  ? colors.neutral[0] 
+                  : colors.neutral[500] 
+              }
+            ]}>
+              →
+            </Text>
+          )}
         </TouchableOpacity>
         
         <Text style={[styles.footerText, { color: colors.neutral[500] }]}>
@@ -353,6 +524,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     textAlign: 'center',
+  },
+  loadingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  loadingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 2,
   },
   bottomSection: {
     paddingHorizontal: 20,
