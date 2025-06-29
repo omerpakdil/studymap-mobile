@@ -1,19 +1,20 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Animated,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
-import { saveTopicProficiency } from '@/app/utils/onboardingData';
+import { getCurriculumByExamId, type ExamCurriculum, type TopicData } from '@/app/data';
+import { loadExamData, saveTopicProficiency } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width, height } = Dimensions.get('window');
@@ -58,102 +59,31 @@ const proficiencyLevels = [
   },
 ];
 
-// Compact topics data
-const allTopics = [
-  // Math Topics
-  {
-    id: 'algebra',
-    subjectName: 'Mathematics',
-    subjectIcon: '🔢',
-    subjectGradient: ['#3B82F6', '#1D4ED8'],
-    name: 'Algebra & Functions',
-    description: 'Linear equations, systems, polynomials, exponential functions',
-    weight: 35,
-    difficulty: 'Medium',
-    estimatedHours: 15,
-  },
-  {
-    id: 'geometry',
-    subjectName: 'Mathematics',
-    subjectIcon: '🔢',
-    subjectGradient: ['#3B82F6', '#1D4ED8'],
-    name: 'Geometry & Trigonometry',
-    description: 'Coordinate geometry, triangles, circles, trigonometric functions',
-    weight: 25,
-    difficulty: 'Medium',
-    estimatedHours: 12,
-  },
-  {
-    id: 'statistics',
-    subjectName: 'Mathematics',
-    subjectIcon: '🔢',
-    subjectGradient: ['#3B82F6', '#1D4ED8'],
-    name: 'Statistics & Data Analysis',
-    description: 'Data interpretation, probability, measures of center and spread',
-    weight: 25,
-    difficulty: 'Easy',
-    estimatedHours: 10,
-  },
-  {
-    id: 'advanced',
-    subjectName: 'Mathematics',
-    subjectIcon: '🔢',
-    subjectGradient: ['#3B82F6', '#1D4ED8'],
-    name: 'Advanced Topics',
-    description: 'Complex numbers, sequences, series, advanced function analysis',
-    weight: 15,
-    difficulty: 'Hard',
-    estimatedHours: 8,
-  },
-  // Reading Topics
-  {
-    id: 'comprehension',
-    subjectName: 'Reading & Writing',
-    subjectIcon: '📖',
-    subjectGradient: ['#10B981', '#059669'],
-    name: 'Reading Comprehension',
-    description: 'Main ideas, supporting details, inferences, vocabulary in context',
-    weight: 40,
-    difficulty: 'Medium',
-    estimatedHours: 12,
-  },
-  {
-    id: 'analysis',
-    subjectName: 'Reading & Writing',
-    subjectIcon: '📖',
-    subjectGradient: ['#10B981', '#059669'],
-    name: 'Literary Analysis',
-    description: 'Literary devices, author techniques, tone, rhetorical strategies',
-    weight: 30,
-    difficulty: 'Hard',
-    estimatedHours: 15,
-  },
-  {
-    id: 'grammar',
-    subjectName: 'Reading & Writing',
-    subjectIcon: '📖',
-    subjectGradient: ['#10B981', '#059669'],
-    name: 'Grammar & Usage',
-    description: 'Sentence structure, punctuation, word choice, conventions',
-    weight: 20,
-    difficulty: 'Easy',
-    estimatedHours: 8,
-  },
-  {
-    id: 'rhetoric',
-    subjectName: 'Reading & Writing',
-    subjectIcon: '📖',
-    subjectGradient: ['#10B981', '#059669'],
-    name: 'Rhetorical Skills',
-    description: 'Organization, transitions, style, effectiveness of language',
-    weight: 10,
-    difficulty: 'Medium',
-    estimatedHours: 6,
-  }
-];
+// Subject gradients and icons mapping
+const subjectStyles = {
+  math: { icon: '🔢', gradient: ['#3B82F6', '#1D4ED8'] },
+  reading: { icon: '📖', gradient: ['#10B981', '#059669'] },
+  writing: { icon: '✍️', gradient: ['#8B5CF6', '#7C3AED'] },
+  verbal: { icon: '🗣️', gradient: ['#F59E0B', '#D97706'] },
+  quantitative: { icon: '📊', gradient: ['#3B82F6', '#1D4ED8'] },
+  analytical_writing: { icon: '📝', gradient: ['#8B5CF6', '#7C3AED'] },
+  integrated_reasoning: { icon: '🧠', gradient: ['#EF4444', '#DC2626'] },
+  listening: { icon: '👂', gradient: ['#06B6D4', '#0891B2'] },
+  speaking: { icon: '🎤', gradient: ['#F59E0B', '#D97706'] },
+  logical_reasoning: { icon: '⚖️', gradient: ['#8B5CF6', '#7C3AED'] },
+  reading_comprehension: { icon: '📖', gradient: ['#10B981', '#059669'] },
+  analytical_reasoning: { icon: '🧩', gradient: ['#EF4444', '#DC2626'] }
+};
 
 interface TopicProficiency {
   [topicId: string]: number;
+}
+
+interface ExtendedTopicData extends TopicData {
+  subjectName: string;
+  subjectIcon: string;
+  subjectGradient: string[];
+  weight: number;
 }
 
 export default function SubjectSelectionScreen() {
@@ -162,8 +92,71 @@ export default function SubjectSelectionScreen() {
   const [topicProficiency, setTopicProficiency] = useState<TopicProficiency>({});
   const [currentTopicIndex, setCurrentTopicIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [curriculum, setCurriculum] = useState<ExamCurriculum | null>(null);
+  const [allTopics, setAllTopics] = useState<ExtendedTopicData[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const slideAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    loadCurriculumData();
+  }, []);
+
+  const loadCurriculumData = async () => {
+    try {
+      const examData = await loadExamData();
+      if (!examData) {
+        console.error('No exam data found');
+        router.back();
+        return;
+      }
+
+      const curriculumData = getCurriculumByExamId(examData.id);
+      if (!curriculumData) {
+        console.error('No curriculum found for exam:', examData.id);
+        router.back();
+        return;
+      }
+
+      setCurriculum(curriculumData);
+      
+      // Transform curriculum data to match our component structure
+      const transformedTopics: ExtendedTopicData[] = [];
+      
+      curriculumData.subjects.forEach(subject => {
+        const subjectStyle = subjectStyles[subject.id as keyof typeof subjectStyles] || 
+                           { icon: '📚', gradient: ['#6B7280', '#4B5563'] };
+        
+        subject.topics.forEach(topic => {
+          transformedTopics.push({
+            ...topic,
+            subjectName: subject.name,
+            subjectIcon: subjectStyle.icon,
+            subjectGradient: subjectStyle.gradient,
+            weight: Math.round((topic.estimatedHours / subject.totalHours) * 100)
+          });
+        });
+      });
+
+      setAllTopics(transformedTopics);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading curriculum data:', error);
+      router.back();
+    }
+  };
+
+  if (loading || !curriculum) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
+            Loading curriculum...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const currentTopic = allTopics[currentTopicIndex];
   const totalTopics = allTopics.length;
@@ -488,14 +481,27 @@ export default function SubjectSelectionScreen() {
               <Text style={styles.metaLabel}>Study</Text>
             </View>
             <View style={styles.metaItem}>
-              <Text style={[
-                styles.metaValue,
-                { color: currentTopic.difficulty === 'Easy' ? '#10B981' : 
-                  currentTopic.difficulty === 'Medium' ? '#F59E0B' : '#EF4444' }
-              ]}>
-                {currentTopic.difficulty}
-              </Text>
-              <Text style={styles.metaLabel}>Level</Text>
+              <View style={styles.badgeContainer}>
+                <View style={[
+                  styles.difficultyBadge,
+                  { backgroundColor: 
+                    currentTopic.difficulty === 'easy' ? colors.success[100] :
+                    currentTopic.difficulty === 'medium' ? colors.warning[100] :
+                    colors.error[100]
+                  }
+                ]}>
+                  <Text style={[
+                    styles.difficultyText,
+                    { color: 
+                      currentTopic.difficulty === 'easy' ? colors.success[700] :
+                      currentTopic.difficulty === 'medium' ? colors.warning[700] :
+                      colors.error[700]
+                    }
+                  ]}>
+                    {currentTopic.difficulty.charAt(0).toUpperCase() + currentTopic.difficulty.slice(1)}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
         </LinearGradient>
@@ -983,5 +989,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  badgeContainer: {
+    alignItems: 'center',
+  },
+  difficultyBadge: {
+    padding: 4,
+    borderRadius: 4,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 }); 

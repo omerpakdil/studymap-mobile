@@ -1,5 +1,5 @@
 import { isOnboardingComplete } from '@/app/utils/onboardingData';
-import { isProgramGenerated } from '@/utils/studyProgramStorage';
+import { isProgramGenerated } from '@/app/utils/studyProgramStorage';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';

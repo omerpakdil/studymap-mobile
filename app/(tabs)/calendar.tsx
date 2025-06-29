@@ -1,17 +1,20 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
+import { StudyTask } from '@/app/utils/claudeStudyGenerator';
+import { loadDailyTasks } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -19,66 +22,23 @@ const isIOS = Platform.OS === 'ios';
 // Calendar view types
 type CalendarView = 'month' | 'week' | 'day';
 
-// Task type definition
-type StudyTask = {
-  subject: string;
-  topic: string;
-  duration: number;
-  completed: boolean;
-  time: string;
-};
-
 // Calendar data type
 type CalendarData = {
   [key: string]: StudyTask[];
 };
 
-// Mock data - will be replaced with real data later
-const mockCalendarData: CalendarData = {
-  '2024-02-01': [
-    { subject: 'Math', topic: 'Algebra', duration: 60, completed: true, time: '09:00' },
-    { subject: 'Verbal', topic: 'Vocabulary', duration: 45, completed: true, time: '14:00' },
-  ],
-  '2024-02-02': [
-    { subject: 'Math', topic: 'Geometry', duration: 45, completed: false, time: '10:00' },
-    { subject: 'Writing', topic: 'Essays', duration: 60, completed: false, time: '15:00' },
-  ],
-  '2024-02-03': [
-    { subject: 'Verbal', topic: 'Reading', duration: 90, completed: true, time: '09:00' },
-  ],
-  '2024-02-05': [
-    { subject: 'Math', topic: 'Statistics', duration: 75, completed: false, time: '11:00' },
-    { subject: 'Verbal', topic: 'Critical Reasoning', duration: 45, completed: false, time: '16:00' },
-  ],
-  '2024-02-07': [
-    { subject: 'Writing', topic: 'Grammar', duration: 30, completed: true, time: '08:00' },
-    { subject: 'Math', topic: 'Trigonometry', duration: 90, completed: false, time: '10:00' },
-  ],
-  '2024-02-08': [
-    { subject: 'Verbal', topic: 'Sentence Correction', duration: 60, completed: true, time: '09:00' },
-  ],
-  '2024-02-10': [
-    { subject: 'Math', topic: 'Probability', duration: 75, completed: false, time: '11:00' },
-    { subject: 'Writing', topic: 'Analytical Writing', duration: 90, completed: false, time: '14:00' },
-    { subject: 'Verbal', topic: 'Text Completion', duration: 45, completed: true, time: '16:00' },
-  ],
-  '2024-02-12': [
-    { subject: 'Math', topic: 'Data Analysis', duration: 60, completed: false, time: '10:00' },
-  ],
-  '2024-02-14': [
-    { subject: 'Verbal', topic: 'Reading Comprehension', duration: 120, completed: false, time: '09:00' },
-    { subject: 'Writing', topic: 'Issue Essay', duration: 60, completed: false, time: '15:00' },
-  ],
-  '2024-02-15': [
-    { subject: 'Math', topic: 'Coordinate Geometry', duration: 90, completed: true, time: '08:30' },
-    { subject: 'Verbal', topic: 'Critical Reasoning', duration: 75, completed: true, time: '11:00' },
-  ],
-};
-
 const subjectColors = {
   Math: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
+  Mathematics: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
   Verbal: { bg: '#F0FDF4', border: '#10B981', text: '#047857' },
+  English: { bg: '#F0FDF4', border: '#10B981', text: '#047857' },
   Writing: { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E' },
+  Science: { bg: '#F3E8FF', border: '#8B5CF6', text: '#6D28D9' },
+  Physics: { bg: '#F3E8FF', border: '#8B5CF6', text: '#6D28D9' },
+  Chemistry: { bg: '#FDF2F8', border: '#EC4899', text: '#BE185D' },
+  Biology: { bg: '#ECFDF5', border: '#059669', text: '#065F46' },
+  History: { bg: '#FEF7ED', border: '#D97706', text: '#92400E' },
+  Default: { bg: '#F1F5F9', border: '#64748B', text: '#475569' },
 };
 
 const monthNames = [
@@ -91,8 +51,47 @@ const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function CalendarScreen() {
   const { colors } = useTheme();
   const [currentView, setCurrentView] = useState<CalendarView>('month');
-  // Set initial date to February 2024 where we have mock data
-  const [selectedDate, setSelectedDate] = useState(new Date(2024, 1, 1)); // February 1, 2024
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [calendarData, setCalendarData] = useState<CalendarData>({});
+  const [loading, setLoading] = useState(true);
+
+  // Load calendar data from Claude-generated tasks
+  const loadCalendarData = async () => {
+    try {
+      setLoading(true);
+      const allTasks = await loadDailyTasks();
+      
+      // Group tasks by date
+      const tasksByDate: CalendarData = {};
+      allTasks.forEach((task: StudyTask) => {
+        if (!tasksByDate[task.date]) {
+          tasksByDate[task.date] = [];
+        }
+        tasksByDate[task.date].push(task);
+      });
+      
+      setCalendarData(tasksByDate);
+      console.log('📅 Calendar data loaded:', {
+        totalDays: Object.keys(tasksByDate).length,
+        totalTasks: allTasks.length
+      });
+      
+    } catch (error) {
+      console.error('❌ Error loading calendar data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCalendarData();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCalendarData();
+    }, [])
+  );
 
   // Helper functions
   const formatDate = (date: Date) => {
@@ -152,7 +151,7 @@ export default function CalendarScreen() {
   };
 
   const getDateTasks = (date: Date) => {
-    return mockCalendarData[formatDate(date)] || [];
+    return calendarData[formatDate(date)] || [];
   };
 
   const getDateProgress = (date: Date) => {
@@ -160,6 +159,10 @@ export default function CalendarScreen() {
     if (tasks.length === 0) return 0;
     const completed = tasks.filter((task: StudyTask) => task.completed).length;
     return (completed / tasks.length) * 100;
+  };
+
+  const getSubjectColor = (subject: string) => {
+    return subjectColors[subject as keyof typeof subjectColors] || subjectColors.Default;
   };
 
   const renderViewToggle = () => (
@@ -379,7 +382,7 @@ export default function CalendarScreen() {
                     </View>
                     <View style={styles.weekTaskInfo}>
                       <Text style={[styles.weekTaskTime, { color: colors.neutral[500] }]}>
-                        {task.time}
+                        {task.timeSlot || 'No time set'}
                       </Text>
                       <Text style={[styles.weekTaskDuration, { color: colors.neutral[500] }]}>
                         {task.duration}m
@@ -424,7 +427,7 @@ export default function CalendarScreen() {
               >
                 <View style={styles.dayTaskTime}>
                   <Text style={[styles.dayTaskTimeText, { color: colors.neutral[600] }]}>
-                    {task.time}
+                    {task.timeSlot || 'No time set'}
                   </Text>
                   <Text style={[styles.dayTaskDuration, { color: colors.neutral[500] }]}>
                     {task.duration} min

@@ -14,6 +14,7 @@ import {
     View,
 } from 'react-native';
 
+import { availableExams, getCurriculumByExamId } from '@/app/data';
 import { ExamData, saveExamData } from '@/app/utils/onboardingData';
 import { Button } from '@/components';
 import { useTheme } from '@/themes';
@@ -21,80 +22,38 @@ import { useTheme } from '@/themes';
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
-// Exam types data
-const examTypes = [
-  {
-    id: 'sat',
-    name: 'SAT',
-    fullName: 'Scholastic Assessment Test',
-    description: 'College admission test for US universities',
-    duration: '3 hours',
-    subjects: ['Math', 'Reading', 'Writing'],
-    icon: '🎓',
-    color: '#3B82F6',
-    popular: true,
-  },
-  {
-    id: 'gre',
-    name: 'GRE',
-    fullName: 'Graduate Record Examination',
-    description: 'Graduate school admission test',
-    duration: '3 hours 45 min',
-    subjects: ['Verbal', 'Quantitative', 'Analytical Writing'],
-    icon: '📚',
-    color: '#8B5CF6',
-    popular: true,
-  },
-  {
-    id: 'toefl',
-    name: 'TOEFL',
-    fullName: 'Test of English as a Foreign Language',
-    description: 'English proficiency test for non-native speakers',
-    duration: '3 hours',
-    subjects: ['Reading', 'Listening', 'Speaking', 'Writing'],
-    icon: '🌍',
-    color: '#10B981',
-    popular: true,
-  },
-  {
-    id: 'ielts',
-    name: 'IELTS',
-    fullName: 'International English Language Testing System',
-    description: 'English proficiency test for international students',
-    duration: '2 hours 45 min',
-    subjects: ['Listening', 'Reading', 'Writing', 'Speaking'],
-    icon: '🗣️',
-    color: '#F59E0B',
-    popular: false,
-  },
-  {
-    id: 'gmat',
-    name: 'GMAT',
-    fullName: 'Graduate Management Admission Test',
-    description: 'MBA and graduate business program admission',
-    duration: '3 hours 7 min',
-    subjects: ['Verbal', 'Quantitative', 'Integrated Reasoning', 'AWA'],
-    icon: '💼',
-    color: '#EF4444',
-    popular: false,
-  },
-  {
-    id: 'lsat',
-    name: 'LSAT',
-    fullName: 'Law School Admission Test',
-    description: 'Law school admission test',
-    duration: '3 hours 35 min',
-    subjects: ['Logical Reasoning', 'Reading Comprehension', 'Analytical Reasoning'],
-    icon: '⚖️',
-    color: '#6366F1',
-    popular: false,
-  },
-];
+// Extended exam data with UI properties
+const examUIData = {
+  sat: { icon: '🎓', color: '#3B82F6', popular: true },
+  gre: { icon: '📚', color: '#8B5CF6', popular: true },
+  toefl: { icon: '🌍', color: '#10B981', popular: true },
+  ielts: { icon: '🗣️', color: '#F59E0B', popular: false },
+  gmat: { icon: '💼', color: '#EF4444', popular: false },
+  lsat: { icon: '⚖️', color: '#6366F1', popular: false }
+};
 
 export default function AssessmentScreen() {
   const { colors } = useTheme();
   const [selectedExam, setSelectedExam] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Transform curriculum data to exam types
+  const examTypes = availableExams.map(exam => {
+    const curriculum = getCurriculumByExamId(exam.id);
+    const uiData = examUIData[exam.id as keyof typeof examUIData];
+    
+    return {
+      id: exam.id,
+      name: exam.name,
+      fullName: exam.fullName,
+      description: curriculum?.description || 'Exam preparation',
+      duration: curriculum?.duration || 'N/A',
+      subjects: curriculum?.subjects.map(s => s.name) || [],
+      icon: uiData?.icon || '📚',
+      color: uiData?.color || '#6B7280',
+      popular: uiData?.popular || false,
+    };
+  });
 
   const filteredExams = examTypes.filter(exam =>
     exam.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

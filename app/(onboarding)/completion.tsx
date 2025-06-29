@@ -2,21 +2,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
+import { generateStudyProgram } from '@/app/utils/claudeStudyGenerator';
 import { loadCompleteOnboardingData, markOnboardingComplete } from '@/app/utils/onboardingData';
+import { saveDailyTasks, saveStudyProgram } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
-import { generateStudyProgram } from '@/utils/aiStudyGenerator';
-import { saveDailyTasks, saveStudyProgram } from '@/utils/studyProgramStorage';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -102,7 +102,7 @@ export default function CompletionScreen() {
           examType: studyProgram.examType,
           totalTasks: studyProgram.dailyTasks.length,
           weeklyHours: studyProgram.weeklyHours,
-          subjects: Object.keys(studyProgram.subjectAllocation),
+          subjects: Object.keys(studyProgram.subjectBreakdown),
         });
         
         setProgramGenerated(true);

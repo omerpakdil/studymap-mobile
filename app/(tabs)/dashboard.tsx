@@ -15,35 +15,17 @@ import {
   View,
 } from 'react-native';
 
+import { StudyTask } from '@/app/utils/claudeStudyGenerator';
+import {
+  calculateDailyProgress,
+  getProgramMetadata,
+  getSubjectProgress,
+  getTasksForDate
+} from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
-
-// Mock data - will be replaced with real data later
-const mockUser = {
-  name: 'Alex',
-  targetExam: 'GRE',
-  examDate: '2024-06-15',
-  daysLeft: 85,
-  overallProgress: 68,
-  streakDays: 12,
-  todayGoal: 180, // minutes
-  completedToday: 45, // minutes
-};
-
-const mockTodayTasks = [
-  { id: 1, subject: 'Math', topic: 'Algebra', duration: 45, completed: true, type: 'practice' },
-  { id: 2, subject: 'Verbal', topic: 'Reading Comprehension', duration: 60, completed: false, type: 'study' },
-  { id: 3, subject: 'Math', topic: 'Geometry', duration: 30, completed: false, type: 'review' },
-  { id: 4, subject: 'Writing', topic: 'Essays', duration: 45, completed: false, type: 'practice' },
-];
-
-const mockRecentPerformance = [
-  { subject: 'Math', score: 85, trend: 'up' },
-  { subject: 'Verbal', score: 72, trend: 'stable' },
-  { subject: 'Writing', score: 78, trend: 'up' },
-];
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
@@ -55,44 +37,77 @@ export default function DashboardScreen() {
     return 'Good evening';
   });
 
+  // Real data states
+  const [programMetadata, setProgramMetadata] = useState<any>(null);
+  const [todayTasks, setTodayTasks] = useState<StudyTask[]>([]);
+  const [subjectProgress, setSubjectProgress] = useState<any>({});
+  const [dailyProgress, setDailyProgress] = useState({ completed: 0, total: 0, minutes: 0 });
+  const [loading, setLoading] = useState(true);
+
   // Task completion tracking
   const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
   
-  // Daily goal tracking
-  const [dailyGoal] = useState(180); // minutes - could be made dynamic later
-  const [completedToday, setCompletedToday] = useState(0);
-
-  const progressPercentage = (completedToday / dailyGoal) * 100;
-  const completedTasks = Object.values(taskCompletions).filter(Boolean).length;
+  // Load real data from Claude-generated program
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load program metadata
+      const metadata = await getProgramMetadata();
+      setProgramMetadata(metadata);
+      
+      // Load today's tasks
+      const today = new Date().toISOString().split('T')[0];
+      const tasks = await getTasksForDate(today);
+      setTodayTasks(tasks);
+      
+      // Load subject progress
+      const progress = await getSubjectProgress();
+      setSubjectProgress(progress);
+      
+      // Load daily progress
+      const dailyProg = await calculateDailyProgress(today);
+      setDailyProgress(dailyProg);
+      
+      console.log('📊 Dashboard data loaded:', {
+        tasksToday: tasks.length,
+        subjects: Object.keys(progress).length,
+        dailyProgress: dailyProg
+      });
+      
+    } catch (error) {
+      console.error('❌ Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load task completion status
   const loadTaskCompletions = async () => {
     try {
       const completions: Record<string, boolean> = {};
-      let totalCompleted = 0;
       
       for (const task of todayTasks) {
         const key = `session_completed_${task.id}`;
         const status = await AsyncStorage.getItem(key);
-        const isCompleted = status === 'true';
-        completions[task.id] = isCompleted;
-        
-        // Add duration to completed time if task is completed
-        if (isCompleted) {
-          totalCompleted += task.duration;
-        }
+        completions[task.id] = status === 'true' || task.completed;
       }
       
       setTaskCompletions(completions);
-      setCompletedToday(totalCompleted);
     } catch (error) {
       console.log('Error loading task completions:', error);
     }
   };
 
   useEffect(() => {
-    loadTaskCompletions();
+    loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (todayTasks.length > 0) {
+      loadTaskCompletions();
+    }
+  }, [todayTasks]);
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
@@ -107,67 +122,48 @@ export default function DashboardScreen() {
       case 'practice': return '✏️';
       case 'study': return '📚';
       case 'review': return '🔄';
+      case 'quiz': return '🧠';
       default: return '📝';
     }
   };
 
-  const todayTasks = [
-    {
-      id: 1,
-      subject: 'Math',
-      topic: 'Algebra',
-      type: 'Practice',
-      icon: '✏️',
-      duration: 45,
-      completed: false,
-    },
-    {
-      id: 2,
-      subject: 'Verbal',
-      topic: 'Reading Comprehension',
-      type: 'Study',
-      icon: '📚',
-      duration: 60,
-      completed: true,
-    },
-    {
-      id: 3,
-      subject: 'Math',
-      topic: 'Geometry',
-      type: 'Review',
-      icon: '🔄',
-      duration: 30,
-      completed: false,
-    },
-    {
-      id: 4,
-      subject: 'Writing',
-      topic: 'Essays',
-      type: 'Practice',
-      icon: '✏️',
-      duration: 45,
-      completed: false,
-    },
-  ];
-
-  const handleStartStudySession = (task: typeof todayTasks[0]) => {
+  const handleStartStudySession = (task: StudyTask) => {
     router.push({
       pathname: '/study-session' as any,
       params: {
-        taskId: task.id.toString(),
+        taskId: task.id,
         subject: task.subject,
         topic: task.topic,
         type: task.type,
         duration: task.duration.toString(),
+        title: task.title,
       },
     });
   };
 
   const focusEffectCallback = useCallback(() => {
-    loadTaskCompletions();
+    loadDashboardData();
   }, []);
 
   useFocusEffectNavigation(focusEffectCallback);
+
+  // Show loading state
+  if (loading || !programMetadata) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+        <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
+          <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
+            🧠 Loading your personalized study program...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Calculate real metrics
+  const completedTasks = Object.values(taskCompletions).filter(Boolean).length;
+  const dailyGoalMinutes = Math.round(programMetadata.weeklyHours * 60 / 7); // Convert weekly hours to daily minutes and round
+  const progressPercentage = Math.min(100, (dailyProgress.minutes / dailyGoalMinutes) * 100);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
@@ -177,10 +173,10 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.neutral[600] }]}>
-            {greeting}, {mockUser.name}! 👋
+            {greeting}! 👋
           </Text>
           <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-            Ready to crush your {mockUser.targetExam}?
+            Ready to crush your {programMetadata.examType?.toUpperCase()}?
           </Text>
         </View>
         <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.neutral[100] }]}>
@@ -210,11 +206,11 @@ export default function DashboardScreen() {
                 </View>
                 <View style={styles.progressRight}>
                   <View style={styles.progressStat}>
-                    <Text style={styles.progressStatValue}>{mockUser.daysLeft}</Text>
+                    <Text style={styles.progressStatValue}>{programMetadata.daysRemaining}</Text>
                     <Text style={styles.progressStatLabel}>Days Left</Text>
                   </View>
                   <View style={styles.progressStat}>
-                    <Text style={styles.progressStatValue}>{Math.round((completedTasks / todayTasks.length) * 100)}%</Text>
+                    <Text style={styles.progressStatValue}>{todayTasks.length > 0 ? Math.round((completedTasks / todayTasks.length) * 100) : 0}%</Text>
                     <Text style={styles.progressStatLabel}>Tasks Done</Text>
                   </View>
                 </View>
@@ -227,7 +223,7 @@ export default function DashboardScreen() {
             <View style={[styles.statCard, { backgroundColor: colors.success[50] }]}>
               <Text style={styles.statEmoji}>🎯</Text>
               <Text style={[styles.statValue, { color: colors.success[700] }]}>
-                {completedTasks}/{mockTodayTasks.length}
+                {completedTasks}/{todayTasks.length}
               </Text>
               <Text style={[styles.statLabel, { color: colors.success[600] }]}>
                 Tasks Done
@@ -236,7 +232,7 @@ export default function DashboardScreen() {
             <View style={[styles.statCard, { backgroundColor: colors.warning[50] }]}>
               <Text style={styles.statEmoji}>⏱️</Text>
               <Text style={[styles.statValue, { color: colors.warning[700] }]}>
-                {completedToday}m
+                {dailyProgress.minutes}m
               </Text>
               <Text style={[styles.statLabel, { color: colors.warning[600] }]}>
                 Studied Today
@@ -245,7 +241,7 @@ export default function DashboardScreen() {
             <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
               <Text style={styles.statEmoji}>🔥</Text>
               <Text style={[styles.statValue, { color: colors.primary[700] }]}>
-                {mockUser.streakDays}
+                {programMetadata.currentStreak || 0}
               </Text>
               <Text style={[styles.statLabel, { color: colors.primary[600] }]}>
                 Day Streak
@@ -274,7 +270,7 @@ export default function DashboardScreen() {
                 Daily Goal Progress
               </Text>
               <Text style={[styles.dailyProgressText, { color: colors.neutral[600] }]}>
-                {completedToday}/{dailyGoal} min
+                {dailyProgress.completed}/{dailyGoalMinutes} min
               </Text>
             </View>
             <View style={[styles.progressBarBg, { backgroundColor: colors.neutral[200] }]}>
@@ -320,7 +316,7 @@ export default function DashboardScreen() {
                         {task.subject}
                       </Text>
                       <Text style={[styles.taskType, { color: colors.neutral[500] }]}>
-                        {task.icon} {task.type}
+                        {getTaskTypeIcon(task.type)}
                       </Text>
                     </View>
                     <Text style={[styles.taskTopic, { color: colors.neutral[600] }]}>
@@ -350,22 +346,22 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.performanceList}>
-            {mockRecentPerformance.map((perf, index) => (
+            {Object.entries(subjectProgress).map(([subject, progress]: [string, any], index) => (
               <View
                 key={index}
                 style={[styles.performanceCard, { backgroundColor: colors.neutral[0] }]}
               >
                 <View style={styles.performanceLeft}>
                   <Text style={[styles.performanceSubject, { color: colors.neutral[800] }]}>
-                    {perf.subject}
+                    {subject}
                   </Text>
                   <Text style={[styles.performanceScore, { color: colors.neutral[600] }]}>
-                    {perf.score}% average
+                    {progress.progress}% completed ({progress.completed}/{progress.total} tasks)
                   </Text>
                 </View>
                 <View style={styles.performanceRight}>
                   <Text style={styles.performanceTrend}>
-                    {getTrendIcon(perf.trend)}
+                    {progress.progress >= 75 ? '📈' : progress.progress >= 50 ? '➖' : '📉'}
                   </Text>
                 </View>
               </View>
@@ -680,5 +676,14 @@ const styles = StyleSheet.create({
   taskType: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 }); 

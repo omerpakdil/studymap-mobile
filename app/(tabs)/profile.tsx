@@ -1,75 +1,88 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Switch,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
-import { clearOnboardingData } from '@/app/utils/onboardingData';
+import { clearOnboardingData, loadCompleteOnboardingData } from '@/app/utils/onboardingData';
+import { calculateWeeklyProgress, clearStudyProgramData, getProgramMetadata, getStudyStreak } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
-import { clearStudyProgramData } from '@/utils/studyProgramStorage';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
-// Mock user data - in real app this would come from auth/storage
-const mockUser = {
-  name: 'Alex Johnson',
-  email: 'alex.johnson@email.com',
-  targetExam: 'GRE',
-  examDate: '2024-06-15',
-  targetScore: 320,
-  currentScore: 285,
-  daysLeft: 85,
-  studyStreak: 12,
-  joinDate: '2024-01-15',
-  completedSessions: 47,
-  totalStudyHours: 89.5,
-  preferredStudyTime: 'Morning',
-  focusSubjects: ['Math', 'Verbal', 'Writing'],
-  learningStyle: 'Visual',
-  dailyGoal: 180, // minutes
-  reminderSettings: {
+export default function ProfileScreen() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  
+  // Real data states
+  const [programMetadata, setProgramMetadata] = useState<any>(null);
+  const [onboardingData, setOnboardingData] = useState<any>(null);
+  const [studyStreak, setStudyStreak] = useState(0);
+  const [weeklyProgress, setWeeklyProgress] = useState({ completed: 0, total: 0, hours: 0 });
+  const [loading, setLoading] = useState(true);
+  
+  // Settings states
+  const [reminderSettings, setReminderSettings] = useState({
     dailyReminder: true,
     studyTime: '09:00',
     breakReminder: true,
     weeklyReport: true,
     motivationalQuotes: true,
-  },
-  privacySettings: {
+  });
+  const [privacySettings, setPrivacySettings] = useState({
     analytics: true,
     dataSharing: false,
     marketing: false,
-  }
-};
+  });
 
-export default function ProfileScreen() {
-  const { colors } = useTheme();
-  const router = useRouter();
-  const [user, setUser] = useState(mockUser);
-  const [reminderSettings, setReminderSettings] = useState(mockUser.reminderSettings);
-  const [privacySettings, setPrivacySettings] = useState(mockUser.privacySettings);
-
-  // Load user data
+  // Load real user data from Claude-generated program
   const loadUserData = async () => {
     try {
-      // In real app, load from AsyncStorage or API
-      // For now, using mock data
+      setLoading(true);
+      
+      // Load all user data
+      const [metadata, onboarding, streak, weekly] = await Promise.all([
+        getProgramMetadata(),
+        loadCompleteOnboardingData(),
+        getStudyStreak(),
+        calculateWeeklyProgress()
+      ]);
+      
+      setProgramMetadata(metadata);
+      setOnboardingData(onboarding);
+      setStudyStreak(streak);
+      setWeeklyProgress(weekly);
+      
+      console.log('👤 Profile data loaded:', {
+        examType: metadata?.examType,
+        streak: streak,
+        weeklyHours: weekly.hours,
+        learningStyle: onboarding?.learningStyleData?.primaryStyle
+      });
+      
     } catch (error) {
-      console.log('Error loading user data:', error);
+      console.error('❌ Error loading profile data:', error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -178,6 +191,19 @@ export default function ProfileScreen() {
     });
   };
 
+  // Show loading state
+  if (loading || !programMetadata || !onboardingData) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+        <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
+          <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
+            👤 Loading your profile...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const renderUserHeader = () => (
     <View style={[styles.userHeaderCard, { backgroundColor: colors.neutral[0] }]}>
       <LinearGradient
@@ -189,32 +215,32 @@ export default function ProfileScreen() {
         <View style={styles.userInfo}>
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>
-              {user.name.split(' ').map(n => n[0]).join('')}
+              👤
             </Text>
           </View>
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userEmail}>{user.email}</Text>
+            <Text style={styles.userName}>Study Buddy</Text>
+            <Text style={styles.userEmail}>student@studymap.app</Text>
             <Text style={styles.userExam}>
-              {user.targetExam} • {user.daysLeft} days left
+              {programMetadata.examType?.toUpperCase()} • {programMetadata.daysRemaining} days left
             </Text>
           </View>
         </View>
         
         <View style={styles.userStats}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{user.studyStreak}</Text>
+            <Text style={styles.statValue}>{studyStreak}</Text>
             <Text style={styles.statLabel}>Day Streak</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{user.completedSessions}</Text>
+            <Text style={styles.statValue}>{programMetadata.completedTasks}</Text>
             <Text style={styles.statLabel}>Sessions</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{user.totalStudyHours}h</Text>
-            <Text style={styles.statLabel}>Studied</Text>
+            <Text style={styles.statValue}>{weeklyProgress.hours}h</Text>
+            <Text style={styles.statLabel}>This Week</Text>
           </View>
         </View>
       </LinearGradient>
@@ -300,29 +326,29 @@ export default function ProfileScreen() {
           {
             icon: '🎯',
             title: 'Target Exam',
-            subtitle: `${user.targetExam} • Target Score: ${user.targetScore}`,
+            subtitle: `${programMetadata.examType?.toUpperCase()} • Target Score: ${programMetadata.targetScore}`,
             type: 'info',
-            value: formatDate(user.examDate),
+            value: formatDate(programMetadata.examDate),
             onPress: handleEditStudySettings,
           },
-          {
-            icon: '📚',
-            title: 'Focus Subjects',
-            subtitle: user.focusSubjects.join(', '),
-            onPress: handleEditStudySettings,
-          },
-          {
-            icon: '🧠',
-            title: 'Learning Style',
-            subtitle: `${user.learningStyle} learner`,
-            onPress: handleEditStudySettings,
-          },
-          {
-            icon: '⏰',
-            title: 'Study Schedule',
-            subtitle: `${user.preferredStudyTime} • ${user.dailyGoal} min/day`,
-            onPress: handleEditStudySettings,
-          },
+                      {
+              icon: '📚',
+              title: 'Focus Subjects',
+              subtitle: onboardingData?.examData?.subjects?.join(', ') || 'All subjects',
+              onPress: handleEditStudySettings,
+            },
+            {
+              icon: '🧠',
+              title: 'Learning Style',
+              subtitle: `${onboardingData?.learningStyleData?.primaryStyle || 'Visual'} learner`,
+              onPress: handleEditStudySettings,
+            },
+            {
+              icon: '⏰',
+              title: 'Study Schedule',
+              subtitle: `${onboardingData?.goalsData?.studyIntensity || 'Moderate'} intensity • ${onboardingData?.goalsData?.targetStudyTime || 120} min/day`,
+              onPress: handleEditStudySettings,
+            },
         ])}
 
         {/* Notification Settings */}
@@ -437,7 +463,7 @@ export default function ProfileScreen() {
         {/* Member Since */}
         <View style={styles.memberSince}>
           <Text style={[styles.memberSinceText, { color: colors.neutral[500] }]}>
-            Member since {formatDate(user.joinDate)}
+            Member since {formatDate(programMetadata?.createdAt || new Date().toISOString())}
           </Text>
         </View>
 
@@ -625,5 +651,19 @@ const styles = StyleSheet.create({
   memberSinceText: {
     fontSize: 14,
     fontStyle: 'italic',
+  },
+  
+  // Loading States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
   },
 }); 

@@ -15,6 +15,8 @@ import {
   View
 } from 'react-native';
 
+import { generateStudyContent } from '@/app/utils/claudeStudyGenerator';
+import { loadExamData } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
@@ -34,6 +36,8 @@ type QuestionContent = {
   options: string[];
   correct: number;
   explanation: string;
+  difficulty?: 'Easy' | 'Medium' | 'Hard';
+  topic?: string;
 };
 
 type PassageContent = {
@@ -44,6 +48,7 @@ type PassageContent = {
   options: string[];
   correct: number;
   explanation: string;
+  topic?: string;
 };
 
 type PromptContent = {
@@ -52,67 +57,10 @@ type PromptContent = {
   prompt: string;
   sampleAnswer?: string;
   tips?: string[];
+  topic?: string;
 };
 
 type ContentItem = QuestionContent | PassageContent | PromptContent;
-
-// Mock content data - will be replaced with real content later
-const mockContent: Record<string, Record<string, ContentItem[]>> = {
-  Math: {
-    Algebra: [
-      {
-        id: 1,
-        type: 'question',
-        question: 'Solve for x: 2x + 5 = 17',
-        options: ['x = 6', 'x = 8', 'x = 12', 'x = 11'],
-        correct: 0,
-        explanation: 'Subtract 5 from both sides: 2x = 12, then divide by 2: x = 6'
-      },
-      {
-        id: 2,
-        type: 'question',
-        question: 'If y = 3x + 2, what is y when x = 4?',
-        options: ['y = 14', 'y = 12', 'y = 10', 'y = 16'],
-        correct: 0,
-        explanation: 'Substitute x = 4: y = 3(4) + 2 = 12 + 2 = 14'
-      },
-    ],
-    Geometry: [
-      {
-        id: 3,
-        type: 'question',
-        question: 'What is the area of a circle with radius 5?',
-        options: ['25π', '10π', '5π', '15π'],
-        correct: 0,
-        explanation: 'Area = πr² = π(5)² = 25π'
-      },
-    ],
-  },
-  Verbal: {
-    'Reading Comprehension': [
-      {
-        id: 4,
-        type: 'passage',
-        passage: 'The ancient Greeks believed that the four elements - earth, air, fire, and water - were the fundamental building blocks of all matter...',
-        question: 'According to the passage, how many elements did the ancient Greeks identify?',
-        options: ['Three', 'Four', 'Five', 'Six'],
-        correct: 1,
-        explanation: 'The passage clearly states "four elements - earth, air, fire, and water"'
-      },
-    ],
-  },
-  Writing: {
-    Essays: [
-      {
-        id: 5,
-        type: 'prompt',
-        prompt: 'Write a thesis statement for an essay about the importance of renewable energy.',
-        sampleAnswer: 'Renewable energy sources are essential for combating climate change, reducing dependence on fossil fuels, and ensuring sustainable economic growth for future generations.',
-        tips: ['Be specific and arguable', 'Include your main points', 'Keep it concise but comprehensive']
-      },
-    ],
-  },
-};
 
 export default function StudySessionScreen() {
   const { colors } = useTheme();
@@ -123,6 +71,7 @@ export default function StudySessionScreen() {
     topic: string;
     type: string;
     duration: string;
+    title?: string;
   }>();
 
   // Timer state
@@ -138,6 +87,8 @@ export default function StudySessionScreen() {
   const [showExitModal, setShowExitModal] = useState(false);
 
   // Content state
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [loadingContent, setLoadingContent] = useState(true);
   const [currentContentIndex, setCurrentContentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -147,6 +98,69 @@ export default function StudySessionScreen() {
   // Notes state
   const [notes, setNotes] = useState('');
   const [isSessionCompleted, setIsSessionCompleted] = useState(false);
+
+  // Load Claude-generated content
+  const loadContent = async () => {
+    try {
+      setLoadingContent(true);
+      
+      if (!params?.subject || !params?.topic) {
+        console.warn('Missing subject or topic for content generation');
+        setContent([]);
+        return;
+      }
+
+      // Load exam data to get examId
+      const examData = await loadExamData();
+      if (!examData?.id) {
+        throw new Error('No exam data found. Please complete onboarding first.');
+      }
+
+      console.log('🧠 Generating exam-specific content for:', {
+        examId: examData.id,
+        subject: params.subject,
+        topic: params.topic,
+        type: params.type
+      });
+
+      const generatedContent = await generateStudyContent({
+        examId: examData.id,
+        subject: params.subject,
+        topic: params.topic,
+        sessionType: params.type as SessionType,
+        duration: focusDuration
+      });
+
+      setContent(generatedContent);
+      console.log(`✅ Generated ${generatedContent.length} content items`);
+      
+    } catch (error) {
+      console.error('❌ Error generating content:', error);
+      
+      // Fallback to basic content structure
+      const fallbackContent: ContentItem[] = [
+        {
+          id: 1,
+          type: 'question',
+          question: `What is a key concept in ${params.topic}?`,
+          options: [
+            'Understanding the fundamental principles',
+            'Memorizing all formulas',
+            'Speed over accuracy',
+            'Avoiding practice problems'
+          ],
+          correct: 0,
+          explanation: 'Understanding fundamental principles is crucial for mastering any topic.',
+          difficulty: 'Medium',
+          topic: params.topic
+        }
+      ];
+      
+      setContent(fallbackContent);
+    } finally {
+      setLoadingContent(false);
+    }
+  };
 
   // Storage functions
   const getStorageKeys = () => {
@@ -199,14 +213,12 @@ export default function StudySessionScreen() {
     }
   };
 
-  // Get content for current subject/topic
-  const getContent = () => {
-    const subject = params?.subject as keyof typeof mockContent;
-    const topic = params?.topic as keyof typeof mockContent[typeof subject];
-    return mockContent[subject]?.[topic] || [];
-  };
+  // Initialize component
+  useEffect(() => {
+    loadContent();
+    loadSessionData();
+  }, []);
 
-  const content = getContent();
   const currentContent = content[currentContentIndex];
 
   // Timer functions
@@ -338,11 +350,6 @@ export default function StudySessionScreen() {
         clearInterval(intervalRef.current);
       }
     };
-  }, []);
-
-  // Load session data on mount
-  useEffect(() => {
-    loadSessionData();
   }, []);
 
   // Auto-save notes when they change

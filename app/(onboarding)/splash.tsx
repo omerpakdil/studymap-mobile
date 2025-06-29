@@ -5,6 +5,8 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Platform,
+  StatusBar,
   StyleSheet,
   View,
 } from 'react-native';
@@ -13,411 +15,545 @@ import { Text } from '@/components';
 import { useTheme } from '@/themes';
 
 const { width, height } = Dimensions.get('window');
-
-// Neural network node positions for sophisticated animation
-const createNeuralNodes = () => {
-  const nodes = [];
-  const nodeCount = 12;
-  const centerX = width / 2;
-  const centerY = height / 2 + 40; // Neural network merkezi biraz aşağıda
-  
-  for (let i = 0; i < nodeCount; i++) {
-    const angle = (i * Math.PI * 2) / nodeCount;
-    const radius = 140 + Math.sin(i * 0.7) * 30; // Daha moderate radius
-    nodes.push({
-      id: i,
-      x: centerX + Math.cos(angle) * radius,
-      y: centerY + Math.sin(angle) * radius,
-      delay: i * 100,
-    });
-  }
-  return nodes;
-};
+const isIOS = Platform.OS === 'ios';
 
 export default function SplashScreen() {
-  const { colors, spacing } = useTheme();
-  const logoScale = useRef(new Animated.Value(0.7)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const brandOpacity = useRef(new Animated.Value(0)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
-  const neuralOpacity = useRef(new Animated.Value(0)).current;
-  const progressWidth = useRef(new Animated.Value(0)).current;
+  const { colors } = useTheme();
   
-  const nodes = createNeuralNodes();
-  const nodeAnimations = useRef(
-    nodes.map(() => ({
-      scale: new Animated.Value(0),
-      opacity: new Animated.Value(0),
-    }))
-  ).current;
+  // Logo animasyonları
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const logoRotation = useRef(new Animated.Value(0)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  
+  // Metin animasyonları
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const titleSlide = useRef(new Animated.Value(30)).current;
+  const subtitleOpacity = useRef(new Animated.Value(0)).current;
+  
+  // Arka plan animasyonları
+  const backgroundOpacity = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // Progress animasyonu
+  const progressOpacity = useRef(new Animated.Value(0)).current;
+  const progressWidth = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Sophisticated animation sequence
-    const animationSequence = Animated.sequence([
-      // 1. Neural network appears
-      Animated.timing(neuralOpacity, {
+    // Status bar ayarı
+    StatusBar.setBarStyle('light-content', true);
+    if (!isIOS) {
+      StatusBar.setBackgroundColor('transparent', true);
+      StatusBar.setTranslucent(true);
+    }
+
+    // Pulse animasyonu (sürekli)
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+                 Animated.timing(pulseAnim, {
+           toValue: 1.1,
+           duration: 2000,
+           easing: Easing.inOut(Easing.sin),
+           useNativeDriver: true,
+         }),
+         Animated.timing(pulseAnim, {
+           toValue: 1,
+           duration: 2000,
+           easing: Easing.inOut(Easing.sin),
+           useNativeDriver: true,
+         }),
+      ])
+    );
+
+    // Ana animasyon sekansı
+    const mainSequence = Animated.sequence([
+      // 1. Arka plan fade in
+      Animated.timing(backgroundOpacity, {
         toValue: 1,
-        duration: 800,
-        easing: Easing.out(Easing.cubic),
+        duration: 500,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      
-      // 2. Neural nodes animate in staggered
-      Animated.stagger(50, 
-        nodeAnimations.map((anim) =>
-          Animated.parallel([
-            Animated.timing(anim.scale, {
-              toValue: 1,
-              duration: 600,
-              easing: Easing.elastic(1.2),
-              useNativeDriver: true,
-            }),
-            Animated.timing(anim.opacity, {
-              toValue: 0.8,
-              duration: 600,
-              useNativeDriver: true,
-            }),
-          ])
-        )
-      ),
-      
-      // 3. Logo appears with elegant scale
+
+      // 2. Logo scale in with rotation
       Animated.parallel([
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
         Animated.timing(logoScale, {
           toValue: 1,
+          duration: 1200,
+          easing: Easing.elastic(1.2),
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoRotation, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.out(Easing.back(1.7)),
+          useNativeDriver: true,
+        }),
+      ]),
+
+      // 3. Title slide up
+      Animated.parallel([
+        Animated.timing(titleOpacity, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(titleSlide, {
+          toValue: 0,
           duration: 800,
           easing: Easing.out(Easing.back(1.7)),
           useNativeDriver: true,
         }),
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
       ]),
-      
-      // 4. Brand text slides in
-      Animated.timing(brandOpacity, {
+
+      // 4. Subtitle fade in
+      Animated.timing(subtitleOpacity, {
         toValue: 1,
         duration: 600,
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-      
-      // 5. Tagline appears
-      Animated.timing(taglineOpacity, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      
-      // 6. Progress bar fills
-      Animated.timing(progressWidth, {
-        toValue: width * 0.6,
-        duration: 1000,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: false,
-      }),
+
+      // 5. Progress bar appear and fill
+      Animated.parallel([
+        Animated.timing(progressOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(progressWidth, {
+          toValue: width * 0.7,
+          duration: 2000,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: false,
+        }),
+      ]),
     ]);
 
-    animationSequence.start();
+    // Animasyonları başlat
+    pulseAnimation.start();
+    mainSequence.start();
 
-    // Navigate to welcome after animation completes
+    // Welcome ekranına git
     const timer = setTimeout(() => {
       router.replace('/(onboarding)/welcome');
     }, 4500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      pulseAnimation.stop();
+    };
   }, []);
 
+  const logoRotationInterpolate = logoRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
   return (
-    <LinearGradient
-      colors={['#0F172A', '#1E293B', '#334155']}
-      style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-    >
-      {/* Neural Network Background */}
-      <Animated.View 
-        style={[
-          styles.neuralContainer,
-          { opacity: neuralOpacity }
-        ]}
-      >
-        {nodes.map((node, index) => (
-          <Animated.View
-            key={node.id}
-            style={[
-              styles.neuralNode,
-              {
-                left: node.x - 6,
-                top: node.y - 6,
-                transform: [{ scale: nodeAnimations[index].scale }],
-                opacity: nodeAnimations[index].opacity,
-              },
-            ]}
-          />
-        ))}
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Gradient Background */}
+      <Animated.View style={[styles.backgroundContainer, { opacity: backgroundOpacity }]}>
+        <LinearGradient
+          colors={[colors.primary[800], colors.primary[600], colors.primary[700]]}
+          style={styles.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
         
-        {/* Connection lines */}
-        <View style={styles.connectionsContainer}>
-          {nodes.map((node, i) => {
-            if (i < nodes.length - 1) {
-              const nextNode = nodes[i + 1];
-              const distance = Math.sqrt(
-                Math.pow(nextNode.x - node.x, 2) + Math.pow(nextNode.y - node.y, 2)
-              );
-              const angle = Math.atan2(nextNode.y - node.y, nextNode.x - node.x);
-              
-              return (
-                <View
-                  key={`line-${i}`}
-                  style={[
-                    styles.connectionLine,
-                    {
-                      left: node.x,
-                      top: node.y,
-                      width: distance,
-                      transform: [{ rotate: `${angle}rad` }],
-                    },
-                  ]}
-                />
-              );
-            }
-            return null;
-          })}
-        </View>
+        {/* Glow effect */}
+        <LinearGradient
+          colors={['transparent', 'rgba(255,255,255,0.1)', 'transparent']}
+          style={styles.glowOverlay}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
       </Animated.View>
 
-      {/* Main Content */}
+      {/* Main Content Container */}
       <View style={styles.contentContainer}>
-        {/* Logo Section */}
+        
+        {/* Logo Container */}
         <Animated.View
           style={[
             styles.logoContainer,
             {
-              transform: [{ scale: logoScale }],
               opacity: logoOpacity,
+              transform: [
+                { scale: Animated.multiply(logoScale, pulseAnim) },
+                { rotate: logoRotationInterpolate },
+              ],
             },
           ]}
         >
-          <View style={styles.logoSymbol}>
-            <LinearGradient
-              colors={['#60A5FA', '#3B82F6', '#1D4ED8']}
-              style={styles.logoGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Text style={styles.logoText}>S</Text>
-            </LinearGradient>
-          </View>
+          {/* Outer glow ring */}
+          <View style={[styles.glowRing, { borderColor: colors.warning[400] }]} />
+          
+          {/* Logo background */}
+          <LinearGradient
+            colors={[colors.neutral[0], colors.neutral[100]]}
+            style={styles.logoBackground}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+                         {/* StudyMap Custom Logo */}
+             <View style={styles.logoContent}>
+               {/* Map base */}
+               <View style={[styles.mapBase, { backgroundColor: colors.primary[500] }]} />
+               
+               {/* Route lines */}
+               <View style={styles.routeLines}>
+                 <View style={[styles.routeLine, styles.route1, { backgroundColor: colors.warning[400] }]} />
+                 <View style={[styles.routeLine, styles.route2, { backgroundColor: colors.warning[400] }]} />
+                 <View style={[styles.routeLine, styles.route3, { backgroundColor: colors.warning[400] }]} />
+               </View>
+               
+               {/* Location pins */}
+               <View style={styles.locationPins}>
+                 <View style={[styles.pin, styles.pin1, { backgroundColor: colors.error[500] }]} />
+                 <View style={[styles.pin, styles.pin2, { backgroundColor: colors.success[500] }]} />
+                 <View style={[styles.pin, styles.pin3, { backgroundColor: colors.warning[500] }]} />
+               </View>
+               
+               {/* Center symbol */}
+               <View style={[styles.centerSymbol, { backgroundColor: colors.neutral[0] }]}>
+                 <Text style={styles.symbolText}>S</Text>
+               </View>
+             </View>
+          </LinearGradient>
         </Animated.View>
 
-        {/* Brand Name */}
+        {/* Brand Title */}
         <Animated.View
           style={[
-            styles.brandContainer,
-            { opacity: brandOpacity }
+            styles.titleContainer,
+            {
+              opacity: titleOpacity,
+              transform: [{ translateY: titleSlide }],
+            },
           ]}
         >
-          <Text style={{
-            ...styles.brandText,
-            color: colors.neutral[0]
-          }}>
-            StudyMap
-          </Text>
-          <View style={styles.brandUnderline} />
+                     <Text style={{
+             ...styles.brandTitle,
+             color: colors.neutral[0],
+           }}>
+             StudyMap
+           </Text>
+          <View style={[styles.titleUnderline, { backgroundColor: colors.warning[400] }]} />
         </Animated.View>
 
-        {/* Tagline */}
+        {/* Subtitle */}
         <Animated.Text
-          style={{
-            ...styles.tagline,
-            opacity: taglineOpacity,
-            color: colors.neutral[400]
-          }}
+          style={[
+            styles.subtitle,
+            {
+              opacity: subtitleOpacity,
+              color: colors.neutral[200],
+            },
+          ]}
         >
-          AI-Powered Learning Intelligence
+          Your Personal Learning Journey
         </Animated.Text>
+
       </View>
 
-      {/* Progress Indicator */}
-      <View style={styles.progressContainer}>
-        <View style={[
-          styles.progressTrack,
-          { backgroundColor: colors.neutral[700] }
-        ]}>
+      {/* Progress Section */}
+      <Animated.View 
+        style={[
+          styles.progressSection,
+          { opacity: progressOpacity }
+        ]}
+      >
+        <View style={styles.progressTrack}>
           <Animated.View
             style={[
-              styles.progressBar,
+              styles.progressFill,
               {
                 width: progressWidth,
-                backgroundColor: colors.primary[400],
+                backgroundColor: colors.warning[400],
               },
             ]}
           />
         </View>
         
-        <Text style={{
-          ...styles.loadingText,
-          color: colors.neutral[500]
-        }}>
-          Preparing your journey...
-        </Text>
-      </View>
+                 <Text style={{
+           ...styles.loadingText,
+           color: colors.neutral[300],
+         }}>
+           Preparing your study experience...
+         </Text>
+      </Animated.View>
 
-      {/* Ambient Light Effects */}
-      <View style={styles.ambientContainer}>
-        <LinearGradient
-          colors={['rgba(59, 130, 246, 0.1)', 'transparent']}
-          style={[styles.ambientLight, styles.ambientLight1]}
+      {/* Decorative Elements */}
+      <View style={styles.decorativeElements}>
+        {/* Floating circles */}
+        <Animated.View 
+          style={[
+            styles.floatingCircle,
+            styles.circle1,
+            { 
+              opacity: backgroundOpacity,
+              transform: [{ scale: pulseAnim }]
+            }
+          ]}
         />
-        <LinearGradient
-          colors={['rgba(96, 165, 250, 0.08)', 'transparent']}
-          style={[styles.ambientLight, styles.ambientLight2]}
+        <Animated.View 
+          style={[
+            styles.floatingCircle,
+            styles.circle2,
+            { 
+              opacity: backgroundOpacity,
+              transform: [{ scale: pulseAnim }]
+            }
+          ]}
+        />
+        <Animated.View 
+          style={[
+            styles.floatingCircle,
+            styles.circle3,
+            { 
+              opacity: backgroundOpacity,
+              transform: [{ scale: pulseAnim }]
+            }
+          ]}
         />
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#1E40AF',
   },
-  neuralContainer: {
+  backgroundContainer: {
     position: 'absolute',
     width: '100%',
     height: '100%',
   },
-  neuralNode: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: 'rgba(96, 165, 250, 0.6)',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 8,
+  gradient: {
+    flex: 1,
   },
-  connectionsContainer: {
+  glowOverlay: {
     position: 'absolute',
     width: '100%',
     height: '100%',
-  },
-  connectionLine: {
-    position: 'absolute',
-    height: 1,
-    backgroundColor: 'rgba(96, 165, 250, 0.2)',
-    transformOrigin: '0 50%',
   },
   contentContainer: {
-    alignItems: 'center',
-    zIndex: 10,
-    marginTop: -60,
-  },
-  logoContainer: {
-    marginBottom: 32,
-  },
-  logoSymbol: {
-    width: 100,
-    height: 100,
-    borderRadius: 28,
-    overflow: 'hidden',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 16,
-    marginBottom: 8,
-  },
-  logoGradient: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 40,
   },
-  logoText: {
-    fontSize: 48,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+  logoContainer: {
+    marginBottom: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glowRing: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    opacity: 0.3,
+  },
+  logoBackground: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  logoContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: 80,
+    height: 80,
+  },
+  mapBase: {
+    position: 'absolute',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    opacity: 0.1,
+  },
+  routeLines: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+  },
+  routeLine: {
+    position: 'absolute',
+    height: 3,
+    borderRadius: 1.5,
+  },
+  route1: {
+    width: 40,
+    top: 25,
+    left: 10,
+    transform: [{ rotate: '30deg' }],
+  },
+  route2: {
+    width: 35,
+    top: 45,
+    left: 20,
+    transform: [{ rotate: '-15deg' }],
+  },
+  route3: {
+    width: 30,
+    top: 35,
+    left: 35,
+    transform: [{ rotate: '60deg' }],
+  },
+  locationPins: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+  },
+  pin: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    shadowColor: 'rgba(0,0,0,0.3)',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.5,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pin1: {
+    top: 20,
+    left: 15,
+  },
+  pin2: {
+    top: 50,
+    left: 55,
+  },
+  pin3: {
+    top: 35,
+    left: 35,
+  },
+  centerSymbol: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(0,0,0,0.2)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  symbolText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#3B82F6',
+    textAlign: 'center',
+  },
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 15,
+    minHeight: 80,
+  },
+  brandTitle: {
+    fontSize: 36,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 42,
+    textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
-    lineHeight: 56,
   },
-  brandContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingVertical: 12,
+  titleUnderline: {
+    width: 100,
+    height: 4,
+    borderRadius: 2,
   },
-  brandText: {
-    fontSize: 32,
-    fontWeight: '300',
-    letterSpacing: 2,
-    marginBottom: 12,
-    lineHeight: 40,
+  subtitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    letterSpacing: 0.5,
     textAlign: 'center',
+    lineHeight: 24,
   },
-  brandUnderline: {
-    width: 60,
-    height: 2,
-    backgroundColor: '#3B82F6',
-    borderRadius: 1,
-  },
-  tagline: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 16,
-  },
-  progressContainer: {
+  progressSection: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 80 + (isIOS ? 34 : 0),
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    width: '100%',
+    paddingHorizontal: 40,
   },
   progressTrack: {
-    width: width * 0.6,
-    height: 2,
-    borderRadius: 1,
-    marginBottom: 16,
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 2,
+    marginBottom: 20,
   },
-  progressBar: {
-    height: 2,
-    borderRadius: 1,
-    shadowColor: '#3B82F6',
+  progressFill: {
+    height: 4,
+    borderRadius: 2,
+    shadowColor: '#F59E0B',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 4,
   },
   loadingText: {
-    fontSize: 12,
-    fontWeight: '400',
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
     letterSpacing: 0.5,
   },
-  ambientContainer: {
+  decorativeElements: {
     position: 'absolute',
     width: '100%',
     height: '100%',
+    pointerEvents: 'none',
   },
-  ambientLight: {
+  floatingCircle: {
     position: 'absolute',
-    width: 300,
-    height: 300,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 150,
   },
-  ambientLight1: {
-    top: -100,
-    left: -50,
+  circle1: {
+    width: 300,
+    height: 300,
+    top: -150,
+    right: -150,
   },
-  ambientLight2: {
+  circle2: {
+    width: 200,
+    height: 200,
     bottom: -100,
-    right: -50,
+    left: -100,
+  },
+  circle3: {
+    width: 150,
+    height: 150,
+    top: height * 0.2,
+    left: -75,
   },
 }); 

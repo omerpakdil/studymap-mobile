@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StudyProgram, StudyTask } from './aiStudyGenerator';
+import { StudyProgram, StudyTask } from './claudeStudyGenerator';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -9,82 +9,55 @@ const STORAGE_KEYS = {
   PROGRAM_PROGRESS: 'program_progress',
 };
 
-// Study program storage functions
+// Save study program
 export const saveStudyProgram = async (program: StudyProgram): Promise<void> => {
   try {
     await AsyncStorage.setItem(STORAGE_KEYS.STUDY_PROGRAM, JSON.stringify(program));
-    console.log('Study program saved successfully');
+    console.log('✅ Study program saved successfully');
   } catch (error) {
-    console.error('Error saving study program:', error);
+    console.error('❌ Error saving study program:', error);
     throw error;
   }
 };
 
+// Load study program
 export const loadStudyProgram = async (): Promise<StudyProgram | null> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.STUDY_PROGRAM);
-    return data ? JSON.parse(data) : null;
+    if (data) {
+      const program = JSON.parse(data);
+      console.log('✅ Study program loaded successfully');
+      return program;
+    }
+    return null;
   } catch (error) {
-    console.error('Error loading study program:', error);
+    console.error('❌ Error loading study program:', error);
     return null;
   }
 };
 
-// Daily tasks management
+// Save daily tasks
 export const saveDailyTasks = async (tasks: StudyTask[]): Promise<void> => {
   try {
     await AsyncStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(tasks));
+    console.log(`✅ ${tasks.length} daily tasks saved successfully`);
   } catch (error) {
-    console.error('Error saving daily tasks:', error);
+    console.error('❌ Error saving daily tasks:', error);
     throw error;
   }
 };
 
+// Load daily tasks
 export const loadDailyTasks = async (): Promise<StudyTask[]> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_TASKS);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error('Error loading daily tasks:', error);
-    return [];
-  }
-};
-
-// Task completion management
-export const markTaskComplete = async (taskId: string): Promise<void> => {
-  try {
-    const completions = await getTaskCompletions();
-    completions[taskId] = {
-      completedAt: new Date().toISOString(),
-      duration: 0, // Will be updated with actual duration
-    };
-    await AsyncStorage.setItem(STORAGE_KEYS.TASK_COMPLETIONS, JSON.stringify(completions));
-  } catch (error) {
-    console.error('Error marking task complete:', error);
-    throw error;
-  }
-};
-
-export const updateTaskCompletion = async (taskId: string, duration: number): Promise<void> => {
-  try {
-    const completions = await getTaskCompletions();
-    if (completions[taskId]) {
-      completions[taskId].duration = duration;
-      await AsyncStorage.setItem(STORAGE_KEYS.TASK_COMPLETIONS, JSON.stringify(completions));
+    if (data) {
+      return JSON.parse(data);
     }
+    return [];
   } catch (error) {
-    console.error('Error updating task completion:', error);
-    throw error;
-  }
-};
-
-export const getTaskCompletions = async (): Promise<Record<string, { completedAt: string; duration: number }>> => {
-  try {
-    const data = await AsyncStorage.getItem(STORAGE_KEYS.TASK_COMPLETIONS);
-    return data ? JSON.parse(data) : {};
-  } catch (error) {
-    console.error('Error getting task completions:', error);
-    return {};
+    console.error('❌ Error loading daily tasks:', error);
+    return [];
   }
 };
 
@@ -92,16 +65,9 @@ export const getTaskCompletions = async (): Promise<Record<string, { completedAt
 export const getTasksForDate = async (date: string): Promise<StudyTask[]> => {
   try {
     const allTasks = await loadDailyTasks();
-    const completions = await getTaskCompletions();
-    
-    return allTasks
-      .filter(task => task.date === date)
-      .map(task => ({
-        ...task,
-        completed: !!completions[task.id],
-      }));
+    return allTasks.filter(task => task.date === date);
   } catch (error) {
-    console.error('Error getting tasks for date:', error);
+    console.error('❌ Error getting tasks for date:', error);
     return [];
   }
 };
@@ -110,37 +76,81 @@ export const getTasksForDate = async (date: string): Promise<StudyTask[]> => {
 export const getWeeklyTasks = async (): Promise<StudyTask[]> => {
   try {
     const allTasks = await loadDailyTasks();
-    const completions = await getTaskCompletions();
-    
-    const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
     
     const startDateString = startOfWeek.toISOString().split('T')[0];
     const endDateString = endOfWeek.toISOString().split('T')[0];
     
-    return allTasks
-      .filter(task => task.date >= startDateString && task.date <= endDateString)
-      .map(task => ({
-        ...task,
-        completed: !!completions[task.id],
-      }));
+    return allTasks.filter(task => task.date >= startDateString && task.date <= endDateString);
   } catch (error) {
-    console.error('Error getting weekly tasks:', error);
+    console.error('❌ Error getting weekly tasks:', error);
     return [];
   }
 };
 
-// Progress calculation functions
+// Mark task as completed
+export const markTaskComplete = async (taskId: string, duration?: number): Promise<void> => {
+  try {
+    const completions = await getTaskCompletions();
+    completions[taskId] = {
+      completedAt: new Date().toISOString(),
+      duration: duration || 0,
+    };
+    
+    await AsyncStorage.setItem(STORAGE_KEYS.TASK_COMPLETIONS, JSON.stringify(completions));
+    
+    // Update the task in daily tasks
+    const tasks = await loadDailyTasks();
+    const updatedTasks = tasks.map(task => 
+      task.id === taskId ? { ...task, completed: true, progress: 100 } : task
+    );
+    await saveDailyTasks(updatedTasks);
+    
+    console.log(`✅ Task ${taskId} marked as completed`);
+  } catch (error) {
+    console.error('❌ Error marking task complete:', error);
+    throw error;
+  }
+};
+
+// Update task progress
+export const updateTaskProgress = async (taskId: string, progress: number): Promise<void> => {
+  try {
+    const tasks = await loadDailyTasks();
+    const updatedTasks = tasks.map(task => 
+      task.id === taskId ? { ...task, progress: Math.min(100, Math.max(0, progress)) } : task
+    );
+    await saveDailyTasks(updatedTasks);
+    console.log(`✅ Task ${taskId} progress updated to ${progress}%`);
+  } catch (error) {
+    console.error('❌ Error updating task progress:', error);
+    throw error;
+  }
+};
+
+// Get task completions
+export const getTaskCompletions = async (): Promise<Record<string, { completedAt: string; duration: number }>> => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.TASK_COMPLETIONS);
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error('❌ Error getting task completions:', error);
+    return {};
+  }
+};
+
+// Calculate daily progress
 export const calculateDailyProgress = async (date?: string): Promise<{ completed: number; total: number; minutes: number }> => {
   try {
     const targetDate = date || new Date().toISOString().split('T')[0];
     const tasks = await getTasksForDate(targetDate);
     const completions = await getTaskCompletions();
     
-    const completedTasks = tasks.filter(task => completions[task.id]);
+    const completedTasks = tasks.filter(task => completions[task.id] || task.completed);
     const totalMinutes = completedTasks.reduce((sum, task) => {
       const completion = completions[task.id];
       return sum + (completion?.duration || task.duration);
@@ -152,17 +162,18 @@ export const calculateDailyProgress = async (date?: string): Promise<{ completed
       minutes: totalMinutes,
     };
   } catch (error) {
-    console.error('Error calculating daily progress:', error);
+    console.error('❌ Error calculating daily progress:', error);
     return { completed: 0, total: 0, minutes: 0 };
   }
 };
 
+// Calculate weekly progress
 export const calculateWeeklyProgress = async (): Promise<{ completed: number; total: number; hours: number }> => {
   try {
     const tasks = await getWeeklyTasks();
     const completions = await getTaskCompletions();
     
-    const completedTasks = tasks.filter(task => completions[task.id]);
+    const completedTasks = tasks.filter(task => completions[task.id] || task.completed);
     const totalHours = completedTasks.reduce((sum, task) => {
       const completion = completions[task.id];
       return sum + (completion?.duration || task.duration);
@@ -174,46 +185,49 @@ export const calculateWeeklyProgress = async (): Promise<{ completed: number; to
       hours: Math.round(totalHours * 10) / 10, // Round to 1 decimal
     };
   } catch (error) {
-    console.error('Error calculating weekly progress:', error);
+    console.error('❌ Error calculating weekly progress:', error);
     return { completed: 0, total: 0, hours: 0 };
   }
 };
 
-// Subject-wise progress
-export const getSubjectProgress = async (): Promise<Record<string, { completed: number; total: number; hours: number }>> => {
+// Get subject-wise progress
+export const getSubjectProgress = async (): Promise<Record<string, { completed: number; total: number; hours: number; progress: number }>> => {
   try {
     const tasks = await loadDailyTasks();
     const completions = await getTaskCompletions();
     
-    const progress: Record<string, { completed: number; total: number; hours: number }> = {};
+    const progress: Record<string, { completed: number; total: number; hours: number; progress: number }> = {};
     
     tasks.forEach(task => {
       if (!progress[task.subject]) {
-        progress[task.subject] = { completed: 0, total: 0, hours: 0 };
+        progress[task.subject] = { completed: 0, total: 0, hours: 0, progress: 0 };
       }
       
       progress[task.subject].total++;
       
-      if (completions[task.id]) {
+      if (completions[task.id] || task.completed) {
         progress[task.subject].completed++;
         const completion = completions[task.id];
         progress[task.subject].hours += (completion?.duration || task.duration) / 60;
       }
     });
     
-    // Round hours to 1 decimal place
+    // Calculate progress percentage for each subject
     Object.keys(progress).forEach(subject => {
       progress[subject].hours = Math.round(progress[subject].hours * 10) / 10;
+      progress[subject].progress = progress[subject].total > 0 
+        ? Math.round((progress[subject].completed / progress[subject].total) * 100)
+        : 0;
     });
     
     return progress;
   } catch (error) {
-    console.error('Error calculating subject progress:', error);
+    console.error('❌ Error calculating subject progress:', error);
     return {};
   }
 };
 
-// Study streak calculation
+// Calculate study streak
 export const getStudyStreak = async (): Promise<number> => {
   try {
     const completions = await getTaskCompletions();
@@ -227,7 +241,7 @@ export const getStudyStreak = async (): Promise<number> => {
       const dateString = checkDate.toISOString().split('T')[0];
       
       const dayTasks = await getTasksForDate(dateString);
-      const dayCompletions = dayTasks.filter(task => completions[task.id]);
+      const dayCompletions = dayTasks.filter(task => completions[task.id] || task.completed);
       
       if (dayCompletions.length > 0) {
         streak++;
@@ -238,29 +252,18 @@ export const getStudyStreak = async (): Promise<number> => {
     
     return streak;
   } catch (error) {
-    console.error('Error calculating study streak:', error);
+    console.error('❌ Error calculating study streak:', error);
     return 0;
   }
 };
 
-// Clear all study program data
-export const clearStudyProgramData = async (): Promise<void> => {
-  try {
-    await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
-    console.log('Study program data cleared');
-  } catch (error) {
-    console.error('Error clearing study program data:', error);
-    throw error;
-  }
-};
-
-// Program status check
+// Check if program is generated
 export const isProgramGenerated = async (): Promise<boolean> => {
   try {
     const program = await loadStudyProgram();
     return !!program;
   } catch (error) {
-    console.error('Error checking program status:', error);
+    console.error('❌ Error checking program status:', error);
     return false;
   }
 };
@@ -273,6 +276,8 @@ export const getProgramMetadata = async (): Promise<{
   daysRemaining: number;
   totalTasks: number;
   completedTasks: number;
+  weeklyHours: number;
+  currentStreak: number;
 } | null> => {
   try {
     const program = await loadStudyProgram();
@@ -284,7 +289,8 @@ export const getProgramMetadata = async (): Promise<{
     const daysRemaining = Math.max(0, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
     
     const totalTasks = program.dailyTasks.length;
-    const completedTasks = program.dailyTasks.filter(task => completions[task.id]).length;
+    const completedTasks = program.dailyTasks.filter(task => completions[task.id] || task.completed).length;
+    const currentStreak = await getStudyStreak();
     
     return {
       examType: program.examType,
@@ -293,9 +299,22 @@ export const getProgramMetadata = async (): Promise<{
       daysRemaining,
       totalTasks,
       completedTasks,
+      weeklyHours: program.weeklyHours,
+      currentStreak,
     };
   } catch (error) {
-    console.error('Error getting program metadata:', error);
+    console.error('❌ Error getting program metadata:', error);
     return null;
+  }
+};
+
+// Clear all study program data
+export const clearStudyProgramData = async (): Promise<void> => {
+  try {
+    await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+    console.log('✅ Study program data cleared');
+  } catch (error) {
+    console.error('❌ Error clearing study program data:', error);
+    throw error;
   }
 }; 
