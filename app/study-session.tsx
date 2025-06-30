@@ -15,7 +15,7 @@ import {
   View
 } from 'react-native';
 
-import { generateStudyContent } from '@/app/utils/claudeStudyGenerator';
+import { generateStudyContent } from '@/app/utils/aiProviderManager';
 import { loadExamData } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 

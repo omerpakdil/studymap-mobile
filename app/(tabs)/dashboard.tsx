@@ -4,23 +4,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
 import {
-  calculateDailyProgress,
-  getProgramMetadata,
-  getSubjectProgress,
-  getTasksForDate
+    calculateDailyProgress,
+    getProgramMetadata,
+    getSubjectProgress,
+    getTasksForDate
 } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
@@ -162,8 +162,10 @@ export default function DashboardScreen() {
 
   // Calculate real metrics
   const completedTasks = Object.values(taskCompletions).filter(Boolean).length;
-  const dailyGoalMinutes = Math.round(programMetadata.weeklyHours * 60 / 7); // Convert weekly hours to daily minutes and round
-  const progressPercentage = Math.min(100, (dailyProgress.minutes / dailyGoalMinutes) * 100);
+  
+  // Calculate daily goal minutes from today's actual tasks
+  const todayGoalMinutes = todayTasks.reduce((total, task) => total + task.duration, 0);
+  const progressPercentage = todayGoalMinutes > 0 ? Math.min(100, (dailyProgress.minutes / todayGoalMinutes) * 100) : 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
@@ -270,7 +272,7 @@ export default function DashboardScreen() {
                 Daily Goal Progress
               </Text>
               <Text style={[styles.dailyProgressText, { color: colors.neutral[600] }]}>
-                {dailyProgress.completed}/{dailyGoalMinutes} min
+                {dailyProgress.minutes}/{todayGoalMinutes} min
               </Text>
             </View>
             <View style={[styles.progressBarBg, { backgroundColor: colors.neutral[200] }]}>
@@ -288,7 +290,17 @@ export default function DashboardScreen() {
 
           {/* Task List */}
           <View style={styles.taskList}>
-            {todayTasks.map((task, index) => {
+            {todayTasks.length === 0 ? (
+              <View style={[styles.noTasksContainer, { backgroundColor: colors.neutral[50] }]}>
+                <Text style={[styles.noTasksTitle, { color: colors.neutral[600] }]}>
+                  🎉 No tasks scheduled for today!
+                </Text>
+                <Text style={[styles.noTasksText, { color: colors.neutral[500] }]}>
+                  Enjoy your free day or check the calendar for upcoming tasks.
+                </Text>
+              </View>
+            ) : (
+              todayTasks.map((task, index) => {
               const isCompleted = taskCompletions[task.id] || false;
               return (
                 <TouchableOpacity
@@ -327,8 +339,9 @@ export default function DashboardScreen() {
                     </Text>
                   </View>
                 </TouchableOpacity>
-              );
-            })}
+                              );
+              })
+            )}
           </View>
         </View>
 
@@ -685,5 +698,24 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: '700',
+  },
+  
+  // No tasks styles
+  noTasksContainer: {
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  noTasksTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noTasksText: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 }); 

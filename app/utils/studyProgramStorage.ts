@@ -284,9 +284,29 @@ export const getProgramMetadata = async (): Promise<{
     if (!program) return null;
     
     const completions = await getTaskCompletions();
-    const examDate = new Date(program.examDate);
+    // Safely parse exam date
     const today = new Date();
-    const daysRemaining = Math.max(0, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    let daysRemaining = 0;
+    
+    try {
+      // Handle different date formats (YYYY-MM-DD or MM/DD/YYYY)
+      let examDate: Date;
+      if (program.examDate.includes('/')) {
+        // MM/DD/YYYY format
+        const [month, day, year] = program.examDate.split('/').map(Number);
+        examDate = new Date(year, month - 1, day);
+      } else {
+        // YYYY-MM-DD format
+        examDate = new Date(program.examDate);
+      }
+      
+      if (!isNaN(examDate.getTime())) {
+        daysRemaining = Math.max(0, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+      }
+    } catch (error) {
+      console.warn('Error parsing exam date:', program.examDate);
+      daysRemaining = 0;
+    }
     
     const totalTasks = program.dailyTasks.length;
     const completedTasks = program.dailyTasks.filter(task => completions[task.id] || task.completed).length;

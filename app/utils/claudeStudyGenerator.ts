@@ -205,6 +205,15 @@ const generateClaudePrompt = (onboardingData: OnboardingData): string => {
     .map(([subject, data]) => `    "${subject}": ${JSON.stringify(data, null, 6).replace(/\n/g, '\n    ')}`)
     .join(',\n');
 
+  // Calculate daily study time distribution
+  const dailyHoursDistribution = Object.entries(scheduleData).reduce((acc, [day, slots]) => {
+    acc[day] = slots.length; // Each slot = 1 hour
+    return acc;
+  }, {} as Record<string, number>);
+
+  const totalDailyHours = Object.values(dailyHoursDistribution).reduce((sum, hours) => sum + hours, 0);
+  const dailyAverage = totalDailyHours / 7;
+
   const prompt = `You are an expert AI study coach creating a personalized study program. Generate a comprehensive study plan based on the following student information:
 
 ## STUDENT PROFILE
@@ -215,14 +224,19 @@ const generateClaudePrompt = (onboardingData: OnboardingData): string => {
 - Days Until Exam: ${daysUntilExam}
 - Target Score: ${goalsData.targetScore}
 
-**Current Proficiency Levels:**
+**DETAILED DAILY SCHEDULE:**
+${Object.entries(dailyHoursDistribution).map(([day, hours]) => 
+  hours > 0 ? `${day}: ${hours} hours available (${scheduleData[day]?.join(', ')})` : `${day}: No study time`
+).join('\n')}
+
+**PROFICIENCY ASSESSMENT (Lower scores = more focus needed):**
 ${proficiencyContext}
 
 **Study Preferences:**
 - Study Intensity: ${goalsData.studyIntensity}
-- Available Weekly Hours: ${weeklyHours}
+- Total Weekly Hours: ${weeklyHours}
 - Typical Task Duration: ${typicalTaskDuration} minutes
-- Reminder Frequency: ${goalsData.reminderFrequency}
+- Daily Average: ${dailyAverage.toFixed(1)} hours per day
 - Motivation: ${goalsData.motivation}
 
 **Learning Style:**
@@ -231,27 +245,40 @@ ${proficiencyContext}
 - Session Length: ${learningStyleData?.preferences?.sessionLength || 'Medium'}
 - Break Frequency: ${learningStyleData?.preferences?.breakFrequency || 'Regular'}
 
-**Available Time Slots:**
-${availableTimeSlots}
+**INTELLIGENT SUBJECT ALLOCATION:**
+${JSON.stringify(subjectBreakdownTemplate, null, 2)}
 
-**Exam Subjects & Current Status:**
-${examSubjects.map(subject => {
-  const topics = getSubjectTopics(examData.id, subject);
-  const avgProf = topics.reduce((sum, topic) => sum + (topicProficiency[topic] || 2), 0) / topics.length;
-  return `- ${subject}: ${topics.join(', ')} (Avg Proficiency: ${avgProf.toFixed(1)}/4)`;
-}).join('\n')}
+## CRITICAL REQUIREMENTS
 
-## INSTRUCTIONS
+1. **DAILY TASK DISTRIBUTION:**
+   - Create ${Math.round(dailyAverage * 60 / typicalTaskDuration)} tasks per study day on average
+   - Fill ALL available time slots with appropriate tasks
+   - Days with 0 hours should have NO tasks
+   - Match task scheduling to the exact available time slots provided
 
-Create a personalized study program that:
+2. **PROFICIENCY-BASED PRIORITIZATION:**
+   - Subjects with lower proficiency scores (0-1) should get 40-50% of total time
+   - Medium proficiency (2) should get 30-35% of time  
+   - High proficiency (3-4) should get 15-25% of time
+   - Weak areas need more frequent review and practice
 
-1. **Prioritizes Weak Areas:** Focus more time on topics with lower proficiency scores
-2. **Respects Time Constraints:** Use only the available time slots (${weeklyHours} hours/week total)
-3. **Adapts to Learning Style:** Incorporate ${learningStyleData?.primaryStyle || 'Visual'} learning methods
-4. **Builds Progressively:** Start with fundamentals, advance to complex topics
-5. **Exam Strategy:** Include practice tests, time management, and exam techniques in final weeks
-6. **Realistic Scheduling:** Respect available time slots and avoid overwhelming daily workloads
-7. **Learning Style Integration:** Incorporate visual, auditory, or kinesthetic elements as appropriate
+3. **PROGRESSIVE DIFFICULTY:**
+   - Week 1-2: Focus on fundamentals and assessment
+   - Week 3-4: Intermediate concepts and regular practice
+   - Final weeks: Advanced practice, full tests, weak area review
+   - Increase quiz frequency as exam approaches
+
+4. **TASK VARIETY & DURATION:**
+   - Use ${typicalTaskDuration}-minute sessions primarily
+   - 40% study sessions (learning new concepts)
+   - 30% practice sessions (applying knowledge)
+   - 20% review sessions (reinforcing previous material)
+   - 10% quiz sessions (testing knowledge)
+
+5. **WEEKLY STRUCTURE:**
+   - Each week should total approximately ${weeklyHours} hours
+   - Balance all subjects weekly, but prioritize weak areas
+   - Include progressive milestones with specific skill targets
 
 ## OUTPUT FORMAT
 
@@ -259,55 +286,53 @@ Please respond with a valid JSON object following this exact structure:
 
 \`\`\`json
 {
+  "id": "claude_study_program_${Date.now()}",
   "examType": "${examData.id}",
   "examDate": "${goalsData.examDate}",
+  "startDate": "${today.toISOString().split('T')[0]}",
+  "endDate": "${examDate?.toISOString().split('T')[0]}",
   "totalDays": ${daysUntilExam},
   "weeklyHours": ${weeklyHours},
   "dailyTasks": [
     {
-      "id": "unique_task_id",
-      "title": "Task Title",
-      "subject": "${examSubjects[0] || 'Mathematics'}",
-      "topic": "Specific Topic from Subject",
-      "type": "study|practice|review|quiz",
+      "id": "claude_task_1",
+      "title": "${examSubjects[0] || 'Subject'}: ${getSubjectTopics(examData.id, examSubjects[0] || '')[0] || 'Topic'}",
+      "subject": "${examSubjects[0] || 'Subject'}",
+      "topic": "${getSubjectTopics(examData.id, examSubjects[0] || '')[0] || 'Topic'}",
+      "type": "study",
       "duration": ${typicalTaskDuration},
-      "difficulty": "easy|medium|hard",
-      "priority": "high|medium|low",
-      "description": "Detailed task description with specific actions",
-      "date": "YYYY-MM-DD",
-      "timeSlot": "Match available time slots exactly",
+      "difficulty": "medium",
+      "priority": "high",
+      "description": "Detailed task description for ${examData.name} preparation",
+      "date": "${today.toISOString().split('T')[0]}",
+      "timeSlot": "${Object.values(scheduleData).flat()[0] || '09:00-10:00'}",
       "completed": false,
       "progress": 0,
-      "resources": ["List of recommended resources"],
-      "notes": "Additional guidance or tips"
+      "resources": ["${examData.name} Study Guide", "Practice Materials"],
+      "notes": "Focus on ${examData.name} specific strategies"
     }
   ],
+  "weeklySchedule": {
+    "week_1": [],
+    "week_2": []
+  },
   "subjectBreakdown": {
 ${subjectBreakdownJson}
   },
   "milestones": [
     {
-      "date": "YYYY-MM-DD",
-      "title": "Milestone Title",
-      "description": "What should be achieved by this date",
+      "date": "${new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}",
+      "title": "Week 1 ${examData.name} Foundation",
+      "description": "Complete foundational topics for ${examData.name} preparation",
       "completed": false
     }
-  ]
+  ],
+  "generatedAt": "${new Date().toISOString()}",
+  "lastUpdated": "${new Date().toISOString()}"
 }
 \`\`\`
 
-## ADDITIONAL INSTRUCTIONS
-
-- Create daily tasks for the next 4 weeks minimum
-- Ensure task durations fit within available time slots
-- Include specific, actionable descriptions for each task
-- Add variety in task types to maintain engagement
-- Set realistic milestones every 1-2 weeks
-- Consider the student's motivation and maintain encouragement
-- Include resource recommendations when relevant
-- Use exactly ${weeklyHours} hours per week as calculated from their schedule
-
-Generate a study program that maximizes learning efficiency while being practical and achievable.`;
+**GENERATE A COMPREHENSIVE ${daysUntilExam}-DAY STUDY PLAN WITH EXACT DAILY TASKS THAT TOTAL ${weeklyHours} HOURS PER WEEK AND PRIORITIZE SUBJECTS WITH LOWER PROFICIENCY SCORES.**`;
 
   return prompt;
 };
@@ -365,133 +390,18 @@ const callClaudeAPI = async (prompt: string): Promise<any> => {
 // Main function to generate study program using Claude
 export const generateStudyProgram = async (onboardingData: OnboardingData): Promise<StudyProgram | null> => {
   try {
-    console.log('🚀 Starting Claude-powered study program generation...');
-
-    // For now, use mock program until API key is configured
-    return generateMockStudyProgram(onboardingData);
-
+    console.log('🤖 Generating study program with Claude API...');
+    
+    const prompt = generateClaudePrompt(onboardingData);
+    const response = await callClaudeAPI(prompt);
+    return response as StudyProgram;
   } catch (error) {
     console.error('❌ Error generating study program with Claude:', error);
     return null;
   }
 };
 
-// Generate fallback/mock study program for testing
-export const generateMockStudyProgram = async (onboardingData: OnboardingData): Promise<StudyProgram | null> => {
-  try {
-    console.log('🔧 Generating mock study program for testing...');
 
-    if (!onboardingData.examData || !onboardingData.goalsData) {
-      throw new Error('Missing required onboarding data');
-    }
-
-    const examDate = parseExamDate(onboardingData.goalsData.examDate);
-    if (!examDate) {
-      throw new Error('Invalid exam date format');
-    }
-
-    const today = new Date();
-    const totalDays = Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    // Calculate weekly hours from schedule and intensity (same logic as prompt)
-    const calculateWeeklyHours = (): number => {
-      const daysInWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      let totalWeeklySlots = 0;
-      
-      daysInWeek.forEach(day => {
-        const daySlots = onboardingData.scheduleData[day] || [];
-        totalWeeklySlots += daySlots.length;
-      });
-
-      const baseHoursPerSlot = 1;
-      let baseWeeklyHours = totalWeeklySlots * baseHoursPerSlot;
-
-      const intensityMultiplier = {
-        'relaxed': 0.7,
-        'moderate': 0.85,
-        'intensive': 1.0,
-        'extreme': 1.2
-      };
-
-      const multiplier = intensityMultiplier[onboardingData.goalsData!.studyIntensity as keyof typeof intensityMultiplier] || 0.85;
-      const calculatedHours = Math.round(baseWeeklyHours * multiplier);
-
-      return Math.max(5, Math.min(40, calculatedHours));
-    };
-
-    const weeklyHours = calculateWeeklyHours();
-
-    // Create sample tasks for the next few days
-    const mockTasks: StudyTask[] = [];
-    for (let i = 0; i < Math.min(7, totalDays); i++) {
-      const taskDate = new Date(today);
-      taskDate.setDate(today.getDate() + i);
-      
-      mockTasks.push({
-        id: `mock_task_${i}`,
-        title: `Day ${i + 1}: Foundation Review`,
-        subject: 'Mathematics',
-        topic: 'Algebra Basics',
-        type: 'study',
-        duration: 90,
-        difficulty: 'medium',
-        priority: 'high',
-        description: 'Review fundamental algebraic concepts and solve practice problems',
-        date: taskDate.toISOString().split('T')[0],
-        timeSlot: '09:00-10:30',
-        completed: false,
-        progress: 0,
-        resources: ['Khan Academy Algebra', 'Practice Problem Set 1'],
-        notes: 'Focus on weak areas identified in assessment'
-      });
-    }
-
-    const mockProgram: StudyProgram = {
-      id: `mock_program_${Date.now()}`,
-      examType: onboardingData.examData.id,
-      examDate: examDate.toISOString().split('T')[0],
-      startDate: today.toISOString().split('T')[0],
-      endDate: examDate.toISOString().split('T')[0],
-      totalDays,
-      weeklyHours,
-      dailyTasks: mockTasks,
-      weeklySchedule: {},
-      subjectBreakdown: {
-        'Mathematics': { 
-          totalHours: Math.round(weeklyHours * 0.6 * (totalDays / 7)), 
-          weeklyHours: Math.round(weeklyHours * 0.6), 
-          topics: ['Algebra', 'Geometry'], 
-          priority: 1, 
-          currentProgress: 0 
-        },
-        'English': { 
-          totalHours: Math.round(weeklyHours * 0.4 * (totalDays / 7)), 
-          weeklyHours: Math.round(weeklyHours * 0.4), 
-          topics: ['Reading', 'Writing'], 
-          priority: 2, 
-          currentProgress: 0 
-        },
-      },
-      milestones: [
-        {
-          date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          title: 'Complete Foundation Review',
-          description: 'Finish reviewing all basic concepts',
-          completed: false
-        }
-      ],
-      generatedAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString(),
-    };
-
-    console.log('✅ Mock study program generated successfully');
-    return mockProgram;
-
-  } catch (error) {
-    console.error('❌ Error generating mock study program:', error);
-    return null;
-  }
-};
 
 // Types for study session content
 export interface QuestionContent {

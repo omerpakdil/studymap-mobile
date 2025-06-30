@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 
+
 import { clearOnboardingData, loadCompleteOnboardingData } from '@/app/utils/onboardingData';
 import { calculateWeeklyProgress, clearStudyProgramData, getProgramMetadata, getStudyStreak } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
@@ -33,6 +34,8 @@ export default function ProfileScreen() {
   const [studyStreak, setStudyStreak] = useState(0);
   const [weeklyProgress, setWeeklyProgress] = useState({ completed: 0, total: 0, hours: 0 });
   const [loading, setLoading] = useState(true);
+  
+
   
   // Settings states
   const [reminderSettings, setReminderSettings] = useState({
@@ -191,6 +194,8 @@ export default function ProfileScreen() {
     });
   };
 
+
+
   // Show loading state
   if (loading || !programMetadata || !onboardingData) {
     return (
@@ -229,18 +234,18 @@ export default function ProfileScreen() {
         
         <View style={styles.userStats}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{studyStreak}</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
+            <Text style={styles.userStatValue}>{studyStreak}</Text>
+            <Text style={styles.userStatLabel}>Day Streak</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{programMetadata.completedTasks}</Text>
-            <Text style={styles.statLabel}>Sessions</Text>
+            <Text style={styles.userStatValue}>{programMetadata.completedTasks}</Text>
+            <Text style={styles.userStatLabel}>Sessions</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{weeklyProgress.hours}h</Text>
-            <Text style={styles.statLabel}>This Week</Text>
+            <Text style={styles.userStatValue}>{weeklyProgress.hours}h</Text>
+            <Text style={styles.userStatLabel}>This Week</Text>
           </View>
         </View>
       </LinearGradient>
@@ -298,6 +303,8 @@ export default function ProfileScreen() {
     </View>
   );
 
+
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
@@ -321,46 +328,75 @@ export default function ProfileScreen() {
         {/* User Header */}
         {renderUserHeader()}
 
-        {/* Study Settings */}
-        {renderSettingsSection('Study Settings', [
+        {/* Stats Overview */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
+            Study Stats
+          </Text>
+          
+          <View style={styles.statsContainer}>
+            <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
+              <Text style={[styles.statValue, { color: colors.primary[700] }]}>
+                {studyStreak}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.primary[600] }]}>
+                Day Streak
+              </Text>
+            </View>
+            
+            <View style={[styles.statCard, { backgroundColor: colors.secondary[50] }]}>
+              <Text style={[styles.statValue, { color: colors.secondary[700] }]}>
+                {Math.round(weeklyProgress.hours)}h
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.secondary[600] }]}>
+                This Week
+              </Text>
+            </View>
+            
+            <View style={[styles.statCard, { backgroundColor: colors.accent[50] }]}>
+              <Text style={[styles.statValue, { color: colors.accent[700] }]}>
+                {programMetadata?.daysRemaining || 0}
+              </Text>
+              <Text style={[styles.statLabel, { color: colors.accent[600] }]}>
+                Days Left
+              </Text>
+            </View>
+          </View>
+        </View>
+
+
+
+        {/* Preferences Section */}
+        {renderSettingsSection('Study Preferences', [
           {
-            icon: '🎯',
-            title: 'Target Exam',
-            subtitle: `${programMetadata.examType?.toUpperCase()} • Target Score: ${programMetadata.targetScore}`,
-            type: 'info',
-            value: formatDate(programMetadata.examDate),
+            title: 'Daily Study Reminders',
+            subtitle: 'Get notified when it\'s time to study',
+            type: 'switch',
+            value: reminderSettings.dailyReminder,
+            onToggle: (value: boolean) => updateReminderSetting('dailyReminder', value),
+          },
+          {
+            icon: '📚',
+            title: 'Focus Subjects',
+            subtitle: onboardingData?.examData?.subjects?.join(', ') || 'All subjects',
             onPress: handleEditStudySettings,
           },
-                      {
-              icon: '📚',
-              title: 'Focus Subjects',
-              subtitle: onboardingData?.examData?.subjects?.join(', ') || 'All subjects',
-              onPress: handleEditStudySettings,
-            },
-            {
-              icon: '🧠',
-              title: 'Learning Style',
-              subtitle: `${onboardingData?.learningStyleData?.primaryStyle || 'Visual'} learner`,
-              onPress: handleEditStudySettings,
-            },
-            {
-              icon: '⏰',
-              title: 'Study Schedule',
-              subtitle: `${onboardingData?.goalsData?.studyIntensity || 'Moderate'} intensity • ${onboardingData?.goalsData?.targetStudyTime || 120} min/day`,
-              onPress: handleEditStudySettings,
-            },
+          {
+            icon: '🧠',
+            title: 'Learning Style',
+            subtitle: `${onboardingData?.learningStyleData?.primaryStyle || 'Visual'} learner`,
+            onPress: handleEditStudySettings,
+          },
+          {
+            icon: '⏰',
+            title: 'Study Schedule',
+            subtitle: `${onboardingData?.goalsData?.studyIntensity || 'Moderate'} intensity • ${onboardingData?.goalsData?.targetStudyTime || 120} min/day`,
+            onPress: handleEditStudySettings,
+          },
         ])}
 
         {/* Notification Settings */}
         {renderSettingsSection('Notifications', [
-          {
-            icon: '🔔',
-            title: 'Daily Study Reminder',
-            subtitle: `${reminderSettings.studyTime}`,
-            type: 'switch',
-            value: reminderSettings.dailyReminder,
-            onChange: (value: boolean) => updateReminderSetting('dailyReminder', value),
-          },
           {
             icon: '☕',
             title: 'Break Reminders',
@@ -570,13 +606,13 @@ const styles = StyleSheet.create({
   statItem: {
     alignItems: 'center',
   },
-  statValue: {
+  userStatValue: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 4,
   },
-  statLabel: {
+  userStatLabel: {
     fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
@@ -665,5 +701,124 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 8,
+  },
+  
+  // Stats Section
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 4,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+   
+   // AI Provider Section
+   section: {
+     padding: 20,
+   },
+  sectionSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 12,
+  },
+  settingsCard: {
+    borderRadius: 16,
+    padding: 20,
+  },
+  providerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 12,
+  },
+  providerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  providerIcon: {
+    fontSize: 20,
+    marginRight: 16,
+  },
+  providerDetails: {
+    flex: 1,
+  },
+  providerName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  providerDescription: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  providerStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  currentIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  currentText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  testButton: {
+    padding: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 12,
+  },
+  testButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  helpCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 20,
+  },
+  helpTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  helpText: {
+    fontSize: 14,
+    lineHeight: 18,
   },
 }); 

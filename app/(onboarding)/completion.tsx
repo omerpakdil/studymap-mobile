@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { generateStudyProgram } from '@/app/utils/claudeStudyGenerator';
+import { generateStudyProgram, getCurrentAIProvider } from '@/app/utils/aiProviderManager';
 import { loadCompleteOnboardingData, markOnboardingComplete } from '@/app/utils/onboardingData';
 import { saveDailyTasks, saveStudyProgram } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
@@ -33,10 +33,17 @@ export default function CompletionScreen() {
   const [isGeneratingProgram, setIsGeneratingProgram] = useState(false);
   const [programGenerated, setProgramGenerated] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  
+  // Weekly chunk progress tracking
+  const [currentChunk, setCurrentChunk] = useState<number>(0);
+  const [totalChunks, setTotalChunks] = useState<number>(0);
+  const [chunkStatus, setChunkStatus] = useState<string>('');
+  
   const [animationValues] = useState({
     scale: new Animated.Value(0),
     opacity: new Animated.Value(0),
     achievements: achievements.map(() => new Animated.Value(0)),
+    progress: new Animated.Value(0),
   });
 
   useEffect(() => {
@@ -76,9 +83,16 @@ export default function CompletionScreen() {
     try {
       setIsGeneratingProgram(true);
       setGenerationError(null);
+      setCurrentChunk(0);
+      setTotalChunks(0);
+      setChunkStatus('');
       
       // Mark onboarding as complete
       await markOnboardingComplete();
+      
+      // Debug: Check which AI provider is selected
+      const currentProvider = await getCurrentAIProvider();
+      console.log('🔍 Current AI Provider during onboarding:', currentProvider);
       
       // Load complete onboarding data
       const onboardingData = await loadCompleteOnboardingData();
@@ -90,8 +104,23 @@ export default function CompletionScreen() {
         examDate: onboardingData.goalsData?.examDate
       });
       
-      // Generate AI study program
-      const studyProgram = await generateStudyProgram(onboardingData);
+      // Progress callback for chunk generation
+      const onProgressUpdate = (status: string, current: number, total: number) => {
+        setChunkStatus(status);
+        setCurrentChunk(current);
+        setTotalChunks(total);
+        
+        // Animate progress bar
+        const progress = total > 0 ? current / total : 0;
+        Animated.timing(animationValues.progress, {
+          toValue: progress,
+          duration: 300,
+          useNativeDriver: false,
+        }).start();
+      };
+      
+      // Generate AI study program with progress tracking
+      const studyProgram = await generateStudyProgram(onboardingData, onProgressUpdate);
       
       if (studyProgram) {
         // Save the generated program
@@ -140,6 +169,13 @@ export default function CompletionScreen() {
 
   const getStatusMessage = () => {
     if (isGeneratingProgram) {
+      if (totalChunks > 0 && chunkStatus) {
+        return {
+          title: '🧠 Generating Your Study Plan',
+          description: chunkStatus,
+          progress: { current: currentChunk, total: totalChunks }
+        };
+      }
       return {
         title: '🧠 Generating Your Study Plan',
         description: 'AI is analyzing your assessment and creating a personalized study program...',
@@ -289,7 +325,38 @@ export default function CompletionScreen() {
             ]}>
               {statusMessage.description}
             </Text>
-            {isGeneratingProgram && (
+            
+            {/* Weekly Progress Bar */}
+            {isGeneratingProgram && statusMessage.progress && (
+              <View style={styles.progressContainer}>
+                <View style={styles.progressHeader}>
+                  <Text style={[styles.progressText, { color: colors.warning[700] }]}>
+                    Week {statusMessage.progress.current} of {statusMessage.progress.total}
+                  </Text>
+                  <Text style={[styles.progressPercent, { color: colors.warning[600] }]}>
+                    {Math.round((statusMessage.progress.current / statusMessage.progress.total) * 100)}%
+                  </Text>
+                </View>
+                <View style={[styles.progressBarContainer, { backgroundColor: colors.warning[100] }]}>
+                  <Animated.View 
+                    style={[
+                      styles.progressBarFill, 
+                      { 
+                        backgroundColor: colors.warning[500],
+                        width: animationValues.progress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ['0%', '100%'],
+                          extrapolate: 'clamp',
+                        })
+                      }
+                    ]} 
+                  />
+                </View>
+              </View>
+            )}
+            
+            {/* Default Loading Indicator */}
+            {isGeneratingProgram && !statusMessage.progress && (
               <View style={styles.loadingIndicator}>
                 <View style={[styles.loadingDot, { backgroundColor: colors.warning[500] }]} />
                 <View style={[styles.loadingDot, { backgroundColor: colors.warning[500] }]} />
@@ -535,6 +602,33 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     marginHorizontal: 2,
+  },
+  progressContainer: {
+    width: '100%',
+    marginTop: 12,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  progressPercent: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  progressBarContainer: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
   },
   bottomSection: {
     paddingHorizontal: 20,
