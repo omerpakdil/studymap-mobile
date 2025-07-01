@@ -4,23 +4,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
+import NotificationService from '@/app/utils/notificationService';
 import {
-    calculateDailyProgress,
-    getProgramMetadata,
-    getSubjectProgress,
-    getTasksForDate
+  calculateDailyProgress,
+  getDailyMotivationQuote,
+  getProgramMetadata,
+  getSubjectProgress,
+  getTasksForDate
 } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
@@ -36,6 +39,7 @@ export default function DashboardScreen() {
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
   });
+  const [userName, setUserName] = useState<string>('');
 
   // Real data states
   const [programMetadata, setProgramMetadata] = useState<any>(null);
@@ -43,14 +47,41 @@ export default function DashboardScreen() {
   const [subjectProgress, setSubjectProgress] = useState<any>({});
   const [dailyProgress, setDailyProgress] = useState({ completed: 0, total: 0, minutes: 0 });
   const [loading, setLoading] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState(false);
 
   // Task completion tracking
   const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
   
+  // Load user info
+  const loadUserInfo = async () => {
+    try {
+      const userInfoStr = await AsyncStorage.getItem('user_info');
+      if (userInfoStr) {
+        const userInfo = JSON.parse(userInfoStr);
+        setUserName(userInfo.firstName || '');
+      }
+    } catch (error) {
+      console.error('Error loading user info:', error);
+    }
+  };
+
   // Load real data from Claude-generated program
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (isInitialLoad: boolean = false) => {
     try {
       setLoading(true);
+      
+      // Only check/initialize notifications on first app load, not on every focus
+      if (isInitialLoad) {
+        // Check notification permission without reinitializing
+        const hasPermission = NotificationService.hasNotificationPermission();
+        setNotificationPermission(hasPermission);
+        
+        // Only initialize if not already initialized
+        if (!hasPermission) {
+          const initialized = await NotificationService.initialize();
+          setNotificationPermission(initialized);
+        }
+      }
       
       // Load program metadata
       const metadata = await getProgramMetadata();
@@ -72,7 +103,8 @@ export default function DashboardScreen() {
       console.log('📊 Dashboard data loaded:', {
         tasksToday: tasks.length,
         subjects: Object.keys(progress).length,
-        dailyProgress: dailyProg
+        dailyProgress: dailyProg,
+        notificationPermission: isInitialLoad ? notificationPermission : 'skipped'
       });
       
     } catch (error) {
@@ -100,7 +132,8 @@ export default function DashboardScreen() {
   };
 
   useEffect(() => {
-    loadDashboardData();
+    loadUserInfo();
+    loadDashboardData(true); // Initial load with notification check
   }, []);
 
   useEffect(() => {
@@ -141,8 +174,26 @@ export default function DashboardScreen() {
     });
   };
 
+  const handleNotificationPress = () => {
+    if (!notificationPermission) {
+      Alert.alert(
+        'Notifications Disabled',
+        'Enable notifications in your device settings to receive study reminders and motivational quotes.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => {
+            // On real devices, this would open device settings
+            Alert.alert('Info', 'Please go to Settings > StudyMap > Notifications to enable.');
+          }}
+        ]
+      );
+    } else {
+      router.push('/(tabs)/profile');
+    }
+  };
+
   const focusEffectCallback = useCallback(() => {
-    loadDashboardData();
+    loadDashboardData(false); // Subsequent loads without notification init
   }, []);
 
   useFocusEffectNavigation(focusEffectCallback);
@@ -150,7 +201,7 @@ export default function DashboardScreen() {
   // Show loading state
   if (loading || !programMetadata) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]} edges={['top', 'left', 'right']}>
         <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
           <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
             🧠 Loading your personalized study program...
@@ -168,21 +219,23 @@ export default function DashboardScreen() {
   const progressPercentage = todayGoalMinutes > 0 ? Math.min(100, (dailyProgress.minutes / todayGoalMinutes) * 100) : 0;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} translucent={false} />
       
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={[styles.greeting, { color: colors.neutral[600] }]}>
-            {greeting}! 👋
+            {greeting}{userName && `, ${userName}`}! 👋
           </Text>
           <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
             Ready to crush your {programMetadata.examType?.toUpperCase()}?
           </Text>
         </View>
-        <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.neutral[100] }]}>
-          <Text style={styles.notificationIcon}>🔔</Text>
+        <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.neutral[100] }]} onPress={handleNotificationPress}>
+          <Text style={styles.notificationIcon}>
+            {notificationPermission ? '🔔' : '🔕'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -386,10 +439,10 @@ export default function DashboardScreen() {
         <View style={[styles.motivationCard, { backgroundColor: colors.success[50], borderColor: colors.success[200] }]}>
           <Text style={styles.motivationIcon}>✨</Text>
           <Text style={[styles.motivationQuote, { color: colors.success[800] }]}>
-            "Success is the sum of small efforts repeated day in and day out."
+            {getDailyMotivationQuote()}
           </Text>
           <Text style={[styles.motivationAuthor, { color: colors.success[600] }]}>
-            — Robert Collier
+            — Daily Motivation
           </Text>
         </View>
 
@@ -409,18 +462,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 20,
-    paddingTop: isIOS ? 8 : 16,
-    paddingBottom: 16,
+    paddingTop: isIOS ? 12: 20,
+    paddingBottom: 20,
   },
   greeting: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 6,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    lineHeight: 24,
+    lineHeight: 26,
   },
   notificationButton: {
     width: 40,

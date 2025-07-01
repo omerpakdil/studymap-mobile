@@ -14,10 +14,13 @@ import {
 } from 'react-native';
 
 import {
+  Achievement,
+  calculateDailyProgress,
   calculateWeeklyProgress,
   getProgramMetadata,
   getStudyStreak,
-  getSubjectProgress
+  getSubjectProgress,
+  getUserAchievements
 } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
@@ -26,14 +29,21 @@ const isIOS = Platform.OS === 'ios';
 
 export default function ProgressScreen() {
   const { colors } = useTheme();
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'subjects' | 'insights'>('overview');
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'subjects' | 'achievements'>('overview');
   
   // Real data states
   const [programMetadata, setProgramMetadata] = useState<any>(null);
   const [subjectProgress, setSubjectProgress] = useState<any>({});
   const [weeklyProgress, setWeeklyProgress] = useState({ completed: 0, total: 0, hours: 0 });
+  const [dailyProgress, setDailyProgress] = useState({ completed: 0, total: 0, minutes: 0 });
   const [studyStreak, setStudyStreak] = useState(0);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Calculate overall progress
+  const overallProgress = programMetadata && programMetadata.totalTasks > 0 
+    ? Math.round((programMetadata.completedTasks / programMetadata.totalTasks) * 100) 
+    : 0;
 
   // Load progress data from Claude-generated program
   const loadProgressData = async () => {
@@ -41,22 +51,34 @@ export default function ProgressScreen() {
       setLoading(true);
       
       // Load all progress data
-      const [metadata, subjects, weekly, streak] = await Promise.all([
+      const today = new Date().toISOString().split('T')[0];
+      const [metadata, subjects, weekly, daily, streak, userAchievements] = await Promise.all([
         getProgramMetadata(),
         getSubjectProgress(),
         calculateWeeklyProgress(),
-        getStudyStreak()
+        calculateDailyProgress(today),
+        getStudyStreak(),
+        getUserAchievements()
       ]);
       
       setProgramMetadata(metadata);
       setSubjectProgress(subjects);
       setWeeklyProgress(weekly);
+      setDailyProgress(daily);
       setStudyStreak(streak);
+      setAchievements(userAchievements);
+      
+      // Check for goal completions
+      const { checkDailyGoalCompletion, checkWeeklyGoalCompletion } = await import('@/app/utils/studyProgramStorage');
+      await checkDailyGoalCompletion(today);
+      await checkWeeklyGoalCompletion();
       
       console.log('📊 Progress data loaded:', {
         subjects: Object.keys(subjects).length,
         weeklyHours: weekly.hours,
+        dailyMinutes: daily.minutes,
         streak: streak,
+        achievements: userAchievements.length,
         daysRemaining: metadata?.daysRemaining
       });
       
@@ -76,6 +98,19 @@ export default function ProgressScreen() {
       loadProgressData();
     }, [])
   );
+
+  // Debug info for troubleshooting
+  useEffect(() => {
+    if (programMetadata) {
+      console.log('📊 Overall Progress Debug:', {
+        totalTasks: programMetadata.totalTasks,
+        completedTasks: programMetadata.completedTasks,
+        calculatedProgress: overallProgress,
+        examDate: programMetadata.examDate,
+        daysRemaining: programMetadata.daysRemaining
+      });
+    }
+  }, [programMetadata, overallProgress]);
 
   const getTrendIcon = (progress: number) => {
     if (progress >= 75) return '📈';
@@ -106,8 +141,64 @@ export default function ProgressScreen() {
   const generateInsights = () => {
     const insights = [];
     
+    // Check daily progress
+    if (dailyProgress.total > 0) {
+      const dailyCompletionRate = (dailyProgress.completed / dailyProgress.total) * 100;
+      if (dailyCompletionRate === 100) {
+        insights.push({
+          type: 'success',
+          icon: '🎉',
+          title: 'Daily Goal Achieved!',
+          message: `You completed all ${dailyProgress.total} tasks today. Great work!`,
+          action: 'Keep Momentum',
+        });
+      } else if (dailyCompletionRate >= 50) {
+        insights.push({
+          type: 'info',
+          icon: '💪',
+          title: 'Good Progress Today',
+          message: `${dailyProgress.completed} of ${dailyProgress.total} tasks completed today`,
+          action: 'Finish Strong',
+        });
+      } else if (dailyProgress.completed === 0 && dailyProgress.total > 0) {
+        insights.push({
+          type: 'warning',
+          icon: '⏰',
+          title: 'Start Your Day',
+          message: `You have ${dailyProgress.total} tasks planned for today`,
+          action: 'Begin Studying',
+        });
+      }
+    }
+    
+    // Weekly progress insight
+    if (weeklyProgress.total > 0) {
+      const weeklyCompletionRate = (weeklyProgress.completed / weeklyProgress.total) * 100;
+      if (weeklyCompletionRate >= 80) {
+        insights.push({
+          type: 'success',
+          icon: '📈',
+          title: 'Excellent Weekly Progress',
+          message: `${weeklyCompletionRate.toFixed(0)}% of this week's tasks completed`,
+          action: 'Maintain Pace',
+        });
+      }
+    }
+    
          // Analyze subjects performance
      const subjects = Object.entries(subjectProgress) as [string, any][];
+     
+     if (subjects.length === 0) {
+       insights.push({
+         type: 'info',
+         icon: '📚',
+         title: 'No Study Data Yet',
+         message: 'Complete some study sessions to see your progress analytics',
+         action: 'Start Studying',
+       });
+       return insights;
+     }
+     
      const weakestSubject = subjects.reduce((prev, curr) => 
        curr[1].progress < prev[1].progress ? curr : prev, 
        subjects[0] || ['', { progress: 100 }]
@@ -174,7 +265,7 @@ export default function ProgressScreen() {
       {[
         { key: 'overview', label: 'Overview' },
         { key: 'subjects', label: 'Subjects' },
-        { key: 'insights', label: 'Insights' },
+        { key: 'achievements', label: 'Achievements' },
       ].map((tab) => (
         <TouchableOpacity
           key={tab.key}
@@ -209,10 +300,6 @@ export default function ProgressScreen() {
       </SafeAreaView>
     );
   }
-
-  const overallProgress = programMetadata.totalTasks > 0 
-    ? Math.round((programMetadata.completedTasks / programMetadata.totalTasks) * 100) 
-    : 0;
 
   const renderOverview = () => (
     <View style={styles.tabContent}>
@@ -284,47 +371,85 @@ export default function ProgressScreen() {
             Weekly Goal
           </Text>
         </View>
+        
+        <View style={[styles.quickStatCard, { backgroundColor: colors.neutral[50] }]}>
+          <Text style={styles.quickStatEmoji}>📅</Text>
+          <Text style={[styles.quickStatValue, { color: colors.neutral[700] }]}>
+            {dailyProgress.minutes}m
+          </Text>
+          <Text style={[styles.quickStatLabel, { color: colors.neutral[600] }]}>
+            Today
+          </Text>
+        </View>
       </View>
 
       {/* Weekly Progress Chart */}
       <View style={[styles.chartCard, { backgroundColor: colors.neutral[0] }]}>
         <Text style={[styles.chartTitle, { color: colors.neutral[900] }]}>
-          Weekly Study Hours
+          Weekly Study Progress
         </Text>
         <View style={styles.chartContainer}>
-          {/* Generate last 6 weeks of data */}
-          {Array.from({ length: 6 }, (_, index) => {
-            const weekNumber = index + 1;
-            const weeklyTarget = programMetadata?.weeklyHours || 15;
-            // Simulate varying progress for visualization
-            const actualHours = index < 3 ? 
-              weeklyProgress.hours * (0.7 + Math.random() * 0.6) : // Past weeks
-              index === 5 ? weeklyProgress.hours : // Current week
-              weeklyTarget * (0.8 + Math.random() * 0.4); // Recent weeks
-            
-            const heightPercentage = Math.min(100, (actualHours / 20) * 100); // Max 20 hours for scaling
-            const isTarget = actualHours >= weeklyTarget;
-            
-            return (
-              <View key={index} style={styles.chartBar}>
-                <View
-                  style={[
-                    styles.chartBarFill,
-                    {
-                      height: `${heightPercentage}%`,
-                      backgroundColor: isTarget ? colors.success[500] : colors.primary[500],
-                    },
-                  ]}
-                />
-                <Text style={[styles.chartLabel, { color: colors.neutral[600] }]}>
-                  W{weekNumber}
-                </Text>
-                <Text style={[styles.chartValue, { color: colors.neutral[700] }]}>
-                  {Math.round(actualHours * 10) / 10}h
-                </Text>
-              </View>
-            );
-          })}
+          {/* Current week real data */}
+          <View style={styles.chartBar}>
+            <View
+              style={[
+                styles.chartBarFill,
+                {
+                  height: `${Math.max(10, Math.min(100, (weeklyProgress.hours / 15) * 100))}%`,
+                  backgroundColor: colors.primary[500],
+                },
+              ]}
+            />
+            <Text style={[styles.chartLabel, { color: colors.neutral[600] }]}>
+              This Week
+            </Text>
+            <Text style={[styles.chartValue, { color: colors.neutral[700] }]}>
+              {weeklyProgress.hours}h
+            </Text>
+          </View>
+          
+          {/* Target indicator */}
+          <View style={styles.chartBar}>
+            <View
+              style={[
+                styles.chartBarFill,
+                styles.chartBarTarget,
+                {
+                  height: `100%`,
+                },
+              ]}
+            />
+            <Text style={[styles.chartLabel, { color: colors.neutral[600] }]}>
+              Target
+            </Text>
+            <Text style={[styles.chartValue, { color: colors.neutral[700] }]}>
+              {programMetadata.weeklyHours || 15}h
+            </Text>
+          </View>
+        </View>
+        
+        {/* Progress Summary */}
+        <View style={styles.progressSummary}>
+          <View style={styles.progressSummaryItem}>
+            <Text style={[styles.progressSummaryLabel, { color: colors.neutral[600] }]}>
+              Tasks Completed
+            </Text>
+            <Text style={[styles.progressSummaryValue, { color: colors.success[600] }]}>
+              {weeklyProgress.completed} / {weeklyProgress.total}
+            </Text>
+          </View>
+          <View style={styles.progressSummaryItem}>
+            <Text style={[styles.progressSummaryLabel, { color: colors.neutral[600] }]}>
+              Weekly Progress
+            </Text>
+            <Text style={[styles.progressSummaryValue, { 
+              color: weeklyProgress.total > 0 && (weeklyProgress.completed / weeklyProgress.total) >= 0.8 
+                ? colors.success[600] 
+                : colors.warning[600] 
+            }]}>
+              {weeklyProgress.total > 0 ? Math.round((weeklyProgress.completed / weeklyProgress.total) * 100) : 0}%
+            </Text>
+          </View>
         </View>
       </View>
     </View>
@@ -373,34 +498,171 @@ export default function ProgressScreen() {
     </View>
   );
 
-  const renderInsights = () => (
-    <View style={styles.tabContent}>
-      {generateInsights().map((insight, index) => (
-        <View key={index} style={[styles.insightCard, { backgroundColor: colors.neutral[0] }]}>
-          <View style={styles.insightHeader}>
-            <View style={[styles.insightIcon, { backgroundColor: `${getInsightColor(insight.type)}20` }]}>
-              <Text style={styles.insightEmoji}>{insight.icon}</Text>
-            </View>
-            <View style={styles.insightContent}>
-              <Text style={[styles.insightTitle, { color: colors.neutral[900] }]}>
-                {insight.title}
-              </Text>
-              <Text style={[styles.insightMessage, { color: colors.neutral[600] }]}>
-                {insight.message}
+  const renderAchievements = () => {
+    // Group achievements by category
+    const achievementsByCategory = achievements.reduce((acc, achievement) => {
+      if (!acc[achievement.category]) {
+        acc[achievement.category] = [];
+      }
+      acc[achievement.category].push(achievement);
+      return acc;
+    }, {} as Record<string, Achievement[]>);
+
+    const getRarityColor = (rarity: string) => {
+      switch (rarity) {
+        case 'common': return colors.neutral[500];
+        case 'rare': return colors.primary[500];
+        case 'epic': return colors.warning[500];
+        case 'legendary': return colors.error[500];
+        default: return colors.neutral[500];
+      }
+    };
+
+    const getRarityBg = (rarity: string) => {
+      switch (rarity) {
+        case 'common': return colors.neutral[50];
+        case 'rare': return colors.primary[50];
+        case 'epic': return colors.warning[50];
+        case 'legendary': return colors.error[50];
+        default: return colors.neutral[50];
+      }
+    };
+
+    const getCategoryTitle = (category: string) => {
+      switch (category) {
+        case 'streak': return '🔥 Study Streaks';
+        case 'time': return '⏰ Time Milestones';
+        case 'tasks': return '✅ Task Achievements';
+        case 'subjects': return '📚 Subject Mastery';
+        case 'milestones': return '🎯 Goal Achievements';
+        default: return category;
+      }
+    };
+
+    const unlockedCount = achievements.filter(a => a.unlocked).length;
+    const totalCount = achievements.length;
+
+    return (
+      <View style={styles.tabContent}>
+        {/* Achievement Summary */}
+        <View style={[styles.achievementSummary, { backgroundColor: colors.neutral[0] }]}>
+          <View style={styles.achievementSummaryContent}>
+            <Text style={[styles.achievementSummaryTitle, { color: colors.neutral[900] }]}>
+              Your Achievements
+            </Text>
+            <Text style={[styles.achievementSummaryText, { color: colors.neutral[600] }]}>
+              {unlockedCount} of {totalCount} badges unlocked
+            </Text>
+            <View style={[styles.achievementProgressContainer, { flexDirection: 'row' }]}>
+              <View style={[styles.achievementProgressBar, { backgroundColor: colors.neutral[200] }]}>
+                <View 
+                  style={[
+                    styles.achievementProgressFill, 
+                    { 
+                      backgroundColor: colors.primary[500],
+                      width: `${(unlockedCount / totalCount) * 100}%`
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={[styles.achievementProgressText, { color: colors.primary[600] }]}>
+                {Math.round((unlockedCount / totalCount) * 100)}% Complete
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={[styles.insightAction, { borderColor: getInsightColor(insight.type) }]}
-          >
-            <Text style={[styles.insightActionText, { color: getInsightColor(insight.type) }]}>
-              {insight.action}
+          <View style={[styles.achievementBadgeContainer, { backgroundColor: colors.primary[50] }]}>
+            <Text style={styles.achievementBadgeIcon}>🏆</Text>
+            <Text style={[styles.achievementBadgeCount, { color: colors.primary[600] }]}>
+              {unlockedCount}
             </Text>
-          </TouchableOpacity>
+          </View>
         </View>
-      ))}
-    </View>
-  );
+
+        {/* Achievement Categories */}
+        {Object.entries(achievementsByCategory).map(([category, categoryAchievements]) => (
+          <View key={category} style={[styles.achievementCategory, { backgroundColor: colors.neutral[0] }]}>
+            <Text style={[styles.achievementCategoryTitle, { color: colors.neutral[900] }]}>
+              {getCategoryTitle(category)}
+            </Text>
+            <View style={styles.achievementGrid}>
+              {categoryAchievements.map((achievement) => (
+                <View 
+                  key={achievement.id} 
+                  style={[
+                    styles.achievementCard, 
+                    { 
+                      backgroundColor: achievement.unlocked ? getRarityBg(achievement.rarity) : colors.neutral[50],
+                      borderColor: achievement.unlocked ? getRarityColor(achievement.rarity) : colors.neutral[200],
+                      opacity: achievement.unlocked ? 1 : 0.6
+                    }
+                  ]}
+                >
+                  {/* Rarity badge at top right */}
+                  <View style={[styles.achievementRarity, { backgroundColor: getRarityColor(achievement.rarity) }]}>
+                    <Text style={styles.achievementRarityText}>
+                      {achievement.rarity.toUpperCase()}
+                    </Text>
+                  </View>
+
+                  {/* Main content */}
+                  <View style={styles.achievementMainContent}>
+                    <Text style={[
+                      styles.achievementIcon,
+                      { opacity: achievement.unlocked ? 1 : 0.5 }
+                    ]}>
+                      {achievement.icon}
+                    </Text>
+                    
+                    <Text style={[
+                      styles.achievementTitle, 
+                      { color: achievement.unlocked ? colors.neutral[900] : colors.neutral[500] }
+                    ]}>
+                      {achievement.title}
+                    </Text>
+                    
+                    <Text style={[
+                      styles.achievementDescription, 
+                      { color: achievement.unlocked ? colors.neutral[600] : colors.neutral[400] }
+                    ]}>
+                      {achievement.description}
+                    </Text>
+
+                    {/* Progress bar for locked achievements */}
+                    {!achievement.unlocked && (
+                      <View style={styles.achievementProgressSection}>
+                        <View style={[styles.achievementProgressBar, { backgroundColor: colors.neutral[200], height: 6 }]}>
+                          <View 
+                            style={[
+                              styles.achievementProgressFill, 
+                              { 
+                                backgroundColor: colors.primary[500],
+                                width: `${Math.min(100, (achievement.progress / achievement.requirement) * 100)}%`,
+                                height: 6
+                              }
+                            ]} 
+                          />
+                        </View>
+                        <Text style={[styles.achievementProgressLabel, { color: colors.neutral[500] }]}>
+                          {achievement.progress} / {achievement.requirement} {achievement.unit}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Success badge at bottom for unlocked achievements */}
+                  {achievement.unlocked && (
+                    <View style={[styles.achievementSuccessBadge, { backgroundColor: getRarityColor(achievement.rarity) }]}>
+                      <Text style={styles.achievementBadgeText}>✓</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
@@ -423,7 +685,7 @@ export default function ProgressScreen() {
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         {selectedTab === 'overview' && renderOverview()}
         {selectedTab === 'subjects' && renderSubjects()}
-        {selectedTab === 'insights' && renderInsights()}
+        {selectedTab === 'achievements' && renderAchievements()}
         
         {/* Bottom Spacing */}
         <View style={{ height: 20 }} />
@@ -468,8 +730,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
+    textAlign: 'center',
   },
   
   // Content
@@ -496,14 +759,19 @@ const styles = StyleSheet.create({
   },
   overviewContent: {
     alignItems: 'center',
+    gap: 24,
   },
   overviewLeft: {
     flexDirection: 'column',
     alignItems: 'center',
+    marginBottom: 20,
   },
   overviewRight: {
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    gap: 32,
   },
   overviewPercentage: {
     fontSize: 48,
@@ -519,6 +787,7 @@ const styles = StyleSheet.create({
   overviewStat: {
     flexDirection: 'column',
     alignItems: 'center',
+    minWidth: 80,
   },
   overviewStatValue: {
     fontSize: 20,
@@ -567,7 +836,7 @@ const styles = StyleSheet.create({
   
   // Chart
   chartCard: {
-    padding: 20,
+    padding: 24,
     borderRadius: 16,
     marginBottom: 20,
     shadowColor: '#000',
@@ -579,14 +848,16 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: 48,
   },
   chartContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    height: 120,
-    gap: 8,
+    justifyContent: 'space-around',
+    height: 100,
+    gap: 20,
+    marginBottom: 16,
+    marginTop: 16,
   },
   chartBar: {
     flex: 1,
@@ -595,18 +866,18 @@ const styles = StyleSheet.create({
   },
   chartBarFill: {
     width: '100%',
+    minHeight: 10,
     borderRadius: 4,
-    minHeight: 8,
+    marginBottom: 8,
   },
   chartLabel: {
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 8,
+    marginBottom: 4,
   },
   chartValue: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
+    fontSize: 14,
+    fontWeight: '600',
   },
   
   // Subjects Tab
@@ -759,5 +1030,174 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  progressSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  progressSummaryItem: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  progressSummaryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  progressSummaryValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  chartBarTarget: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderStyle: 'solid',
+  },
+  achievementSummary: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    alignItems: 'center',
+  },
+  achievementSummaryContent: {
+    flex: 1,
+    marginRight: 20,
+  },
+  achievementSummaryTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  achievementSummaryText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  achievementProgressContainer: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  achievementProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    flex: 1,
+  },
+  achievementProgressFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  achievementProgressText: {
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 80,
+    textAlign: 'right',
+  },
+  achievementBadgeContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: '#EBF4FF',
+  },
+  achievementBadgeIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  achievementBadgeCount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  achievementCategory: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  achievementCategoryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  achievementGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  achievementCard: {
+    width: (width - 64) / 2 - 6, // Daha dar yapıyoruz
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  achievementRarity: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  achievementRarityText: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  achievementMainContent: {
+    flex: 1,
+  },
+  achievementIcon: {
+    fontSize: 28,
+  },
+  achievementTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 3,
+    textAlign: 'center',
+  },
+  achievementDescription: {
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  achievementProgressSection: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  achievementProgressLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  achievementSuccessBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  achievementBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 }); 

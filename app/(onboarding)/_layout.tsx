@@ -25,6 +25,7 @@ export default function OnboardingLayout() {
             gestureEnabled: false,
           }}
         />
+        <Stack.Screen name="user-info" />
         <Stack.Screen 
           name="assessment" 
           options={{

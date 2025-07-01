@@ -2,13 +2,26 @@ import { getCurriculumByExamId } from '@/app/data';
 import Anthropic from '@anthropic-ai/sdk';
 import { OnboardingData } from './onboardingData';
 
-// API Key - Replace with your actual Anthropic API key
-const ANTHROPIC_API_KEY = 'your-anthropic-api-key-here';
+// API Key from environment variables with validation
+const ANTHROPIC_API_KEY = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: ANTHROPIC_API_KEY,
-});
+// Validate API key
+if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'your-anthropic-api-key-here') {
+  console.warn('⚠️ Anthropic API key not configured properly. Please set EXPO_PUBLIC_ANTHROPIC_API_KEY in your .env file');
+  console.warn('💡 Get your API key from: https://console.anthropic.com/');
+}
+
+// Initialize Anthropic client with error handling
+let anthropic: Anthropic | null = null;
+try {
+  if (ANTHROPIC_API_KEY && ANTHROPIC_API_KEY !== 'your-anthropic-api-key-here') {
+    anthropic = new Anthropic({
+      apiKey: ANTHROPIC_API_KEY,
+    });
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Anthropic client:', error);
+}
 
 // Study program data types
 export interface StudyTask {
@@ -340,8 +353,12 @@ ${subjectBreakdownJson}
 // Call Claude API to generate study program
 const callClaudeAPI = async (prompt: string): Promise<any> => {
   try {
-    if (ANTHROPIC_API_KEY === 'your-anthropic-api-key-here') {
-      throw new Error('Claude API key not configured. Please add your Anthropic API key.');
+    if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'your-anthropic-api-key-here') {
+      throw new Error('Claude API key not configured. Please set ANTHROPIC_API_KEY environment variable.');
+    }
+    
+    if (!anthropic) {
+      throw new Error('Anthropic client not initialized. Please check your API key configuration.');
     }
 
     console.log('🧠 Calling Claude API to generate personalized study program...');

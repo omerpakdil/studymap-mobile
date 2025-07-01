@@ -8,14 +8,27 @@
     "scheme": "studymapmobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "metro": {
+      "resolver": {
+        "assetExts": ["bin", "txt", "jpg", "png", "json", "gif", "webp", "svg"]
+      }
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": ["background-processing", "background-fetch"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK"
+      ],
       "edgeToEdgeEnabled": true
     },
     "web": {
@@ -32,6 +45,15 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#4F46E5",
+          "sounds": ["./assets/sounds/notification.wav"],
+          "mode": "production"
         }
       ]
     ],

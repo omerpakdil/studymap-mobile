@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -17,6 +18,7 @@ import {
 } from 'react-native';
 
 
+import NotificationService from '@/app/utils/notificationService';
 import { clearOnboardingData, loadCompleteOnboardingData } from '@/app/utils/onboardingData';
 import { calculateWeeklyProgress, clearStudyProgramData, getProgramMetadata, getStudyStreak } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
@@ -34,6 +36,8 @@ export default function ProfileScreen() {
   const [studyStreak, setStudyStreak] = useState(0);
   const [weeklyProgress, setWeeklyProgress] = useState({ completed: 0, total: 0, hours: 0 });
   const [loading, setLoading] = useState(true);
+  const [userInfo, setUserInfo] = useState<any>(null);
+  const [notificationPermission, setNotificationPermission] = useState(false);
   
 
   
@@ -44,6 +48,7 @@ export default function ProfileScreen() {
     breakReminder: true,
     weeklyReport: true,
     motivationalQuotes: true,
+    reminderFrequency: 'minimal',
   });
   const [privacySettings, setPrivacySettings] = useState({
     analytics: true,
@@ -52,10 +57,29 @@ export default function ProfileScreen() {
   });
 
   // Load real user data from Claude-generated program
-  const loadUserData = async () => {
+  const loadUserData = async (isInitialLoad: boolean = false) => {
     try {
       setLoading(true);
       
+      // Only check/initialize notifications on first app load, not on every focus
+      if (isInitialLoad) {
+        // Check notification permission without reinitializing
+        const hasPermission = NotificationService.hasNotificationPermission();
+        setNotificationPermission(hasPermission);
+        
+        // Only initialize if not already initialized
+        if (!hasPermission) {
+          const initialized = await NotificationService.initialize();
+          setNotificationPermission(initialized);
+        }
+      }
+      
+      // Load user info from AsyncStorage
+      const userInfoStr = await AsyncStorage.getItem('user_info');
+      if (userInfoStr) {
+        setUserInfo(JSON.parse(userInfoStr));
+      }
+
       // Load all user data
       const [metadata, onboarding, streak, weekly] = await Promise.all([
         getProgramMetadata(),
@@ -68,12 +92,41 @@ export default function ProfileScreen() {
       setOnboardingData(onboarding);
       setStudyStreak(streak);
       setWeeklyProgress(weekly);
+
+      // Load reminder settings from notification service
+      const notificationSettings = NotificationService.getSettings();
+      setReminderSettings(notificationSettings);
+
+      // Load and sync reminder frequency from onboarding data
+      if (onboarding?.goalsData?.reminderFrequency) {
+        const currentFrequency = onboarding.goalsData.reminderFrequency;
+        
+        // Update local state
+        setReminderSettings(prev => ({
+          ...prev,
+          reminderFrequency: currentFrequency as 'minimal' | 'moderate' | 'frequent'
+        }));
+        
+        // Sync with notification service if different
+        if (notificationSettings.reminderFrequency !== currentFrequency) {
+          await NotificationService.syncReminderFrequency(currentFrequency);
+        }
+      }
+
+      // Load privacy settings
+      const privacyStr = await AsyncStorage.getItem('privacy_settings');
+      if (privacyStr) {
+        setPrivacySettings(JSON.parse(privacyStr));
+      }
       
       console.log('👤 Profile data loaded:', {
         examType: metadata?.examType,
         streak: streak,
         weeklyHours: weekly.hours,
-        learningStyle: onboarding?.learningStyleData?.primaryStyle
+        learningStyle: onboarding?.learningStyleData?.primaryStyle,
+        notificationPermission: isInitialLoad ? notificationPermission : 'skipped',
+        reminderSettings: 'loaded from service',
+        privacySettings: privacyStr ? 'loaded' : 'default'
       });
       
     } catch (error) {
@@ -84,38 +137,19 @@ export default function ProfileScreen() {
   };
 
   useEffect(() => {
-    loadUserData();
+    loadUserData(true); // Initial load with notification check
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadUserData();
+      loadUserData(false); // Subsequent loads without notification init
     }, [])
   );
 
   const handleEditProfile = () => {
-    Alert.alert(
-      'Edit Profile',
-      'Profile editing will be available in the next update.',
-      [{ text: 'OK' }]
-    );
+    router.push('/profile/edit');
   };
 
-  const handleEditStudySettings = () => {
-    Alert.alert(
-      'Study Settings',
-      'Study settings editing will be available in the next update.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleExportData = () => {
-    Alert.alert(
-      'Export Data',
-      'Your study data export will be available soon.',
-      [{ text: 'OK' }]
-    );
-  };
 
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -138,6 +172,27 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleStudyTimePress = () => {
+    const timeOptions = [
+      '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+      '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+      '18:00', '19:00', '20:00', '21:00', '22:00'
+    ];
+
+    Alert.alert(
+      'Select Study Time',
+      'Choose your preferred time for daily study reminders',
+      [
+        ...timeOptions.map(time => ({
+          text: time,
+          onPress: () => updateReminderSetting('studyTime', time as string),
+        })),
+        { text: 'Cancel', style: 'cancel' }
+      ],
+      { cancelable: true }
+    );
+  };
+
   const handleResetOnboarding = () => {
     Alert.alert(
       'Reset Onboarding',
@@ -151,9 +206,12 @@ export default function ProfileScreen() {
             try {
               await clearOnboardingData();
               await clearStudyProgramData();
+              await AsyncStorage.removeItem('user_info');
+              await AsyncStorage.removeItem('reminder_settings');
+              await AsyncStorage.removeItem('privacy_settings');
               Alert.alert(
                 'Reset Complete',
-                'Onboarding data has been cleared. Please restart the app to begin the onboarding process again.',
+                'All data has been cleared. Please restart the app to begin the onboarding process again.',
                 [{ text: 'OK' }]
               );
             } catch (error) {
@@ -170,20 +228,60 @@ export default function ProfileScreen() {
     );
   };
 
-  const updateReminderSetting = (key: keyof typeof reminderSettings, value: boolean) => {
-    setReminderSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-    // In real app, save to AsyncStorage/API
+  const updateReminderSetting = async (key: keyof typeof reminderSettings, value: boolean | string) => {
+    try {
+      const newSettings = {
+        ...reminderSettings,
+        [key]: value
+      };
+      
+      // Update state
+      setReminderSettings(newSettings);
+      
+      // Update notification service (handles AsyncStorage and scheduling)
+      await NotificationService.updateSettings({ [key]: value });
+      
+      console.log(`✅ Reminder setting updated: ${key} = ${value}`);
+    } catch (error) {
+      console.error('❌ Error saving reminder setting:', error);
+      
+      // Revert state on error
+      setReminderSettings(prev => prev);
+      
+      Alert.alert(
+        'Error',
+        'Failed to save reminder setting. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
-  const updatePrivacySetting = (key: keyof typeof privacySettings, value: boolean) => {
-    setPrivacySettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-    // In real app, save to AsyncStorage/API
+  const updatePrivacySetting = async (key: keyof typeof privacySettings, value: boolean) => {
+    try {
+      const newSettings = {
+        ...privacySettings,
+        [key]: value
+      };
+      
+      // Update state
+      setPrivacySettings(newSettings);
+      
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('privacy_settings', JSON.stringify(newSettings));
+      
+      console.log(`✅ Privacy setting updated: ${key} = ${value}`);
+    } catch (error) {
+      console.error('❌ Error saving privacy setting:', error);
+      
+      // Revert state on error
+      setPrivacySettings(prev => prev);
+      
+      Alert.alert(
+        'Error',
+        'Failed to save privacy setting. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -224,8 +322,12 @@ export default function ProfileScreen() {
             </Text>
           </View>
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>Study Buddy</Text>
-            <Text style={styles.userEmail}>student@studymap.app</Text>
+            <Text style={styles.userName}>
+              {userInfo?.fullName || 'Study Buddy'}
+            </Text>
+            <Text style={styles.userEmail}>
+              {userInfo?.email || 'student@studymap.app'}
+            </Text>
             <Text style={styles.userExam}>
               {programMetadata.examType?.toUpperCase()} • {programMetadata.daysRemaining} days left
             </Text>
@@ -284,7 +386,7 @@ export default function ProfileScreen() {
             {item.type === 'switch' ? (
               <Switch
                 value={item.value}
-                onValueChange={item.onChange}
+                onValueChange={item.onChange || item.onToggle}
                 trackColor={{ false: colors.neutral[300], true: colors.primary[500] }}
                 thumbColor={item.value ? '#FFFFFF' : '#FFFFFF'}
               />
@@ -373,25 +475,29 @@ export default function ProfileScreen() {
             subtitle: 'Get notified when it\'s time to study',
             type: 'switch',
             value: reminderSettings.dailyReminder,
-            onToggle: (value: boolean) => updateReminderSetting('dailyReminder', value),
-          },
-          {
-            icon: '📚',
-            title: 'Focus Subjects',
-            subtitle: onboardingData?.examData?.subjects?.join(', ') || 'All subjects',
-            onPress: handleEditStudySettings,
-          },
-          {
-            icon: '🧠',
-            title: 'Learning Style',
-            subtitle: `${onboardingData?.learningStyleData?.primaryStyle || 'Visual'} learner`,
-            onPress: handleEditStudySettings,
+            onChange: (value: boolean) => updateReminderSetting('dailyReminder', value as boolean),
           },
           {
             icon: '⏰',
-            title: 'Study Schedule',
-            subtitle: `${onboardingData?.goalsData?.studyIntensity || 'Moderate'} intensity • ${onboardingData?.goalsData?.targetStudyTime || 120} min/day`,
-            onPress: handleEditStudySettings,
+            title: 'Study Time',
+            subtitle: `Daily reminder at ${reminderSettings.studyTime}`,
+            onPress: handleStudyTimePress,
+          },
+          {
+            icon: '🔔',
+            title: 'Reminder Frequency',
+            subtitle: reminderSettings.reminderFrequency === 'minimal' ? 'Weekly check-ins' : 
+                     reminderSettings.reminderFrequency === 'moderate' ? 'Daily reminders' : 
+                     'Multiple daily reminders',
+            type: 'info',
+            value: '',
+            onPress: () => {
+              Alert.alert(
+                'Edit Reminder Frequency',
+                'To change your reminder frequency, go to Profile > Edit Profile > Reminder Settings.',
+                [{ text: 'OK' }]
+              );
+            },
           },
         ])}
 
@@ -403,7 +509,7 @@ export default function ProfileScreen() {
             subtitle: 'Pomodoro break notifications',
             type: 'switch',
             value: reminderSettings.breakReminder,
-            onChange: (value: boolean) => updateReminderSetting('breakReminder', value),
+            onChange: (value: boolean) => updateReminderSetting('breakReminder', value as boolean),
           },
           {
             icon: '📊',
@@ -411,7 +517,7 @@ export default function ProfileScreen() {
             subtitle: 'Progress summary every Sunday',
             type: 'switch',
             value: reminderSettings.weeklyReport,
-            onChange: (value: boolean) => updateReminderSetting('weeklyReport', value),
+            onChange: (value: boolean) => updateReminderSetting('weeklyReport', value as boolean),
           },
           {
             icon: '✨',
@@ -419,7 +525,7 @@ export default function ProfileScreen() {
             subtitle: 'Daily inspiration',
             type: 'switch',
             value: reminderSettings.motivationalQuotes,
-            onChange: (value: boolean) => updateReminderSetting('motivationalQuotes', value),
+            onChange: (value: boolean) => updateReminderSetting('motivationalQuotes', value as boolean),
           },
         ])}
 
@@ -448,12 +554,6 @@ export default function ProfileScreen() {
             type: 'switch',
             value: privacySettings.marketing,
             onChange: (value: boolean) => updatePrivacySetting('marketing', value),
-          },
-          {
-            icon: '💾',
-            title: 'Export Data',
-            subtitle: 'Download your study data',
-            onPress: handleExportData,
           },
         ])}
 
@@ -543,7 +643,7 @@ const styles = StyleSheet.create({
   // User Header
   userHeaderCard: {
     borderRadius: 16,
-    marginBottom: 24,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,

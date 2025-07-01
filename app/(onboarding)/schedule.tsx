@@ -108,16 +108,7 @@ export default function ScheduleScreen() {
             <Text style={[styles.backIcon, { color: colors.neutral[600] }]}>←</Text>
           </TouchableOpacity>
           
-          <View style={styles.headerCenter}>
-            <Text 
-              style={[styles.headerTitle, { color: colors.neutral[900] }]}
-              numberOfLines={1}
-              adjustsFontSizeToFit={true}
-              minimumFontScale={0.8}
-            >
-              Schedule Setup
-            </Text>
-          </View>
+
           
           <View style={styles.headerRight} />
         </View>
@@ -476,10 +467,6 @@ const styles = StyleSheet.create({
   },
   progressInfo: {
     alignItems: 'center',
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   content: {
     flex: 1,

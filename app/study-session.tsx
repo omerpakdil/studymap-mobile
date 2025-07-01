@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 
 import { generateStudyContent } from '@/app/utils/aiProviderManager';
+import NotificationService from '@/app/utils/notificationService';
 import { loadExamData } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
@@ -224,6 +225,12 @@ export default function StudySessionScreen() {
   // Timer functions
   const startTimer = () => {
     setIsRunning(true);
+    
+    // Schedule break reminder if this is a study session and we're just starting
+    if (timerState === 'study' && timeLeft === focusDuration * 60) {
+      NotificationService.scheduleBreakReminder();
+    }
+    
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {

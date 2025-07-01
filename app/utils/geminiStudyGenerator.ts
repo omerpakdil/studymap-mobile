@@ -2,11 +2,24 @@ import { getCurriculumByExamId } from '@/app/data';
 import { GoogleGenAI } from '@google/genai';
 import { OnboardingData } from './onboardingData';
 
-// API Key - Replace with your actual Google API key
-const GOOGLE_API_KEY = 'AIzaSyAaJlRkLes9NFhLCV-AxujpsIWSdYfgM0s';
+// API Key from environment variables with validation
+const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
-// Initialize Google GenAI client
-const genAI = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
+// Validate API key
+if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your-google-api-key-here') {
+  console.warn('⚠️ Google API key not configured properly. Please set EXPO_PUBLIC_GOOGLE_API_KEY in your .env file');
+  console.warn('💡 Get your API key from: https://aistudio.google.com/app/apikey');
+}
+
+// Initialize Google GenAI client with error handling
+let genAI: GoogleGenAI | null = null;
+try {
+  if (GOOGLE_API_KEY && GOOGLE_API_KEY !== 'your-google-api-key-here') {
+    genAI = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Google GenAI:', error);
+}
 
 // Study program data types (same as Claude implementation)
 export interface StudyTask {
@@ -390,6 +403,14 @@ const validateAndFixSubjects = (response: any, examType?: string): any => {
 // Call Gemini API with optional exam type for validation
 const callGeminiAPI = async (prompt: string, examType?: string): Promise<any> => {
   try {
+    if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your-google-api-key-here') {
+      throw new Error('Google API key not configured. Please set GOOGLE_API_KEY environment variable.');
+    }
+    
+    if (!genAI) {
+      throw new Error('Google GenAI client not initialized. Please check your API key configuration.');
+    }
+    
     console.log('🤖 Calling Gemini API for study program generation...');
     
     const model = genAI.models.generateContent({
@@ -1540,6 +1561,16 @@ Generate high-quality, exam-appropriate content:
 `;
 
     try {
+      if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your-google-api-key-here') {
+        console.log('⚠️ Google API key not configured, using fallback content generation');
+        return generateFallbackContentWithGemini(params);
+      }
+      
+      if (!genAI) {
+        console.log('⚠️ Google GenAI client not initialized, using fallback content generation');
+        return generateFallbackContentWithGemini(params);
+      }
+
       const model = genAI.models.generateContent({
         model: 'gemini-2.0-flash-001',
         contents: contentPrompt,

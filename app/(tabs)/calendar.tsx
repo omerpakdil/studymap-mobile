@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
@@ -47,6 +47,27 @@ const monthNames = [
 ];
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Time slot formatting utility
+const formatTimeSlot = (timeSlot: string, compact: boolean = false) => {
+  const timeSlotMap: Record<string, { label: string; time: string; shortLabel: string }> = {
+    'early_morning': { label: 'Early Morning', time: '6:00 - 9:00 AM', shortLabel: 'Early Morning' },
+    'morning': { label: 'Morning', time: '9:00 AM - 12:00 PM', shortLabel: 'Morning' },
+    'afternoon': { label: 'Afternoon', time: '12:00 - 5:00 PM', shortLabel: 'Afternoon' },
+    'evening': { label: 'Evening', time: '5:00 - 9:00 PM', shortLabel: 'Evening' },
+    'night': { label: 'Night', time: '9:00 PM - 12:00 AM', shortLabel: 'Night' },
+  };
+  
+  const slot = timeSlotMap[timeSlot];
+  if (slot) {
+    if (compact) {
+      return slot.shortLabel;
+    }
+    return `${slot.label}\n${slot.time}`;
+  }
+  
+  return timeSlot || 'No time set';
+};
 
 export default function CalendarScreen() {
   const { colors } = useTheme();
@@ -382,7 +403,7 @@ export default function CalendarScreen() {
                     </View>
                     <View style={styles.weekTaskInfo}>
                       <Text style={[styles.weekTaskTime, { color: colors.neutral[500] }]}>
-                        {task.timeSlot || 'No time set'}
+                        {formatTimeSlot(task.timeSlot || '', true)}
                       </Text>
                       <Text style={[styles.weekTaskDuration, { color: colors.neutral[500] }]}>
                         {task.duration}m
@@ -427,7 +448,7 @@ export default function CalendarScreen() {
               >
                 <View style={styles.dayTaskTime}>
                   <Text style={[styles.dayTaskTimeText, { color: colors.neutral[600] }]}>
-                    {task.timeSlot || 'No time set'}
+                    {formatTimeSlot(task.timeSlot || '', true)}
                   </Text>
                   <Text style={[styles.dayTaskDuration, { color: colors.neutral[500] }]}>
                     {task.duration} min

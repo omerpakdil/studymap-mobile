@@ -2,16 +2,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-    Dimensions,
-    FlatList,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  FlatList,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { availableExams, getCurriculumByExamId } from '@/app/data';
@@ -206,14 +206,7 @@ export default function AssessmentScreen() {
           <Text style={[styles.backIcon, { color: colors.neutral[600] }]}>←</Text>
         </TouchableOpacity>
         
-        <View style={styles.progressContainer}>
-          <View style={[styles.progressTrack, { backgroundColor: colors.neutral[200] }]}>
-            <View style={[styles.progressFill, { backgroundColor: colors.primary[500], width: '20%' }]} />
-          </View>
-          <Text style={[styles.progressText, { color: colors.neutral[500] }]}>
-            Step 1 of 5
-          </Text>
-        </View>
+
       </View>
 
       {/* Content */}
@@ -301,7 +294,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: isIOS ? 8 : 16,
+    paddingTop: isIOS ? 8 : 24,
     paddingBottom: 16,
     position: 'relative',
   },
@@ -318,25 +311,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
   },
-  progressContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressTrack: {
-    width: 120,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
+  
   content: {
     flex: 1,
     paddingHorizontal: 20,

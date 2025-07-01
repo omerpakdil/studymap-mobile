@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
-  TouchableOpacity,
   View
 } from 'react-native';
 
@@ -69,11 +68,7 @@ export default function WelcomeScreen() {
   }, []);
 
   const handleGetStarted = () => {
-    router.push('/(onboarding)/assessment');
-  };
-
-  const handleSkip = () => {
-    router.push('/(onboarding)/assessment');
+    router.push('/user-info');
   };
 
   const rotateInterpolate = rotateAnim.interpolate({
@@ -85,17 +80,7 @@ export default function WelcomeScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[0] }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[0]} />
       
-      {/* Skip Button */}
-      <View style={styles.topBar}>
-                 <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
-           <Text style={{
-             ...styles.skipText,
-             color: colors.neutral[500]
-           }}>
-             Skip
-           </Text>
-         </TouchableOpacity>
-      </View>
+
 
       {/* Main Content */}
       <Animated.View 
@@ -244,27 +229,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 24,
-    paddingTop: isIOS ? 16 : 32,
-    paddingBottom: 8,
-  },
-  skipButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  skipText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
+
   mainContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingTop: isIOS ? 40 : 40,
   },
   visualSection: {
     height: 180,
@@ -396,7 +367,7 @@ const styles = StyleSheet.create({
   bottomSection: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: isIOS ? 90 : 45,
+    paddingBottom: isIOS ? 60 : 30,
     alignItems: 'center',
   },
   ctaButton: {
