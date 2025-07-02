@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { generateStudyProgram, getCurrentAIProvider } from '@/app/utils/aiProviderManager';
@@ -162,8 +162,8 @@ export default function CompletionScreen() {
       // Retry generation
       generateAIStudyProgram();
     } else {
-      // Navigate to main app dashboard
-      router.replace('/(tabs)/dashboard');
+      // Navigate to subscription page first
+      router.replace('/(onboarding)/subscription');
     }
   };
 

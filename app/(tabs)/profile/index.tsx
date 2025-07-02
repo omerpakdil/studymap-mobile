@@ -4,7 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   Linking,
   Modal,
@@ -13,7 +15,6 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View
@@ -50,20 +51,22 @@ export default function ProfileScreen() {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showRateModal, setShowRateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showStudyTimeModal, setShowStudyTimeModal] = useState(false);
+  const [pendingStudyTime, setPendingStudyTime] = useState('09:00');
   
 
   
   // Settings states
   const [reminderSettings, setReminderSettings] = useState({
-    dailyReminder: true,
+    dailyReminder: false,
     studyTime: '09:00',
-    breakReminder: true,
-    weeklyReport: true,
-    motivationalQuotes: true,
+    breakReminder: false,
+    weeklyReport: false,
+    motivationalQuotes: false,
     reminderFrequency: 'minimal',
   });
   const [privacySettings, setPrivacySettings] = useState({
-    analytics: true,
+    analytics: false,
     dataSharing: false,
     marketing: false,
   });
@@ -217,24 +220,20 @@ export default function ProfileScreen() {
   };
 
   const handleStudyTimePress = () => {
-    const timeOptions = [
-      '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-      '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-      '18:00', '19:00', '20:00', '21:00', '22:00'
-    ];
+    setPendingStudyTime(reminderSettings.studyTime);
+    setShowStudyTimeModal(true);
+  };
 
-    Alert.alert(
-      'Select Study Time',
-      'Choose your preferred time for daily study reminders',
-      [
-        ...timeOptions.map(time => ({
-          text: time,
-          onPress: () => updateReminderSetting('studyTime', time as string),
-        })),
-        { text: 'Cancel', style: 'cancel' }
-      ],
-      { cancelable: true }
-    );
+  // Generate all times in 30 min intervals
+  const allTimes = Array.from({ length: 48 }, (_, i) => {
+    const hour = Math.floor(i / 2).toString().padStart(2, '0');
+    const min = i % 2 === 0 ? '00' : '30';
+    return `${hour}:${min}`;
+  });
+
+  const handleStudyTimeSave = () => {
+    updateReminderSetting('studyTime', pendingStudyTime);
+    setShowStudyTimeModal(false);
   };
 
   const handleResetOnboarding = () => {
@@ -336,15 +335,89 @@ export default function ProfileScreen() {
     });
   };
 
+  // Modern Toggle Component with Animation
+  const ModernToggle = ({ value, onToggle }: { value: boolean; onToggle: (newValue: boolean) => void }) => {
+    const [animatedValue] = useState(new Animated.Value(value ? 1 : 0));
 
+    useEffect(() => {
+      Animated.timing(animatedValue, {
+        toValue: value ? 1 : 0,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    }, [value]);
+
+    const translateX = animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [2, 22],
+    });
+
+    const backgroundColor = animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [colors.neutral[300], colors.primary[500]],
+    });
+
+    const shadowOpacity = animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.3],
+    });
+
+    return (
+      <View style={styles.modernToggleContainer}>
+        <TouchableOpacity
+          onPress={() => onToggle(!value)}
+          activeOpacity={0.8}
+          style={styles.modernToggleWrapper}
+        >
+          <Animated.View
+            style={[
+              styles.modernToggle,
+              { 
+                backgroundColor,
+                shadowOpacity,
+                shadowColor: colors.primary[500]
+              }
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.modernToggleThumb,
+                {
+                  backgroundColor: '#FFFFFF',
+                  transform: [{ translateX }],
+                }
+              ]}
+            >
+              {value && (
+                <Animated.View style={{ opacity: animatedValue }}>
+                  <Text style={styles.modernToggleCheck}>✓</Text>
+                </Animated.View>
+              )}
+            </Animated.View>
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   // Show loading state
   if (loading || !programMetadata || !onboardingData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
-        <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
-          <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
-            👤 Loading your profile...
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.primary[50], flex: 1 }]}> 
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <LinearGradient
+            colors={[colors.primary[400], colors.primary[500], colors.primary[600]]}
+            style={{ width: 90, height: 90, borderRadius: 45, justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <ActivityIndicator size="large" color="#fff" />
+          </LinearGradient>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: colors.primary[700], marginBottom: 8, textAlign: 'center' }}>
+            Loading your profile...
+          </Text>
+          <Text style={{ fontSize: 15, color: colors.neutral[500], textAlign: 'center', maxWidth: 260 }}>
+            Please wait while we prepare your personalized data.
           </Text>
         </View>
       </SafeAreaView>
@@ -399,7 +472,7 @@ export default function ProfileScreen() {
   );
 
   const renderSettingsSection = (title: string, items: any[]) => (
-    <View style={[styles.settingsSection, { backgroundColor: colors.neutral[0] }]}>
+    <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
         {title}
       </Text>
@@ -408,19 +481,22 @@ export default function ProfileScreen() {
           key={index}
           style={[
             styles.settingsItem,
-            index < items.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.neutral[100] }
+            { backgroundColor: colors.neutral[0], borderBottomColor: colors.neutral[100] }
           ]}
           onPress={item.onPress}
           disabled={item.type === 'switch'}
+          activeOpacity={item.type === 'switch' ? 1 : 0.7}
         >
           <View style={styles.settingsItemLeft}>
-            <Text style={styles.settingsIcon}>{item.icon}</Text>
-            <View>
-              <Text style={[styles.settingsTitle, { color: colors.neutral[900] }]}>
+            {item.icon && (
+              <Text style={styles.settingsIcon}>{item.icon}</Text>
+            )}
+            <View style={styles.settingsTextContainer}>
+              <Text style={[styles.settingsTitle, { color: colors.neutral[800] }]}>
                 {item.title}
               </Text>
               {item.subtitle && (
-                <Text style={[styles.settingsSubtitle, { color: colors.neutral[600] }]}>
+                <Text style={[styles.settingsSubtitle, { color: colors.neutral[500] }]}>
                   {item.subtitle}
                 </Text>
               )}
@@ -428,11 +504,9 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.settingsItemRight}>
             {item.type === 'switch' ? (
-              <Switch
+              <ModernToggle
                 value={item.value}
-                onValueChange={item.onChange || item.onToggle}
-                trackColor={{ false: colors.neutral[300], true: colors.primary[500] }}
-                thumbColor={item.value ? '#FFFFFF' : '#FFFFFF'}
+                onToggle={item.onChange || item.onToggle}
               />
             ) : item.type === 'info' ? (
               <Text style={[styles.settingsValue, { color: colors.neutral[600] }]}>
@@ -961,6 +1035,59 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Study Time Modal */}
+      <Modal
+        visible={showStudyTimeModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowStudyTimeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0], maxHeight: '85%' }]}>  
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>⏰ Select Study Time</Text>
+              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>Choose your preferred time for daily study reminders</Text>
+            </View>
+            {/* Time Grid */}
+            <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={styles.timeGridContainer} showsVerticalScrollIndicator={false}>
+              <View style={styles.timeGridRowWrap}>
+                {allTimes.map((time) => (
+                  <TouchableOpacity
+                    key={time}
+                    style={[
+                      styles.timeGridCell,
+                      pendingStudyTime === time && { backgroundColor: colors.primary[500], borderColor: colors.primary[500] }
+                    ]}
+                    onPress={() => setPendingStudyTime(time)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ color: pendingStudyTime === time ? '#fff' : colors.neutral[800], fontWeight: '600' }}>{time}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            {/* Modal Actions */}
+            <View style={[styles.modalActions, { flexDirection: 'row', gap: 12, marginTop: 8 }]}> 
+              <TouchableOpacity
+                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100], flex: 1 }]}
+                onPress={() => setShowStudyTimeModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalCancelButton, { backgroundColor: colors.primary[500], flex: 1 }]}
+                onPress={handleStudyTimeSave}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalCancelText, { color: '#fff', textAlign: 'center', fontWeight: '700' }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1472,5 +1599,89 @@ const styles = StyleSheet.create({
   modalDeleteButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Modern Toggle Styles
+  modernToggleContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modernToggleWrapper: {
+    padding: 4, // Increase touch target
+  },
+  modernToggle: {
+    width: 52,
+    height: 30,
+    borderRadius: 15,
+    padding: 3,
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  modernToggleThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  modernToggleCheck: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#10B981',
+  },
+  settingsTextContainer: {
+    flex: 1,
+  },
+  timeOptionsContainer: {
+    marginBottom: 20,
+    gap: 12,
+  },
+  timeOptionCard: {
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 12,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  timeOptionContent: {
+    paddingRight: 24,
+  },
+  timeOptionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1,
+  },
+  timeGridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  timeGridRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  timeGridCell: {
+    width: 70,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 4,
   },
 }); 

@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Platform,
@@ -52,6 +53,29 @@ export default function DashboardScreen() {
   // Task completion tracking
   const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
   
+  // Check subscription status on component mount
+  const checkSubscriptionStatus = async () => {
+    try {
+      // TEMPORARY BYPASS: Always allow access for development
+      console.log('🚧 TEMPORARY: Bypassing subscription check for development');
+      return true;
+      
+      // Original subscription check (commented out temporarily)
+      /*
+      const hasSubscription = await hasPremiumAccess();
+      if (!hasSubscription) {
+        // Redirect to subscription page if no active subscription
+        router.replace('/(onboarding)/subscription');
+        return false;
+      }
+      return true;
+      */
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      return true; // Allow access if check fails to avoid locking out users
+    }
+  };
+
   // Load user info
   const loadUserInfo = async () => {
     try {
@@ -69,6 +93,12 @@ export default function DashboardScreen() {
   const loadDashboardData = async (isInitialLoad: boolean = false) => {
     try {
       setLoading(true);
+      
+      // Check subscription first
+      const hasValidSubscription = await checkSubscriptionStatus();
+      if (!hasValidSubscription) {
+        return; // Exit early if no subscription
+      }
       
       // Only check/initialize notifications on first app load, not on every focus
       if (isInitialLoad) {
@@ -199,15 +229,24 @@ export default function DashboardScreen() {
   useFocusEffectNavigation(focusEffectCallback);
 
   // Show loading state
-  if (loading || !programMetadata) {
+  if (loading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]} edges={['top', 'left', 'right']}>
-        <View style={[styles.loadingContainer, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
-          <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
-            🧠 Loading your personalized study program...
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary[50] }}>
+        <LinearGradient
+          colors={[colors.primary[400], colors.primary[500], colors.primary[600]]}
+          style={{ width: 90, height: 90, borderRadius: 45, justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <ActivityIndicator size="large" color="#fff" />
+        </LinearGradient>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: colors.primary[700], marginBottom: 8, textAlign: 'center' }}>
+          Preparing your dashboard...
+        </Text>
+        <Text style={{ fontSize: 15, color: colors.neutral[500], textAlign: 'center', maxWidth: 260 }}>
+          Please wait while we load your personalized study data.
+        </Text>
+      </View>
     );
   }
 

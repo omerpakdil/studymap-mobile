@@ -1,5 +1,6 @@
 import { isOnboardingComplete } from '@/app/utils/onboardingData';
 import { isProgramGenerated } from '@/app/utils/studyProgramStorage';
+import { hasPremiumAccess } from '@/app/utils/subscriptionManager';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -26,15 +27,22 @@ export default function HomeScreen() {
       
       const onboardingCompleted = await isOnboardingComplete();
       const programExists = await isProgramGenerated();
+      const hasSubscription = await hasPremiumAccess();
       
-      console.log('User status check:', { onboardingCompleted, programExists });
+      console.log('User status check:', { onboardingCompleted, programExists, hasSubscription });
       
-      if (onboardingCompleted && programExists) {
-        // User has completed onboarding and AI program is generated
-        router.replace('/(tabs)/dashboard');
-      } else {
+      if (!onboardingCompleted) {
         // User needs to complete onboarding
         router.replace('/(onboarding)/splash');
+      } else if (!programExists) {
+        // User completed onboarding but no program generated yet (shouldn't happen normally)
+        router.replace('/(onboarding)/splash');
+      } else if (!hasSubscription) {
+        // User completed onboarding and has program but no subscription
+        router.replace('/(onboarding)/subscription');
+      } else {
+        // User has completed everything and has subscription
+        router.replace('/(tabs)/dashboard');
       }
     } catch (error) {
       console.error('Error checking user status:', error);
