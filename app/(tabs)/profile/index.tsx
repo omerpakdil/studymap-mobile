@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
+  Linking,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -14,7 +16,7 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 
@@ -25,6 +27,12 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+
+const reminderFrequencyOptions = [
+  { id: 'minimal', label: 'Minimal', frequency: 'Weekly check-ins', icon: '📅' },
+  { id: 'moderate', label: 'Moderate', frequency: 'Daily reminders', icon: '⏰' },
+  { id: 'frequent', label: 'Frequent', frequency: 'Multiple daily', icon: '🔔' },
+];
 
 export default function ProfileScreen() {
   const { colors } = useTheme();
@@ -38,6 +46,10 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [notificationPermission, setNotificationPermission] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [showRateModal, setShowRateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
 
   
@@ -152,24 +164,56 @@ export default function ProfileScreen() {
 
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => {
-          Alert.alert('Account Deletion', 'Account deletion feature will be implemented soon.');
-        }}
-      ]
-    );
+    setShowDeleteModal(true);
   };
 
   const handleContactSupport = () => {
-    Alert.alert(
-      'Contact Support',
-      'Send us an email at support@studymap.app or visit our help center.',
-      [{ text: 'OK' }]
-    );
+    setShowSupportModal(true);
+  };
+
+  const handleRateApp = () => {
+    setShowRateModal(true);
+  };
+
+  const openAppStore = () => {
+    const appStoreUrl = Platform.OS === 'ios' 
+      ? 'https://apps.apple.com/app/studymap' 
+      : 'https://play.google.com/store/apps/details?id=com.studymap.app';
+    
+    Linking.openURL(appStoreUrl).catch(() => {
+      Alert.alert('Error', 'Could not open app store. Please try again later.');
+    });
+  };
+
+  const openEmail = () => {
+    const emailUrl = 'mailto:support@studymap.app?subject=StudyMap Support Request';
+    Linking.openURL(emailUrl).catch(() => {
+      Alert.alert('Error', 'Could not open email app. Please contact us at support@studymap.app');
+    });
+  };
+
+  const performDeleteAccount = async () => {
+    try {
+      // Clear all data
+      await clearOnboardingData();
+      await clearStudyProgramData();
+      await AsyncStorage.removeItem('user_info');
+      await AsyncStorage.removeItem('reminder_settings');
+      await AsyncStorage.removeItem('privacy_settings');
+      
+      Alert.alert(
+        'Account Deleted',
+        'Your account and all data have been permanently deleted. Please restart the app.',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      Alert.alert(
+        'Delete Failed',
+        'There was an error deleting your account. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleStudyTimePress = () => {
@@ -491,13 +535,7 @@ export default function ProfileScreen() {
                      'Multiple daily reminders',
             type: 'info',
             value: '',
-            onPress: () => {
-              Alert.alert(
-                'Edit Reminder Frequency',
-                'To change your reminder frequency, go to Profile > Edit Profile > Reminder Settings.',
-                [{ text: 'OK' }]
-              );
-            },
+            onPress: () => setShowReminderModal(true),
           },
         ])}
 
@@ -576,7 +614,7 @@ export default function ProfileScreen() {
             icon: '⭐',
             title: 'Rate StudyMap',
             subtitle: 'Share your feedback',
-            onPress: () => Alert.alert('Rate App', 'Rating feature coming soon!'),
+            onPress: handleRateApp,
           },
           {
             icon: '🗑️',
@@ -606,6 +644,323 @@ export default function ProfileScreen() {
         {/* Bottom Spacing */}
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Reminder Frequency Modal */}
+      <Modal
+        visible={showReminderModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReminderModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
+                Reminder Frequency
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
+                Choose how often you'd like to receive study reminders
+              </Text>
+            </View>
+
+            {/* Reminder Options */}
+            <View style={styles.modalOptionsContainer}>
+              {reminderFrequencyOptions.map((option) => {
+                const isSelected = reminderSettings.reminderFrequency === option.id;
+                
+                return (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[
+                      styles.modalOptionCard,
+                      {
+                        backgroundColor: isSelected ? colors.success[500] : colors.neutral[0],
+                        borderColor: isSelected ? colors.success[500] : colors.neutral[200],
+                      }
+                    ]}
+                    onPress={() => {
+                      updateReminderSetting('reminderFrequency', option.id);
+                      setShowReminderModal(false);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.modalOptionContent}>
+                      <View style={styles.modalOptionHeader}>
+                        <Text style={styles.modalOptionIcon}>{option.icon}</Text>
+                        <Text style={[
+                          styles.modalOptionLabel,
+                          { color: isSelected ? '#FFFFFF' : colors.neutral[800] }
+                        ]}>
+                          {option.label}
+                        </Text>
+                      </View>
+                      <Text style={[
+                        styles.modalOptionFrequency,
+                        { color: isSelected ? 'rgba(255,255,255,0.9)' : colors.success[600] }
+                      ]}>
+                        {option.frequency}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <View style={styles.modalSelectedIndicator}>
+                        <Text style={styles.modalCheckIcon}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100] }]}
+                onPress={() => setShowReminderModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Help & Support Modal */}
+      <Modal
+        visible={showSupportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSupportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
+                Help & Support
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
+                Get help with StudyMap or contact our support team
+              </Text>
+            </View>
+
+            {/* Support Options */}
+            <View style={styles.modalOptionsContainer}>
+              <TouchableOpacity
+                style={[styles.modalSupportOption, { backgroundColor: colors.primary[50] }]}
+                onPress={() => {
+                  setShowSupportModal(false);
+                  openEmail();
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.modalSupportContent}>
+                  <Text style={styles.modalSupportIcon}>📧</Text>
+                  <View style={styles.modalSupportText}>
+                    <Text style={[styles.modalSupportTitle, { color: colors.primary[700] }]}>
+                      Email Support
+                    </Text>
+                    <Text style={[styles.modalSupportDesc, { color: colors.primary[600] }]}>
+                      support@studymap.app
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSupportOption, { backgroundColor: colors.secondary[50] }]}
+                onPress={() => {
+                  setShowSupportModal(false);
+                  Alert.alert('Help Center', 'Visit our help center at help.studymap.app for FAQs and guides.');
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.modalSupportContent}>
+                  <Text style={styles.modalSupportIcon}>❓</Text>
+                  <View style={styles.modalSupportText}>
+                    <Text style={[styles.modalSupportTitle, { color: colors.secondary[700] }]}>
+                      Help Center
+                    </Text>
+                    <Text style={[styles.modalSupportDesc, { color: colors.secondary[600] }]}>
+                      FAQs and guides
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSupportOption, { backgroundColor: colors.accent[50] }]}
+                onPress={() => {
+                  setShowSupportModal(false);
+                  Alert.alert('Bug Report', 'Thank you for helping us improve! Please email us at support@studymap.app with details about the issue.');
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.modalSupportContent}>
+                  <Text style={styles.modalSupportIcon}>🐛</Text>
+                  <View style={styles.modalSupportText}>
+                    <Text style={[styles.modalSupportTitle, { color: colors.accent[700] }]}>
+                      Report Bug
+                    </Text>
+                    <Text style={[styles.modalSupportDesc, { color: colors.accent[600] }]}>
+                      Help us improve the app
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100] }]}
+                onPress={() => setShowSupportModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
+                  Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Rate StudyMap Modal */}
+      <Modal
+        visible={showRateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalRateIcon}>⭐</Text>
+              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
+                Rate StudyMap
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
+                Help others discover StudyMap by sharing your experience
+              </Text>
+            </View>
+
+            {/* Rating Content */}
+            <View style={styles.modalRateContent}>
+              <Text style={[styles.modalRateText, { color: colors.neutral[700] }]}>
+                If you're enjoying StudyMap, we'd love your feedback on the app store! 
+                Your review helps us improve and reach more students.
+              </Text>
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalRateActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100], flex: 1, marginRight: 8 }]}
+                onPress={() => setShowRateModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
+                  Maybe Later
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalRateButton, { backgroundColor: colors.primary[500], flex: 1, marginLeft: 8 }]}
+                onPress={() => {
+                  setShowRateModal(false);
+                  openAppStore();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalRateButtonText, { color: '#FFFFFF', textAlign: 'center' }]}>
+                  Rate App
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Account Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalDeleteIcon}>⚠️</Text>
+              <Text style={[styles.modalTitle, { color: colors.error[700] }]}>
+                Delete Account
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
+                This action cannot be undone
+              </Text>
+            </View>
+
+            {/* Warning Content */}
+            <View style={styles.modalDeleteContent}>
+              <View style={[styles.modalDeleteWarning, { backgroundColor: colors.error[50] }]}>
+                <Text style={[styles.modalDeleteWarningText, { color: colors.error[700] }]}>
+                  ⚠️ All your data will be permanently deleted:
+                </Text>
+                <View style={styles.modalDeleteList}>
+                  <Text style={[styles.modalDeleteItem, { color: colors.error[600] }]}>
+                    • Study progress and achievements
+                  </Text>
+                  <Text style={[styles.modalDeleteItem, { color: colors.error[600] }]}>
+                    • Personal information and preferences
+                  </Text>
+                  <Text style={[styles.modalDeleteItem, { color: colors.error[600] }]}>
+                    • Study schedules and reminders
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Modal Actions */}
+            <View style={styles.modalDeleteActions}>
+              <TouchableOpacity
+                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100], flex: 1, marginRight: 8 }]}
+                onPress={() => setShowDeleteModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalDeleteButton, { backgroundColor: colors.error[500], flex: 1, marginLeft: 8 }]}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  Alert.alert(
+                    'Final Confirmation',
+                    'Are you absolutely sure you want to delete your account? This action cannot be undone.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Delete Forever', style: 'destructive', onPress: performDeleteAccount }
+                    ]
+                  );
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.modalDeleteButtonText, { color: '#FFFFFF', textAlign: 'center' }]}>
+                  Delete Account
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -920,5 +1275,202 @@ const styles = StyleSheet.create({
   helpText: {
     fontSize: 14,
     lineHeight: 18,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+    padding: 24,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  modalOptionsContainer: {
+    marginBottom: 20,
+    gap: 12,
+  },
+  modalOptionCard: {
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 12,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  modalOptionContent: {
+    paddingRight: 24,
+  },
+  modalOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalOptionIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  modalOptionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1,
+  },
+  modalOptionFrequency: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalSelectedIndicator: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  modalCheckIcon: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  modalCancelButton: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalSupportOption: {
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 12,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  modalSupportContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalSupportIcon: {
+    fontSize: 20,
+    marginRight: 16,
+  },
+  modalSupportText: {
+    flex: 1,
+  },
+  modalSupportTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  modalSupportDesc: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  modalRateIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  modalRateContent: {
+    padding: 20,
+  },
+  modalRateText: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  modalRateActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  modalRateButton: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  modalRateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  modalDeleteIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  modalDeleteContent: {
+    padding: 20,
+  },
+  modalDeleteWarning: {
+    padding: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderRadius: 12,
+  },
+  modalDeleteWarningText: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  modalDeleteList: {
+    marginLeft: 16,
+  },
+  modalDeleteItem: {
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  modalDeleteActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
+  },
+  modalDeleteButton: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  modalDeleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

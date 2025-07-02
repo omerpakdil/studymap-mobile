@@ -228,7 +228,7 @@ export default function StudySessionScreen() {
     
     // Schedule break reminder if this is a study session and we're just starting
     if (timerState === 'study' && timeLeft === focusDuration * 60) {
-      NotificationService.scheduleBreakReminder();
+      NotificationService.startBreakReminders();
     }
     
     intervalRef.current = setInterval(() => {
