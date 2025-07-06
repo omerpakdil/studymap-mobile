@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   Dimensions,
-  FlatList,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -11,7 +10,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 import { availableExams, getCurriculumByExamId } from '@/app/data';
@@ -95,7 +94,7 @@ export default function AssessmentScreen() {
     }
   };
 
-  const renderExamCard = ({ item }: { item: typeof examTypes[0] }) => {
+  const renderExamCard = (item: typeof examTypes[0]) => {
     const isSelected = selectedExam === item.id;
     
     return (
@@ -197,31 +196,21 @@ export default function AssessmentScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[0] }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[0]} />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={[styles.backIcon, { color: colors.neutral[600] }]}>←</Text>
-        </TouchableOpacity>
-        
-
-      </View>
-
       {/* Content */}
-             <ScrollView 
-         style={styles.content} 
-         showsVerticalScrollIndicator={false}
-         contentContainerStyle={{ paddingBottom: 20 }}
-       >
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        scrollEnabled={true}
+      >
         {/* Title Section */}
         <View style={styles.titleSection}>
           <Text style={[styles.title, { color: colors.neutral[900] }]}>
             Choose Your Exam
           </Text>
           <Text style={[styles.subtitle, { color: colors.neutral[600] }]}>
-            Select the exam you're preparing for to get a personalized study plan
+            Select the exam you&apos;re preparing for to get a personalized study plan
           </Text>
         </View>
 
@@ -231,14 +220,13 @@ export default function AssessmentScreen() {
             <Text style={[styles.sectionTitle, { color: colors.neutral[800] }]}>
               Popular Exams
             </Text>
-                         <FlatList
-               data={popularExams}
-               renderItem={renderExamCard}
-               keyExtractor={(item) => item.id}
-               scrollEnabled={false}
-               ItemSeparatorComponent={() => <View style={{ height: 20 }} />}
-               contentContainerStyle={{ paddingVertical: 8 }}
-             />
+            <View style={styles.examsList}>
+              {popularExams.map((item, index) => (
+                <View key={item.id} style={index > 0 ? { marginTop: 20 } : {}}>
+                  {renderExamCard(item)}
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
@@ -248,20 +236,19 @@ export default function AssessmentScreen() {
             <Text style={[styles.sectionTitle, { color: colors.neutral[800] }]}>
               Other Exams
             </Text>
-                         <FlatList
-               data={otherExams}
-               renderItem={renderExamCard}
-               keyExtractor={(item) => item.id}
-               scrollEnabled={false}
-               ItemSeparatorComponent={() => <View style={{ height: 20 }} />}
-               contentContainerStyle={{ paddingVertical: 8 }}
-             />
+            <View style={styles.examsList}>
+              {otherExams.map((item, index) => (
+                <View key={item.id} style={index > 0 ? { marginTop: 20 } : {}}>
+                  {renderExamCard(item)}
+                </View>
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>
 
       {/* Bottom Action */}
-      <View style={styles.bottomSection}>
+      <View style={[styles.bottomSection, { backgroundColor: colors.neutral[0], borderTopColor: colors.neutral[200] }]}>
                  <Button
            variant="primary"
            onPress={handleContinue}
@@ -290,31 +277,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: isIOS ? 8 : 24,
-    paddingBottom: 16,
-    position: 'relative',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    left: 24,
-    zIndex: 1,
-  },
-  backIcon: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  
-  content: {
+  scrollView: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  contentContainer: {
+    paddingTop: isIOS ? 20 : 24,
+    paddingBottom: 140,
+    minHeight: '120%', // Force scrollable content
   },
   titleSection: {
     marginBottom: 32,
@@ -461,9 +431,19 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   bottomSection: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: isIOS ? 34 : 20,
+    borderTopWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   continueButton: {
     width: '100%',
@@ -475,5 +455,8 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: -1,
+  },
+  examsList: {
+    // Add any necessary styles for the exams list
   },
 }); 

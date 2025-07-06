@@ -370,7 +370,7 @@ export default function GoalsScreen() {
         return (
           <View style={styles.stepContainer}>
             <Text style={[styles.stepTitle, { color: colors.neutral[900] }]}>
-              What's your target score?
+              What&apos;s your target score?
             </Text>
             <Text style={[styles.stepDescription, { color: colors.neutral[600] }]}>
               Choose a realistic yet challenging goal to aim for
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingHorizontal: 16,
-    paddingBottom: isIOS ? 30 : 16,
+    paddingBottom: isIOS ? 16 : 16,
     paddingTop: 16,
   },
   continueButton: {

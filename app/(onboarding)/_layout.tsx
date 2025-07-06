@@ -9,7 +9,7 @@ export default function OnboardingLayout() {
         screenOptions={{
           headerShown: false,
           animation: 'slide_from_right',
-          gestureEnabled: true,
+          gestureEnabled: false,
           gestureDirection: 'horizontal',
         }}
       >
@@ -25,15 +25,55 @@ export default function OnboardingLayout() {
             gestureEnabled: false,
           }}
         />
-        <Stack.Screen name="user-info" />
+        <Stack.Screen 
+          name="user-info" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
         <Stack.Screen 
           name="assessment" 
           options={{
-            presentation: 'modal',
+            presentation: 'card',
+            gestureEnabled: false,
           }}
         />
-        <Stack.Screen name="subject-selection" />
-        <Stack.Screen name="learning-style" />
+        <Stack.Screen 
+          name="subject-selection" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="learning-style" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="schedule" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="goals" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="subscription" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
+          name="completion" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );

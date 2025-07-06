@@ -2,16 +2,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { LearningStyleData, saveLearningStyleData } from '@/app/utils/onboardingData';
@@ -297,7 +297,7 @@ export default function LearningStyleScreen() {
 
           {/* Title */}
           <Text style={[styles.title, { color: colors.neutral[900] }]}>
-            Let's Discover Your{'\n'}Learning Style
+            Let&apos;s Discover Your{'\n'}Learning Style
           </Text>
 
           {/* Description */}
@@ -429,10 +429,10 @@ export default function LearningStyleScreen() {
           {/* Results Header */}
           <View style={styles.resultsHeader}>
             <Text style={[styles.resultsTitle, { color: colors.neutral[900] }]}>
-              Perfect! We've identified your learning style
+              Perfect! We&apos;ve identified your learning style
             </Text>
             <Text style={[styles.resultsSubtitle, { color: colors.neutral[600] }]}>
-              We'll customize your study experience based on these preferences
+              We&apos;ll customize your study experience based on these preferences
             </Text>
           </View>
 
@@ -924,7 +924,7 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingHorizontal: 16,
-    paddingBottom: isIOS ? 30 : 16,
+    paddingBottom: isIOS ? 16 : 16,
     paddingTop: 16,
   },
   continueButton: {

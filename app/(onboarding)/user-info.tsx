@@ -85,7 +85,7 @@ export default function UserInfoScreen() {
             {/* Title Section */}
             <View style={styles.titleSection}>
               <Text style={[styles.title, { color: colors.neutral[900] }]}>
-                Let's Get to Know You
+                Let&apos;s Get to Know You
               </Text>
               <Text style={[styles.subtitle, { color: colors.neutral[600] }]}>
                 Tell us a bit about yourself to personalize your study experience
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   bottomSection: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: isIOS ? 34 : 20,
+    paddingBottom: isIOS ? 20 : 20,
   },
   continueButton: {
     width: '100%',

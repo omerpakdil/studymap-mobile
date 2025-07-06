@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "studymap-mobile",
-    "slug": "studymap-mobile",
+    "name": "StudyMap Pro",
+    "slug": "studymap-pro",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,11 +15,13 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.studymap.mobile",
       "infoPlist": {
         "UIBackgroundModes": ["background-processing", "background-fetch"]
       }
     },
     "android": {
+      "package": "com.studymap.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"

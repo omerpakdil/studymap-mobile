@@ -4,20 +4,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  Linking,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    Linking,
+    Modal,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 
@@ -734,7 +734,7 @@ export default function ProfileScreen() {
                 Reminder Frequency
               </Text>
               <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
-                Choose how often you'd like to receive study reminders
+                Choose how often you&apos;d like to receive study reminders
               </Text>
             </View>
 
@@ -926,7 +926,7 @@ export default function ProfileScreen() {
             {/* Rating Content */}
             <View style={styles.modalRateContent}>
               <Text style={[styles.modalRateText, { color: colors.neutral[700] }]}>
-                If you're enjoying StudyMap, we'd love your feedback on the app store! 
+                If you&apos;re enjoying StudyMap, we&apos;d love your feedback on the app store! 
                 Your review helps us improve and reach more students.
               </Text>
             </View>

@@ -4,27 +4,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
 import NotificationService from '@/app/utils/notificationService';
 import {
-  calculateDailyProgress,
-  getDailyMotivationQuote,
-  getProgramMetadata,
-  getSubjectProgress,
-  getTasksForDate
+    calculateDailyProgress,
+    getDailyMotivationQuote,
+    getProgramMetadata,
+    getSubjectProgress,
+    getTasksForDate
 } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
@@ -348,7 +348,7 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-              Today's Study Plan
+                              Today&apos;s Study Plan
             </Text>
             <TouchableOpacity onPress={() => router.push('/(tabs)/calendar')}>
               <Text style={[styles.seeAllText, { color: colors.primary[500] }]}>

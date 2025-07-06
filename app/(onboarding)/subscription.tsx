@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -13,41 +12,29 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { useTheme } from '../../themes';
-import { initializeRevenueCat, setSubscriptionStatus } from '../utils/subscriptionManager';
+import {
+    checkIntroEligibility,
+    getSubscriptionOfferings,
+    initializeRevenueCat,
+    purchasePackage,
+    restorePurchases
+} from '../utils/subscriptionManager';
 
 const { width, height } = Dimensions.get('window');
 
-// Pricing data based on PRD monetization strategy
-const pricingPlans = [
-  {
-    identifier: 'premium_annual',
-    packageType: 'ANNUAL',
-    product: { priceString: '$99.99' },
-    originalPrice: '$239.88',
-    isPopular: true,
-    discount: '58%',
-    title: 'Annual Plan',
-    subtitle: 'Best Value',
-    monthlyEquivalent: 'Only $8.33/month'
-  },
-  {
-    identifier: 'premium_monthly',
-    packageType: 'MONTHLY',
-    product: { priceString: '$19.99' },
-    isPopular: false,
-    title: 'Monthly Plan',
-    subtitle: 'Flexible'
-  }
-];
-
 export default function SubscriptionScreen() {
   const { colors } = useTheme();
-  const [selectedPackage, setSelectedPackage] = useState(pricingPlans[0]);
+  const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [offerings, setOfferings] = useState<PurchasesOffering | null>(null);
+  const [isIntroEligible, setIsIntroEligible] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     initializeSubscription();
@@ -55,37 +42,79 @@ export default function SubscriptionScreen() {
 
   const initializeSubscription = async () => {
     try {
+      setLoading(true);
+      setError(null);
+      
       // Initialize RevenueCat
       const initialized = await initializeRevenueCat();
       if (!initialized) {
-        console.warn('RevenueCat initialization failed, using mock mode');
+        setError('Unable to initialize payment system. Please check your internet connection.');
+        return;
       }
-    } catch (error) {
-      console.error('Subscription initialization error:', error);
+
+      // Check intro eligibility
+      const eligible = await checkIntroEligibility();
+      setIsIntroEligible(eligible);
+
+      // Get available offerings
+      const availableOfferings = await getSubscriptionOfferings();
+      if (!availableOfferings || availableOfferings.availablePackages.length === 0) {
+        setError('No subscription options available. Please try again later.');
+        return;
+      }
+
+      setOfferings(availableOfferings);
+      
+      // Auto-select the most popular package (typically annual)
+      const popularPackage = availableOfferings.availablePackages.find(pkg => 
+        pkg.packageType === 'ANNUAL'
+      ) || availableOfferings.availablePackages[0];
+      
+      setSelectedPackage(popularPackage);
+      
+    } catch (error: any) {
+      console.error('❌ Subscription initialization error:', error);
+      setError('Failed to load subscription options. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handlePurchase = async () => {
-    if (!selectedPackage) return;
+    if (!selectedPackage) {
+      Alert.alert('Error', 'Please select a subscription plan.');
+      return;
+    }
 
     console.log('💳 Starting purchase process...');
     setPurchasing(true);
+    setError(null);
+    
     try {
-      // Simulate purchase process for now
-      console.log('⏳ Simulating purchase...');
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const subscriptionStatus = await purchasePackage(selectedPackage);
       
-      // Set subscription status using subscriptionManager
-      console.log('💾 Setting subscription status...');
-      await setSubscriptionStatus('active');
-      
-      console.log('🎉 Purchase successful, showing modal...');
-      setShowSuccessModal(true);
+      if (subscriptionStatus.isActive) {
+        console.log('🎉 Purchase successful!');
+        setShowSuccessModal(true);
+      } else {
+        throw new Error('Purchase completed but subscription not activated');
+      }
     } catch (error: any) {
       console.error('❌ Purchase failed:', error);
-      Alert.alert('Purchase Failed', 'Unable to complete purchase. Please try again.');
+      
+      let errorMessage = 'Purchase failed. Please try again.';
+      
+      if (error.message.includes('cancelled')) {
+        errorMessage = 'Purchase was cancelled.';
+      } else if (error.message.includes('pending')) {
+        errorMessage = 'Payment is pending approval. You will receive access once approved.';
+      } else if (error.message.includes('not available')) {
+        errorMessage = 'This subscription is not available in your region.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Purchase Failed', errorMessage);
     } finally {
       setPurchasing(false);
     }
@@ -93,14 +122,29 @@ export default function SubscriptionScreen() {
 
   const handleRestore = async () => {
     try {
-      const status = await AsyncStorage.getItem('subscription_status');
-      if (status === 'active') {
-        router.replace('/(tabs)/dashboard');
+      setLoading(true);
+      const restoredStatus = await restorePurchases();
+      
+      if (restoredStatus.isActive) {
+        Alert.alert(
+          'Subscription Restored',
+          'Your subscription has been restored successfully!',
+          [{ text: 'OK', onPress: () => router.replace('/(tabs)/dashboard') }]
+        );
       } else {
-        Alert.alert('No Subscription Found', 'No active subscription found to restore.');
+        Alert.alert(
+          'No Subscription Found',
+          'No active subscription found to restore. If you believe this is an error, please contact support.'
+        );
       }
-    } catch (error) {
-      Alert.alert('Restore Failed', 'Unable to restore subscription.');
+    } catch (error: any) {
+      console.error('❌ Restore failed:', error);
+      Alert.alert(
+        'Restore Failed',
+        'Unable to restore subscription. Please try again or contact support if the issue persists.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -122,12 +166,83 @@ export default function SubscriptionScreen() {
     }
   };
 
+  const formatPrice = (packageItem: PurchasesPackage): string => {
+    return packageItem.product.priceString;
+  };
+
+  const getPackageTitle = (packageItem: PurchasesPackage): string => {
+    switch (packageItem.packageType) {
+      case 'ANNUAL':
+        return 'Annual Plan';
+      case 'MONTHLY':
+        return 'Monthly Plan';
+      case 'WEEKLY':
+        return 'Weekly Plan';
+      default:
+        return packageItem.product.title || 'Subscription Plan';
+    }
+  };
+
+  const getPackageSubtitle = (packageItem: PurchasesPackage): string => {
+    switch (packageItem.packageType) {
+      case 'ANNUAL':
+        return 'Best Value';
+      case 'MONTHLY':
+        return 'Flexible';
+      case 'WEEKLY':
+        return 'Trial';
+      default:
+        return 'Premium Access';
+    }
+  };
+
+  const isPackagePopular = (packageItem: PurchasesPackage): boolean => {
+    return packageItem.packageType === 'ANNUAL';
+  };
+
+  const getMonthlyEquivalent = (packageItem: PurchasesPackage): string | null => {
+    if (packageItem.packageType === 'ANNUAL') {
+      // Calculate monthly equivalent for annual plans
+      const price = packageItem.product.price;
+      const monthlyPrice = price / 12;
+      return `Only $${monthlyPrice.toFixed(2)}/month`;
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.primary[500] }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={styles.loadingText}>Loading subscription options...</Text>
+          <Text style={styles.loadingText}>
+            {error ? 'Retrying...' : 'Loading subscription options...'}
+          </Text>
+          {error && (
+            <TouchableOpacity 
+              style={styles.retryButton}
+              onPress={initializeSubscription}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  if (error && !offerings) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.primary[500] }]}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Connection Error</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={initializeSubscription}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -178,74 +293,78 @@ export default function SubscriptionScreen() {
       {/* Content */}
       <View style={[styles.content, { backgroundColor: colors.neutral[50] }]}>
         {/* Pricing Cards */}
-        <View style={styles.pricingContainer}>
-          {pricingPlans.map((plan) => (
-            <TouchableOpacity
-              key={plan.identifier}
-              style={[
-                styles.pricingCard,
-                { backgroundColor: colors.neutral[0] },
-                selectedPackage?.identifier === plan.identifier && { 
-                  borderColor: colors.primary[500],
-                  backgroundColor: colors.primary[50],
-                  transform: [{ scale: 1.02 }]
-                }
-              ]}
-              onPress={() => setSelectedPackage(plan)}
-              activeOpacity={0.8}
-            >
-              {plan.isPopular && (
-                <View style={[styles.popularBadge, { backgroundColor: colors.secondary[500] }]}>
-                  <Text style={styles.popularText}>MOST POPULAR</Text>
-                </View>
-              )}
+        {offerings && (
+          <View style={styles.pricingContainer}>
+            {offerings.availablePackages.map((packageItem) => {
+              const isSelected = selectedPackage?.identifier === packageItem.identifier;
+              const isPopular = isPackagePopular(packageItem);
+              const monthlyEquivalent = getMonthlyEquivalent(packageItem);
               
-              <View style={styles.cardContent}>
-                <Text style={[styles.planName, { color: colors.neutral[700] }]}>
-                  {plan.title}
-                </Text>
-                <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
-                  {plan.subtitle}
-                </Text>
-                
-                <View style={styles.priceContainer}>
-                  <View style={styles.priceRow}>
-                    <Text style={[styles.price, { color: colors.primary[600] }]}>
-                      {plan.product.priceString}
+              return (
+                <TouchableOpacity
+                  key={packageItem.identifier}
+                  style={[
+                    styles.pricingCard,
+                    { backgroundColor: colors.neutral[0] },
+                    isSelected && { 
+                      borderColor: colors.primary[500],
+                      backgroundColor: colors.primary[50],
+                      transform: [{ scale: 1.02 }]
+                    }
+                  ]}
+                  onPress={() => setSelectedPackage(packageItem)}
+                  activeOpacity={0.8}
+                >
+                  {isPopular && (
+                    <View style={[styles.popularBadge, { backgroundColor: colors.secondary[500] }]}>
+                      <Text style={styles.popularText}>MOST POPULAR</Text>
+                    </View>
+                  )}
+                  
+                  <View style={styles.cardContent}>
+                    <Text style={[styles.planName, { color: colors.neutral[700] }]}>
+                      {getPackageTitle(packageItem)}
                     </Text>
-                    <Text style={[styles.period, { color: colors.neutral[500] }]}>
-                      {plan.packageType === 'ANNUAL' ? '/year' : '/month'}
+                    <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
+                      {getPackageSubtitle(packageItem)}
                     </Text>
+                    
+                    <View style={styles.priceContainer}>
+                      <View style={styles.priceRow}>
+                        <Text style={[styles.price, { color: colors.primary[600] }]}>
+                          {formatPrice(packageItem)}
+                        </Text>
+                        <Text style={[styles.period, { color: colors.neutral[500] }]}>
+                          /{packageItem.packageType.toLowerCase()}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    {monthlyEquivalent && (
+                      <Text style={[styles.monthlyEquivalent, { color: colors.neutral[500] }]}>
+                        {monthlyEquivalent}
+                      </Text>
+                    )}
+
+                    {isIntroEligible && packageItem.product.introPrice && (
+                      <View style={[styles.introBadge, { backgroundColor: colors.accent[500] }]}>
+                        <Text style={styles.introText}>
+                          {packageItem.product.introPrice.periodNumberOfUnits} {packageItem.product.introPrice.periodUnit} FREE
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   
-                  {plan.originalPrice && (
-                    <Text style={[styles.originalPrice, { color: colors.neutral[400] }]}>
-                      {plan.originalPrice}
-                    </Text>
+                  {isSelected && (
+                    <View style={[styles.selectedIndicator, { backgroundColor: colors.primary[500] }]}>
+                      <Text style={styles.checkIcon}>✓</Text>
+                    </View>
                   )}
-                </View>
-                
-                {plan.discount && (
-                  <View style={[styles.discountBadge, { backgroundColor: colors.accent[500] }]}>
-                    <Text style={styles.discountText}>SAVE {plan.discount}</Text>
-                  </View>
-                )}
-                
-                {plan.monthlyEquivalent && (
-                  <Text style={[styles.monthlyEquivalent, { color: colors.neutral[500] }]}>
-                    {plan.monthlyEquivalent}
-                  </Text>
-                )}
-              </View>
-              
-              {selectedPackage?.identifier === plan.identifier && (
-                <View style={[styles.selectedIndicator, { backgroundColor: colors.primary[500] }]}>
-                  <Text style={styles.checkIcon}>✓</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Premium Features List */}
         <View style={styles.featuresContainer}>
@@ -286,10 +405,10 @@ export default function SubscriptionScreen() {
             style={[
               styles.subscribeButton,
               { backgroundColor: colors.primary[500] },
-              purchasing && { opacity: 0.7 }
+              (purchasing || !selectedPackage) && { opacity: 0.7 }
             ]}
             onPress={handlePurchase}
-            disabled={purchasing}
+            disabled={purchasing || !selectedPackage}
             activeOpacity={0.8}
           >
             <LinearGradient
@@ -303,7 +422,11 @@ export default function SubscriptionScreen() {
               ) : (
                 <>
                   <Text style={styles.buttonText}>Start Premium</Text>
-                  <Text style={styles.buttonSubtext}>3-day free trial</Text>
+                  {isIntroEligible && selectedPackage?.product.introPrice && (
+                    <Text style={styles.buttonSubtext}>
+                      {selectedPackage.product.introPrice.periodNumberOfUnits} {selectedPackage.product.introPrice.periodUnit} free trial
+                    </Text>
+                  )}
                 </>
               )}
             </LinearGradient>
@@ -406,6 +529,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     marginTop: 16,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 16,
+  },
+  errorMessage: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '500',
   },
   header: {
@@ -542,25 +693,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 2,
   },
-  originalPrice: {
-    fontSize: 12,
-    textDecorationLine: 'line-through',
-    marginTop: 2,
-  },
-  discountBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  discountText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-  },
   monthlyEquivalent: {
     fontSize: 11,
     textAlign: 'center',
+  },
+  introBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  introText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
   },
   selectedIndicator: {
     position: 'absolute',

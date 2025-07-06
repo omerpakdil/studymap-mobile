@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { generateStudyProgram, getCurrentAIProvider } from '@/app/utils/aiProviderManager';
@@ -224,14 +224,14 @@ export default function CompletionScreen() {
         {/* Title */}
         <Animated.View style={{ opacity: animationValues.opacity }}>
           <Text style={[styles.title, { color: colors.neutral[900] }]}>
-            You're All Set!
+            You&apos;re All Set!
           </Text>
         </Animated.View>
 
         {/* Subtitle */}
         <Animated.View style={{ opacity: animationValues.opacity }}>
           <Text style={[styles.subtitle, { color: colors.neutral[600] }]}>
-            Your personalized study journey is ready to begin. Let's achieve your goals together!
+            Your personalized study journey is ready to begin. Let&apos;s achieve your goals together!
           </Text>
         </Animated.View>
 

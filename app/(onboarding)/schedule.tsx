@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { saveScheduleData } from '@/app/utils/onboardingData';
@@ -127,7 +127,7 @@ export default function ScheduleScreen() {
 
           {/* Description */}
           <Text style={[styles.description, { color: colors.neutral[600] }]}>
-            Help us create the perfect study schedule by selecting your available time slots throughout the week. We'll optimize your learning plan around these times.
+            Help us create the perfect study schedule by selecting your available time slots throughout the week. We&apos;ll optimize your learning plan around these times.
           </Text>
 
           {/* Features */}
@@ -249,7 +249,7 @@ export default function ScheduleScreen() {
         </View>
         
         <View style={styles.headerRight} />
-      </View>
+      </View>c
 
       {/* Day Selection */}
       <View style={styles.daySelector}>
@@ -468,6 +468,10 @@ const styles = StyleSheet.create({
   progressInfo: {
     alignItems: 'center',
   },
+  progressText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   content: {
     flex: 1,
     paddingHorizontal: 24,
@@ -526,7 +530,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   infoBox: {
-    padding: 16,
+    padding: 8,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -668,7 +672,7 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingHorizontal: 16,
-    paddingBottom: isIOS ? 30 : 16,
+    paddingBottom: isIOS ? 0 : 16,
     paddingTop: 16,
   },
   continueButton: {

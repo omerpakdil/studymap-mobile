@@ -2,17 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  Modal,
-  Platform,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Dimensions,
+    Modal,
+    Platform,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { generateStudyContent } from '@/app/utils/aiProviderManager';
@@ -545,7 +545,7 @@ export default function StudySessionScreen() {
             
             {/* Subtitle */}
             <Text style={[styles.completionSubtitle, { color: colors.neutral[600] }]}>
-              Great focus session! Here's what you accomplished:
+              Great focus session! Here&apos;s what you accomplished:
             </Text>
 
             {/* Stats Cards */}

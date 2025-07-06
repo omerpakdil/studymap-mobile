@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   bottomSection: {
     paddingHorizontal: 24,
     paddingTop: 16,
-    paddingBottom: isIOS ? 60 : 30,
+    paddingBottom: isIOS ? 30 : 30,
     alignItems: 'center',
   },
   ctaButton: {

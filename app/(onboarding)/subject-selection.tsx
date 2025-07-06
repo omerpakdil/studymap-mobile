@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Animated,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { getCurriculumByExamId, type ExamCurriculum, type TopicData } from '@/app/data';
@@ -356,7 +356,7 @@ export default function SubjectSelectionScreen() {
           {/* Info Box */}
           <View style={[styles.infoBox, { backgroundColor: colors.success[50], borderColor: colors.success[200] }]}>
             <Text style={[styles.infoText, { color: colors.success[700] }]}>
-              ✨ This assessment takes about 3-5 minutes and greatly improves your study efficiency
+              ✨ This assessment takes about 3-5 minutes.
             </Text>
           </View>
         </View>
@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingHorizontal: 16,
-    paddingBottom: isIOS ? 30 : 16,
+    paddingBottom: isIOS ? 4 : 16,
     paddingTop: 8,
   },
   navigationButtons: {
