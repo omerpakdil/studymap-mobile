@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
@@ -97,6 +97,19 @@ export default function CalendarScreen() {
         totalTasks: allTasks.length
       });
       
+      // Debug: Log first few tasks with their dates
+      const firstFewTasks = allTasks.slice(0, 5);
+      console.log('🔍 Debug: First few tasks:', firstFewTasks.map(task => ({
+        id: task.id,
+        date: task.date,
+        subject: task.subject,
+        title: task.title
+      })));
+      
+      // Debug: Log task dates
+      const taskDates = Object.keys(tasksByDate);
+      console.log('🔍 Debug: Task dates:', taskDates.slice(0, 10));
+      
     } catch (error) {
       console.error('❌ Error loading calendar data:', error);
     } finally {
@@ -116,7 +129,11 @@ export default function CalendarScreen() {
 
   // Helper functions
   const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    // Use local date to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const getDaysInMonth = (date: Date) => {
@@ -172,7 +189,15 @@ export default function CalendarScreen() {
   };
 
   const getDateTasks = (date: Date) => {
-    return calendarData[formatDate(date)] || [];
+    const dateString = formatDate(date);
+    const tasks = calendarData[dateString] || [];
+    
+    // Debug: Log when tasks are found
+    if (tasks.length > 0) {
+      console.log(`🔍 Debug: Found ${tasks.length} tasks for ${dateString} (${date.toDateString()})`);
+    }
+    
+    return tasks;
   };
 
   const getDateProgress = (date: Date) => {
@@ -398,7 +423,7 @@ export default function CalendarScreen() {
                         {task.subject}
                       </Text>
                       <Text style={[styles.weekTaskTopic, { color: colors.neutral[600] }]}>
-                        {task.topic}
+                        {task.type[0].toUpperCase() + task.type.slice(1)} Session
                       </Text>
                     </View>
                     <View style={styles.weekTaskInfo}>
@@ -470,7 +495,7 @@ export default function CalendarScreen() {
                     )}
                   </View>
                   <Text style={[styles.dayTaskTopic, { color: colors.neutral[600] }]}>
-                    {task.topic}
+                  {task.type[0].toUpperCase() + task.type.slice(1)} Session
                   </Text>
                 </View>
               </View>

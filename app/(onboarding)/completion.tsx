@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import { generateStudyProgram, getCurrentAIProvider } from '@/app/utils/aiProviderManager';
@@ -99,7 +99,7 @@ export default function CompletionScreen() {
       console.log('Onboarding data loaded:', {
         hasExamData: !!onboardingData.examData,
         hasGoalsData: !!onboardingData.goalsData,
-        hasProficiency: Object.keys(onboardingData.topicProficiency).length > 0,
+        hasIntensity: Object.keys(onboardingData.subjectIntensity).length > 0,
         hasSchedule: Object.keys(onboardingData.scheduleData).length > 0,
         examDate: onboardingData.goalsData?.examDate
       });

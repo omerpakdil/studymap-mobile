@@ -39,6 +39,13 @@ export const loadStudyProgram = async (): Promise<StudyProgram | null> => {
 // Save daily tasks
 export const saveDailyTasks = async (tasks: StudyTask[]): Promise<void> => {
   try {
+    // Debug: Check completed status of tasks being saved
+    const completedTasks = tasks.filter(task => task.completed === true);
+    if (completedTasks.length > 0) {
+      console.log('⚠️ WARNING: Saving tasks with completed=true:', completedTasks.map(t => ({ id: t.id, subject: t.subject, completed: t.completed })));
+    }
+    console.log(`🔍 Debug: Saving ${tasks.length} tasks, ${completedTasks.length} already completed`);
+    
     await AsyncStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(tasks));
     console.log(`✅ ${tasks.length} daily tasks saved successfully`);
   } catch (error) {
@@ -52,7 +59,13 @@ export const loadDailyTasks = async (): Promise<StudyTask[]> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_TASKS);
     if (data) {
-      return JSON.parse(data);
+      const tasks = JSON.parse(data);
+      const completedTasks = tasks.filter((task: StudyTask) => task.completed === true);
+      if (completedTasks.length > 0) {
+        console.log('⚠️ WARNING: Loaded tasks with completed=true:', completedTasks.map((t: StudyTask) => ({ id: t.id, subject: t.subject, completed: t.completed })));
+      }
+      console.log(`🔍 Debug: Loaded ${tasks.length} tasks, ${completedTasks.length} already completed`);
+      return tasks;
     }
     return [];
   } catch (error) {

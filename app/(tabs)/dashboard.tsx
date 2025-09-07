@@ -4,27 +4,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
 import NotificationService from '@/app/utils/notificationService';
 import {
-    calculateDailyProgress,
-    getDailyMotivationQuote,
-    getProgramMetadata,
-    getSubjectProgress,
-    getTasksForDate
+  calculateDailyProgress,
+  getDailyMotivationQuote,
+  getProgramMetadata,
+  getSubjectProgress,
+  getTasksForDate
 } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
@@ -196,7 +196,6 @@ export default function DashboardScreen() {
       params: {
         taskId: task.id,
         subject: task.subject,
-        topic: task.topic,
         type: task.type,
         duration: task.duration.toString(),
         title: task.title,
@@ -423,9 +422,6 @@ export default function DashboardScreen() {
                         {getTaskTypeIcon(task.type)}
                       </Text>
                     </View>
-                    <Text style={[styles.taskTopic, { color: colors.neutral[600] }]}>
-                      {task.topic}
-                    </Text>
                     <Text style={[styles.taskDuration, { color: colors.neutral[500] }]}>
                       {task.duration} minutes {isCompleted ? '(Completed ✅)' : ''}
                     </Text>

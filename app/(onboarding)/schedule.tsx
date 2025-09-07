@@ -249,7 +249,7 @@ export default function ScheduleScreen() {
         </View>
         
         <View style={styles.headerRight} />
-      </View>c
+      </View>
 
       {/* Day Selection */}
       <View style={styles.daySelector}>

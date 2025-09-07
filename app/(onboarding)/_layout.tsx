@@ -32,6 +32,12 @@ export default function OnboardingLayout() {
           }}
         />
         <Stack.Screen 
+          name="exam-selection" 
+          options={{
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen 
           name="assessment" 
           options={{
             presentation: 'card',

@@ -1,31 +1,79 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
-import { GoalsData as OnboardingGoalsData, saveGoalsData } from '@/app/utils/onboardingData';
+import { loadExamData, GoalsData as OnboardingGoalsData, saveGoalsData } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
-const targetScores = [
-  { id: 'good', label: 'Good Score', range: '1200-1350', color: '#10B981', description: 'Solid performance' },
-  { id: 'great', label: 'Great Score', range: '1350-1450', color: '#3B82F6', description: 'Above average' },
-  { id: 'excellent', label: 'Excellent Score', range: '1450-1550', color: '#8B5CF6', description: 'Top performer' },
-  { id: 'perfect', label: 'Perfect Score', range: '1550+', color: '#F59E0B', description: 'Elite level' },
-];
+// Exam-specific score systems
+const getTargetScores = (examId: string) => {
+  switch (examId) {
+    case 'sat':
+      return [
+        { id: 'good', label: 'Good Score', range: '1200-1350', color: '#10B981', description: 'Solid performance' },
+        { id: 'great', label: 'Great Score', range: '1350-1450', color: '#3B82F6', description: 'Above average' },
+        { id: 'excellent', label: 'Excellent Score', range: '1450-1550', color: '#8B5CF6', description: 'Top performer' },
+        { id: 'perfect', label: 'Perfect Score', range: '1550+', color: '#F59E0B', description: 'Elite level' },
+      ];
+    case 'gre':
+      return [
+        { id: 'good', label: 'Good Score', range: '300-310', color: '#10B981', description: 'Solid performance' },
+        { id: 'great', label: 'Great Score', range: '310-320', color: '#3B82F6', description: 'Above average' },
+        { id: 'excellent', label: 'Excellent Score', range: '320-330', color: '#8B5CF6', description: 'Top performer' },
+        { id: 'perfect', label: 'Perfect Score', range: '330+', color: '#F59E0B', description: 'Elite level' },
+      ];
+    case 'toefl':
+      return [
+        { id: 'good', label: 'Good Score', range: '80-90', color: '#10B981', description: 'Solid performance' },
+        { id: 'great', label: 'Great Score', range: '90-100', color: '#3B82F6', description: 'Above average' },
+        { id: 'excellent', label: 'Excellent Score', range: '100-110', color: '#8B5CF6', description: 'Top performer' },
+        { id: 'perfect', label: 'Perfect Score', range: '110+', color: '#F59E0B', description: 'Elite level' },
+      ];
+    case 'ielts':
+      return [
+        { id: 'good', label: 'Good Score', range: '6.0-6.5', color: '#10B981', description: 'Solid performance' },
+        { id: 'great', label: 'Great Score', range: '6.5-7.0', color: '#3B82F6', description: 'Above average' },
+        { id: 'excellent', label: 'Excellent Score', range: '7.0-8.0', color: '#8B5CF6', description: 'Top performer' },
+        { id: 'perfect', label: 'Perfect Score', range: '8.0+', color: '#F59E0B', description: 'Elite level' },
+      ];
+    case 'gmat':
+      return [
+        { id: 'good', label: 'Good Score', range: '600-650', color: '#10B981', description: 'Solid performance' },
+        { id: 'great', label: 'Great Score', range: '650-700', color: '#3B82F6', description: 'Above average' },
+        { id: 'excellent', label: 'Excellent Score', range: '700-750', color: '#8B5CF6', description: 'Top performer' },
+        { id: 'perfect', label: 'Perfect Score', range: '750+', color: '#F59E0B', description: 'Elite level' },
+      ];
+    case 'lsat':
+      return [
+        { id: 'good', label: 'Good Score', range: '155-160', color: '#10B981', description: 'Solid performance' },
+        { id: 'great', label: 'Great Score', range: '160-165', color: '#3B82F6', description: 'Above average' },
+        { id: 'excellent', label: 'Excellent Score', range: '165-170', color: '#8B5CF6', description: 'Top performer' },
+        { id: 'perfect', label: 'Perfect Score', range: '170+', color: '#F59E0B', description: 'Elite level' },
+      ];
+    default:
+      return [
+        { id: 'good', label: 'Good Score', range: 'Good', color: '#10B981', description: 'Solid performance' },
+        { id: 'great', label: 'Great Score', range: 'Great', color: '#3B82F6', description: 'Above average' },
+        { id: 'excellent', label: 'Excellent Score', range: 'Excellent', color: '#8B5CF6', description: 'Top performer' },
+        { id: 'perfect', label: 'Perfect Score', range: 'Perfect', color: '#F59E0B', description: 'Elite level' },
+      ];
+  }
+};
 
 const studyIntensity = [
   { id: 'relaxed', label: 'Relaxed', hours: '1-2 hours/day', icon: '🌸', description: 'Steady and comfortable' },
@@ -59,6 +107,24 @@ export default function GoalsScreen() {
     reminderFrequency: '',
     motivation: '',
   });
+  const [examData, setExamData] = useState<any>(null);
+
+  // Load exam data on component mount
+  React.useEffect(() => {
+    const loadExam = async () => {
+      try {
+        const data = await loadExamData();
+        console.log('🔍 Debug: Loaded exam data:', data);
+        if (data) {
+          setExamData(data);
+          console.log('🔍 Debug: Set exam data:', data);
+        }
+      } catch (error) {
+        console.error('Error loading exam data:', error);
+      }
+    };
+    loadExam();
+  }, []);
 
   const totalSteps = 5;
 
@@ -377,7 +443,14 @@ export default function GoalsScreen() {
             </Text>
             
             <View style={styles.optionsContainer}>
-              {targetScores.map((score) => {
+              {(() => {
+                const examId = examData?.id || examData?.examId || 'sat';
+                console.log('🔍 Debug: Current exam data:', examData);
+                console.log('🔍 Debug: Using exam ID:', examId);
+                const scores = getTargetScores(examId);
+                console.log('🔍 Debug: Generated scores:', scores);
+                return scores;
+              })().map((score) => {
                 const isSelected = goalsData.targetScore === score.id;
                 
                 return (

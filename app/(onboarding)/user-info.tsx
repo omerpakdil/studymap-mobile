@@ -53,7 +53,7 @@ export default function UserInfoScreen() {
       await AsyncStorage.setItem('user_info', JSON.stringify(userInfo));
       
       console.log('✅ User info saved successfully:', userInfo);
-      router.push('/(onboarding)/assessment');
+      router.push('/(onboarding)/exam-selection');
       
     } catch (error) {
       console.error('❌ Error saving user info:', error);
@@ -213,7 +213,7 @@ export default function UserInfoScreen() {
           disabled={loading || !isFormValid}
           style={styles.continueButton}
         >
-          {loading ? 'Saving...' : 'Continue to Assessment'}
+          {loading ? 'Saving...' : 'Choose Exam'}
         </Button>
       </View>
 

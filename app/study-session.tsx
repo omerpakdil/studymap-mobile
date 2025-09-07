@@ -105,8 +105,8 @@ export default function StudySessionScreen() {
     try {
       setLoadingContent(true);
       
-      if (!params?.subject || !params?.topic) {
-        console.warn('Missing subject or topic for content generation');
+      if (!params?.subject) {
+        console.warn('Missing subject for content generation');
         setContent([]);
         return;
       }
@@ -120,14 +120,14 @@ export default function StudySessionScreen() {
       console.log('🧠 Generating exam-specific content for:', {
         examId: examData.id,
         subject: params.subject,
-        topic: params.topic,
+        topic: 'General',
         type: params.type
       });
 
       const generatedContent = await generateStudyContent({
         examId: examData.id,
         subject: params.subject,
-        topic: params.topic,
+        topic: 'General',
         sessionType: params.type as SessionType,
         duration: focusDuration
       });
@@ -143,7 +143,7 @@ export default function StudySessionScreen() {
         {
           id: 1,
           type: 'question',
-          question: `What is a key concept in ${params.topic}?`,
+          question: `What is a key concept in ${params.subject}?`,
           options: [
             'Understanding the fundamental principles',
             'Memorizing all formulas',
@@ -153,7 +153,7 @@ export default function StudySessionScreen() {
           correct: 0,
           explanation: 'Understanding fundamental principles is crucial for mastering any topic.',
           difficulty: 'Medium',
-          topic: params.topic
+          topic: 'General'
         }
       ];
       
@@ -410,7 +410,7 @@ export default function StudySessionScreen() {
     <View style={styles.contentContainer}>
       <View style={styles.contentHeader}>
         <Text style={[styles.contentSubject, { color: colors.primary[600] }]}>
-          {params?.subject} • {params?.topic}
+          {params?.subject}
         </Text>
         <Text style={[styles.contentType, { color: colors.neutral[500] }]}>
           📝 Focus & Notes

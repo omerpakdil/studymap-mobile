@@ -19,6 +19,9 @@ export interface SubscriptionStatus {
  */
 export const initializeRevenueCat = async (): Promise<boolean> => {
   try {
+    console.log('🔑 Using API Key:', REVENUECAT_API_KEY);
+    console.log('🔑 Key type:', REVENUECAT_API_KEY?.substring(0, 5));
+    
     if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY === 'your-api-key-here') {
       console.warn('⚠️ RevenueCat API key not configured');
       return false;
@@ -28,6 +31,10 @@ export const initializeRevenueCat = async (): Promise<boolean> => {
       apiKey: REVENUECAT_API_KEY,
       appUserID: undefined, // Let RevenueCat generate anonymous user ID
     });
+    
+    // Force sync with App Store
+    console.log('🔄 Syncing with App Store...');
+    await Purchases.syncPurchases();
 
     console.log('✅ RevenueCat initialized successfully');
     return true;

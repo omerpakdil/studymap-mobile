@@ -12,6 +12,10 @@ export interface TopicProficiency {
   [topicId: string]: number; // 0-4 scale (Beginner to Expert)
 }
 
+export interface SubjectIntensity {
+  [subjectName: string]: number; // 0-3 scale (Light, Moderate, High, Intensive)
+}
+
 export interface GoalsData {
   examDate: string;
   targetScore: string;
@@ -36,6 +40,7 @@ export interface LearningStyleData {
 export interface OnboardingData {
   examData: ExamData | null;
   topicProficiency: TopicProficiency;
+  subjectIntensity: SubjectIntensity;
   goalsData: GoalsData | null;
   scheduleData: ScheduleData;
   learningStyleData: LearningStyleData | null;
@@ -48,6 +53,7 @@ const STORAGE_KEYS = {
   ONBOARDING_DATA: 'onboarding_data',
   EXAM_DATA: 'onboarding_exam',
   TOPIC_PROFICIENCY: 'onboarding_topics',
+  SUBJECT_INTENSITY: 'onboarding_subject_intensity',
   GOALS_DATA: 'onboarding_goals',
   SCHEDULE_DATA: 'onboarding_schedule',
   LEARNING_STYLE: 'onboarding_learning_style',
@@ -58,6 +64,7 @@ const STORAGE_KEYS = {
 const getDefaultOnboardingData = (): OnboardingData => ({
   examData: null,
   topicProficiency: {},
+  subjectIntensity: {},
   goalsData: null,
   scheduleData: {},
   learningStyleData: null,
@@ -80,6 +87,15 @@ export const saveTopicProficiency = async (topicProficiency: TopicProficiency): 
     await AsyncStorage.setItem(STORAGE_KEYS.TOPIC_PROFICIENCY, JSON.stringify(topicProficiency));
   } catch (error) {
     console.error('Error saving topic proficiency:', error);
+    throw error;
+  }
+};
+
+export const saveSubjectIntensity = async (subjectIntensity: SubjectIntensity): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.SUBJECT_INTENSITY, JSON.stringify(subjectIntensity));
+  } catch (error) {
+    console.error('Error saving subject intensity:', error);
     throw error;
   }
 };
@@ -132,6 +148,16 @@ export const loadTopicProficiency = async (): Promise<TopicProficiency> => {
   }
 };
 
+export const loadSubjectIntensity = async (): Promise<SubjectIntensity> => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.SUBJECT_INTENSITY);
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error('Error loading subject intensity:', error);
+    return {};
+  }
+};
+
 export const loadGoalsData = async (): Promise<GoalsData | null> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.GOALS_DATA);
@@ -165,9 +191,10 @@ export const loadLearningStyleData = async (): Promise<LearningStyleData | null>
 // Load complete onboarding data
 export const loadCompleteOnboardingData = async (): Promise<OnboardingData> => {
   try {
-    const [examData, topicProficiency, goalsData, scheduleData, learningStyleData] = await Promise.all([
+    const [examData, topicProficiency, subjectIntensity, goalsData, scheduleData, learningStyleData] = await Promise.all([
       loadExamData(),
       loadTopicProficiency(),
+      loadSubjectIntensity(),
       loadGoalsData(),
       loadScheduleData(),
       loadLearningStyleData(),
@@ -180,6 +207,7 @@ export const loadCompleteOnboardingData = async (): Promise<OnboardingData> => {
     return {
       examData,
       topicProficiency,
+      subjectIntensity,
       goalsData,
       scheduleData,
       learningStyleData,
@@ -223,7 +251,7 @@ export const getOnboardingProgress = async (): Promise<number> => {
     const totalSteps = 5;
 
     if (data.examData) completedSteps++;
-    if (Object.keys(data.topicProficiency).length > 0) completedSteps++;
+    if (Object.keys(data.subjectIntensity).length > 0) completedSteps++;
     if (data.goalsData) completedSteps++;
     if (Object.keys(data.scheduleData).length > 0) completedSteps++;
     if (data.learningStyleData) completedSteps++;

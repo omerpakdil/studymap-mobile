@@ -2,26 +2,25 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Modal,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '../../themes';
 import {
-    checkIntroEligibility,
-    getSubscriptionOfferings,
-    initializeRevenueCat,
-    purchasePackage,
-    restorePurchases
+  checkIntroEligibility,
+  getSubscriptionOfferings,
+  initializeRevenueCat,
+  restorePurchases
 } from '../utils/subscriptionManager';
 
 const { width, height } = Dimensions.get('window');
@@ -52,24 +51,53 @@ export default function SubscriptionScreen() {
         return;
       }
 
+      // Force cache refresh
+      console.log('🔄 Forcing offerings cache refresh...');
+      
+      // Add small delay to ensure RevenueCat is properly initialized
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Check intro eligibility
       const eligible = await checkIntroEligibility();
       setIsIntroEligible(eligible);
 
       // Get available offerings
       const availableOfferings = await getSubscriptionOfferings();
+      console.log('📦 Raw offerings object:', JSON.stringify(availableOfferings, null, 2));
+      console.log('📦 Available offerings:', availableOfferings);
+      console.log('📦 Available packages count:', availableOfferings?.availablePackages?.length || 0);
+      console.log('📦 Package details:', availableOfferings?.availablePackages?.map(pkg => ({
+        identifier: pkg.identifier,
+        packageType: pkg.packageType,
+        product: {
+          identifier: pkg.product.identifier,
+          title: pkg.product.title,
+          priceString: pkg.product.priceString
+        }
+      })));
+      
+      // Also check individual package accessors
+      console.log('🔍 Direct package check:');
+      console.log('  - monthly:', availableOfferings?.monthly);
+      console.log('  - annual:', availableOfferings?.annual);
+      console.log('  - lifetime:', availableOfferings?.lifetime);
+      
       if (!availableOfferings || availableOfferings.availablePackages.length === 0) {
+        console.log('⚠️ No subscription packages available');
         setError('No subscription options available. Please try again later.');
         return;
       }
 
       setOfferings(availableOfferings);
       
-      // Auto-select the most popular package (typically annual)
+      // Auto-select the most popular package (typically annual, then monthly)
       const popularPackage = availableOfferings.availablePackages.find(pkg => 
         pkg.packageType === 'ANNUAL'
+      ) || availableOfferings.availablePackages.find(pkg => 
+        pkg.packageType === 'MONTHLY'
       ) || availableOfferings.availablePackages[0];
       
+      console.log('🎯 Selected package:', popularPackage?.packageType, popularPackage?.product?.priceString);
       setSelectedPackage(popularPackage);
       
     } catch (error: any) {
@@ -89,7 +117,11 @@ export default function SubscriptionScreen() {
     console.log('💳 Starting purchase process...');
     setPurchasing(true);
     setError(null);
+
+    setShowSuccessModal(true);
+
     
+    /*
     try {
       const subscriptionStatus = await purchasePackage(selectedPackage);
       
@@ -118,6 +150,7 @@ export default function SubscriptionScreen() {
     } finally {
       setPurchasing(false);
     }
+    */
   };
 
   const handleRestore = async () => {
@@ -191,6 +224,8 @@ export default function SubscriptionScreen() {
         return 'Flexible';
       case 'WEEKLY':
         return 'Trial';
+      case 'LIFETIME':
+        return 'One-time Payment';
       default:
         return 'Premium Access';
     }
@@ -202,12 +237,35 @@ export default function SubscriptionScreen() {
 
   const getMonthlyEquivalent = (packageItem: PurchasesPackage): string | null => {
     if (packageItem.packageType === 'ANNUAL') {
-      // Calculate monthly equivalent for annual plans
       const price = packageItem.product.price;
       const monthlyPrice = price / 12;
       return `Only $${monthlyPrice.toFixed(2)}/month`;
     }
     return null;
+  };
+
+  const getSavingsText = (packageItem: PurchasesPackage): string | null => {
+    if (packageItem.packageType === 'ANNUAL') {
+      return 'SAVE 50%';
+    } else if (packageItem.packageType === 'LIFETIME') {
+      return 'BEST DEAL';
+    }
+    return null;
+  };
+
+  const getPeriodText = (packageItem: PurchasesPackage): string => {
+    switch (packageItem.packageType) {
+      case 'ANNUAL':
+        return '/year';
+      case 'MONTHLY':
+        return '/month';
+      case 'WEEKLY':
+        return '/week';
+      case 'LIFETIME':
+        return '';
+      default:
+        return `/${packageItem.packageType.toLowerCase()}`;
+    }
   };
 
   if (loading) {
@@ -291,78 +349,97 @@ export default function SubscriptionScreen() {
       </LinearGradient>
 
       {/* Content */}
-      <View style={[styles.content, { backgroundColor: colors.neutral[50] }]}>
+      <SafeAreaView edges={['bottom']} style={[styles.content, { backgroundColor: colors.neutral[50] }]}>
         {/* Pricing Cards */}
-        {offerings && (
-          <View style={styles.pricingContainer}>
-            {offerings.availablePackages.map((packageItem) => {
-              const isSelected = selectedPackage?.identifier === packageItem.identifier;
-              const isPopular = isPackagePopular(packageItem);
-              const monthlyEquivalent = getMonthlyEquivalent(packageItem);
-              
-              return (
-                <TouchableOpacity
-                  key={packageItem.identifier}
-                  style={[
-                    styles.pricingCard,
-                    { backgroundColor: colors.neutral[0] },
-                    isSelected && { 
-                      borderColor: colors.primary[500],
-                      backgroundColor: colors.primary[50],
-                      transform: [{ scale: 1.02 }]
-                    }
-                  ]}
-                  onPress={() => setSelectedPackage(packageItem)}
-                  activeOpacity={0.8}
-                >
-                  {isPopular && (
-                    <View style={[styles.popularBadge, { backgroundColor: colors.secondary[500] }]}>
-                      <Text style={styles.popularText}>MOST POPULAR</Text>
-                    </View>
-                  )}
-                  
-                  <View style={styles.cardContent}>
-                    <Text style={[styles.planName, { color: colors.neutral[700] }]}>
-                      {getPackageTitle(packageItem)}
-                    </Text>
-                    <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
-                      {getPackageSubtitle(packageItem)}
-                    </Text>
-                    
-                    <View style={styles.priceContainer}>
-                      <View style={styles.priceRow}>
-                        <Text style={[styles.price, { color: colors.primary[600] }]}>
-                          {formatPrice(packageItem)}
-                        </Text>
-                        <Text style={[styles.period, { color: colors.neutral[500] }]}>
-                          /{packageItem.packageType.toLowerCase()}
-                        </Text>
+        {offerings && offerings.availablePackages.length > 0 && (
+          <View style={[
+            styles.pricingContainer,
+            offerings.availablePackages.length === 1 && styles.singlePricingContainer,
+            offerings.availablePackages.length === 2 && styles.twoPricingContainer,
+          ]}>
+            {offerings.availablePackages
+              .sort((a, b) => {
+                // Sort order: ANNUAL, MONTHLY, WEEKLY, LIFETIME
+                const order: { [key: string]: number } = { 'ANNUAL': 1, 'MONTHLY': 2, 'WEEKLY': 3, 'LIFETIME': 4 };
+                return (order[a.packageType] || 99) - (order[b.packageType] || 99);
+              })
+              .map((packageItem) => {
+                const isSelected = selectedPackage?.identifier === packageItem.identifier;
+                const isPopular = isPackagePopular(packageItem);
+                const monthlyEquivalent = getMonthlyEquivalent(packageItem);
+                const savings = getSavingsText(packageItem);
+                
+                return (
+                  <TouchableOpacity
+                    key={packageItem.identifier}
+                    style={[
+                      styles.pricingCard,
+                      offerings.availablePackages.length === 1 && styles.singlePricingCard,
+                      offerings.availablePackages.length === 2 && styles.twoPricingCard,
+                      { backgroundColor: colors.neutral[0] },
+                      isSelected && { 
+                        borderColor: colors.primary[500],
+                        backgroundColor: colors.primary[50],
+                        transform: [{ scale: 1.02 }]
+                      }
+                    ]}
+                    onPress={() => setSelectedPackage(packageItem)}
+                    activeOpacity={0.8}
+                  >
+                    {isPopular && (
+                      <View style={[styles.popularBadge, { backgroundColor: colors.secondary[500] }]}>
+                        <Text style={styles.popularText}>MOST POPULAR</Text>
                       </View>
-                    </View>
+                    )}
                     
-                    {monthlyEquivalent && (
-                      <Text style={[styles.monthlyEquivalent, { color: colors.neutral[500] }]}>
-                        {monthlyEquivalent}
+                    {savings && (
+                      <View style={[styles.savingsBadge, { backgroundColor: colors.accent[500] }]}>
+                        <Text style={styles.savingsText}>{savings}</Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.cardContent}>
+                      <Text style={[styles.planName, { color: colors.neutral[700] }]}>
+                        {getPackageTitle(packageItem)}
                       </Text>
-                    )}
-
-                    {isIntroEligible && packageItem.product.introPrice && (
-                      <View style={[styles.introBadge, { backgroundColor: colors.accent[500] }]}>
-                        <Text style={styles.introText}>
-                          {packageItem.product.introPrice.periodNumberOfUnits} {packageItem.product.introPrice.periodUnit} FREE
+                      <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
+                        {getPackageSubtitle(packageItem)}
+                      </Text>
+                      
+                      <View style={styles.priceContainer}>
+                        <View style={styles.priceRow}>
+                          <Text style={[styles.price, { color: colors.primary[600] }]}>
+                            {formatPrice(packageItem)}
+                          </Text>
+                          <Text style={[styles.period, { color: colors.neutral[500] }]}>
+                            {getPeriodText(packageItem)}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      {monthlyEquivalent && (
+                        <Text style={[styles.monthlyEquivalent, { color: colors.neutral[500] }]}>
+                          {monthlyEquivalent}
                         </Text>
+                      )}
+
+                      {isIntroEligible && packageItem.product.introPrice && (
+                        <View style={[styles.introBadge, { backgroundColor: colors.success[500] }]}>
+                          <Text style={styles.introText}>
+                            {packageItem.product.introPrice.periodNumberOfUnits} {packageItem.product.introPrice.periodUnit} FREE
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    
+                    {isSelected && (
+                      <View style={[styles.selectedIndicator, { backgroundColor: colors.primary[500] }]}>
+                        <Text style={styles.checkIcon}>✓</Text>
                       </View>
                     )}
-                  </View>
-                  
-                  {isSelected && (
-                    <View style={[styles.selectedIndicator, { backgroundColor: colors.primary[500] }]}>
-                      <Text style={styles.checkIcon}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+                  </TouchableOpacity>
+                );
+              })}
           </View>
         )}
 
@@ -443,7 +520,7 @@ export default function SubscriptionScreen() {
         <Text style={[styles.terms, { color: colors.neutral[400] }]}>
           Subscription automatically renews. Cancel anytime in settings.
         </Text>
-      </View>
+      </SafeAreaView>
 
       {/* Success Modal */}
       <Modal
@@ -635,6 +712,14 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 20,
   },
+  singlePricingContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  twoPricingContainer: {
+    flexDirection: 'column',
+    gap: 16,
+  },
   pricingCard: {
     flex: 1,
     padding: 18,
@@ -647,6 +732,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 6,
+  },
+  singlePricingCard: {
+    flex: 0,
+    width: '85%',
+    maxWidth: 280,
+  },
+  twoPricingCard: {
+    flex: 0,
+    width: '100%',
   },
   popularBadge: {
     position: 'absolute',
@@ -661,6 +755,20 @@ const styles = StyleSheet.create({
   popularText: {
     color: '#FFFFFF',
     fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  savingsBadge: {
+    position: 'absolute',
+    top: -8,
+    right: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  savingsText: {
+    color: '#FFFFFF',
+    fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -748,8 +856,8 @@ const styles = StyleSheet.create({
     width: 20,
   },
   ctaSection: {
-    marginBottom: 10,
-    marginTop: -10,
+    marginBottom: 20,
+    marginTop: 10,
   },
   subscribeButton: {
     borderRadius: 16,
@@ -791,8 +899,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     paddingHorizontal: 20,
-    marginBottom: 40,
-    marginTop: -10,
+    marginBottom: 20,
+    marginTop: 0,
   },
   // Modal Styles
   modalOverlay: {

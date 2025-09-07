@@ -1,11 +1,11 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   Platform,
   SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -13,258 +13,604 @@ import {
   View
 } from 'react-native';
 
-import { availableExams, getCurriculumByExamId } from '@/app/data';
-import { ExamData, saveExamData } from '@/app/utils/onboardingData';
-import { Button } from '@/components';
+import { getCurriculumByExamId } from '@/app/data';
+import { loadExamData, saveSubjectIntensity } from '@/app/utils/onboardingData';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
-// Extended exam data with UI properties
-const examUIData = {
-  sat: { icon: '🎓', color: '#3B82F6', popular: true },
-  gre: { icon: '📚', color: '#8B5CF6', popular: true },
-  toefl: { icon: '🌍', color: '#10B981', popular: true },
-  ielts: { icon: '🗣️', color: '#F59E0B', popular: false },
-  gmat: { icon: '💼', color: '#EF4444', popular: false },
-  lsat: { icon: '⚖️', color: '#6366F1', popular: false }
+// Study intensity levels for subjects
+const intensityLevels = [
+  { 
+    value: 0, 
+    label: 'Light', 
+    color: '#10B981', 
+    description: 'Basic review',
+    icon: '🌱',
+    percentage: '20%'
+  },
+  { 
+    value: 1, 
+    label: 'Moderate', 
+    color: '#3B82F6', 
+    description: 'Balanced focus',
+    icon: '📚',
+    percentage: '40%'
+  },
+  { 
+    value: 2, 
+    label: 'High', 
+    color: '#F59E0B', 
+    description: 'Strong emphasis',
+    icon: '🔥',
+    percentage: '60%'
+  },
+  { 
+    value: 3, 
+    label: 'Intensive', 
+    color: '#EF4444', 
+    description: 'Maximum focus',
+    icon: '💪',
+    percentage: '80%'
+  }
+];
+
+// Subject gradients and icons mapping
+const subjectStyles = {
+  math: { icon: '🔢', gradient: ['#3B82F6', '#1D4ED8'] },
+  mathematics: { icon: '🔢', gradient: ['#3B82F6', '#1D4ED8'] },
+  reading: { icon: '📖', gradient: ['#10B981', '#059669'] },
+  writing: { icon: '✍️', gradient: ['#8B5CF6', '#7C3AED'] },
+  verbal: { icon: '🗣️', gradient: ['#F59E0B', '#D97706'] },
+  quantitative: { icon: '📊', gradient: ['#3B82F6', '#1D4ED8'] },
+  analytical_writing: { icon: '📝', gradient: ['#8B5CF6', '#7C3AED'] },
+  'analytical writing assessment': { icon: '📝', gradient: ['#8B5CF6', '#7C3AED'] },
+  integrated_reasoning: { icon: '🧠', gradient: ['#EF4444', '#DC2626'] },
+  'integrated reasoning': { icon: '🧠', gradient: ['#EF4444', '#DC2626'] },
+  listening: { icon: '👂', gradient: ['#06B6D4', '#0891B2'] },
+  speaking: { icon: '🎤', gradient: ['#F59E0B', '#D97706'] },
+  logical_reasoning: { icon: '⚖️', gradient: ['#8B5CF6', '#7C3AED'] },
+  'logical reasoning': { icon: '⚖️', gradient: ['#8B5CF6', '#7C3AED'] },
+  reading_comprehension: { icon: '📖', gradient: ['#10B981', '#059669'] },
+  'reading comprehension': { icon: '📖', gradient: ['#10B981', '#059669'] },
+  analytical_reasoning: { icon: '🧩', gradient: ['#EF4444', '#DC2626'] },
+  'analytical reasoning': { icon: '🧩', gradient: ['#EF4444', '#DC2626'] },
+  'writing and language': { icon: '✍️', gradient: ['#8B5CF6', '#7C3AED'] },
+  default: { icon: '📚', gradient: ['#6B7280', '#4B5563'] }
 };
+
+interface SubjectIntensity {
+  [subjectName: string]: number;
+}
+
+interface ExtendedSubjectData {
+  name: string;
+  icon: string;
+  gradient: string[];
+  totalHours: number;
+  description: string;
+}
 
 export default function AssessmentScreen() {
   const { colors } = useTheme();
-  const [selectedExam, setSelectedExam] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showIntro, setShowIntro] = useState(true);
+  const [subjectIntensity, setSubjectIntensity] = useState<SubjectIntensity>({});
+  const [currentSubjectIndex, setCurrentSubjectIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [examSubjects, setExamSubjects] = useState<ExtendedSubjectData[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Transform curriculum data to exam types
-  const examTypes = availableExams.map(exam => {
-    const curriculum = getCurriculumByExamId(exam.id);
-    const uiData = examUIData[exam.id as keyof typeof examUIData];
+  useEffect(() => {
+    loadExamSubjects();
+  }, []);
+
+  const loadExamSubjects = async () => {
+    try {
+      const examData = await loadExamData();
+      if (!examData) {
+        console.error('No exam data found, redirecting to exam selection');
+        router.push('/(onboarding)/exam-selection');
+        return;
+      }
+
+      const curriculum = getCurriculumByExamId(examData.id);
+      if (!curriculum) {
+        console.error('No curriculum found for exam:', examData.id);
+        router.back();
+        return;
+      }
+
+      // Transform curriculum subjects to our component structure
+      const transformedSubjects: ExtendedSubjectData[] = curriculum.subjects.map(subject => {
+        const subjectStyleKey = subject.name.toLowerCase().replace(/\s+/g, '_');
+        const subjectStyle = subjectStyles[subjectStyleKey as keyof typeof subjectStyles] || 
+                           subjectStyles[subject.name.toLowerCase() as keyof typeof subjectStyles] ||
+                           { icon: '📚', gradient: ['#6B7280', '#4B5563'] };
+        
+        return {
+          name: subject.name,
+          icon: subjectStyle.icon,
+          gradient: subjectStyle.gradient,
+          totalHours: subject.totalHours,
+          description: subject.description
+        };
+      });
+
+      setExamSubjects(transformedSubjects);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading exam subjects:', error);
+      router.back();
+    }
+  };
+
+
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
+            Loading subjects...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // If no subjects loaded yet, show loading
+  if (examSubjects.length === 0) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, { color: colors.neutral[600] }]}>
+            Loading subjects...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const currentSubject = examSubjects[currentSubjectIndex];
+  const totalSubjects = examSubjects.length;
+  const progress = ((currentSubjectIndex + 1) / totalSubjects) * 100;
+  const currentValue = currentSubject ? subjectIntensity[currentSubject.name] : undefined;
+  const isAssessed = currentValue !== undefined;
+
+  const handleIntensityChange = (value: number) => {
+    if (!currentSubject) return;
+    setSubjectIntensity(prev => ({
+      ...prev,
+      [currentSubject.name]: value,
+    }));
+  };
+
+  const navigateToNext = () => {
+    if (isAnimating) return;
     
-    return {
-      id: exam.id,
-      name: exam.name,
-      fullName: exam.fullName,
-      description: curriculum?.description || 'Exam preparation',
-      duration: curriculum?.duration || 'N/A',
-      subjects: curriculum?.subjects.map(s => s.name) || [],
-      icon: uiData?.icon || '📚',
-      color: uiData?.color || '#6B7280',
-      popular: uiData?.popular || false,
-    };
-  });
+    if (currentSubjectIndex < totalSubjects - 1) {
+      setIsAnimating(true);
+      Animated.timing(slideAnim, {
+        toValue: -width,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentSubjectIndex(prev => prev + 1);
+        slideAnim.setValue(width);
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => setIsAnimating(false));
+      });
+    }
+  };
 
-  const filteredExams = examTypes.filter(exam =>
-    exam.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    exam.fullName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const navigateToPrevious = () => {
+    if (isAnimating) return;
+    
+    if (currentSubjectIndex > 0) {
+      setIsAnimating(true);
+      Animated.timing(slideAnim, {
+        toValue: width,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentSubjectIndex(prev => prev - 1);
+        slideAnim.setValue(-width);
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start(() => setIsAnimating(false));
+      });
+    }
+  };
 
-  const popularExams = filteredExams.filter(exam => exam.popular);
-  const otherExams = filteredExams.filter(exam => !exam.popular);
+  const jumpToSubject = (index: number) => {
+    if (isAnimating || index === currentSubjectIndex) return;
+    setCurrentSubjectIndex(index);
+  };
 
-  const handleExamSelect = (examId: string) => {
-    setSelectedExam(examId);
+  const getAssessedCount = () => {
+    return Object.keys(subjectIntensity).length;
   };
 
   const handleContinue = async () => {
-    if (selectedExam) {
+    const assessedCount = getAssessedCount();
+    if (assessedCount >= Math.min(3, totalSubjects)) {
       try {
-        // Find selected exam data
-        const selectedExamData = examTypes.find(exam => exam.id === selectedExam);
-        if (selectedExamData) {
-          // Save exam data
-          const examData: ExamData = {
-            id: selectedExamData.id,
-            name: selectedExamData.name,
-            fullName: selectedExamData.fullName,
-            subjects: selectedExamData.subjects,
-          };
-          
-          await saveExamData(examData);
-          console.log('Exam data saved:', examData);
-        }
+        // Save subject intensity data
+        await saveSubjectIntensity(subjectIntensity);
+        console.log('Subject intensity saved:', subjectIntensity);
         
-        // Navigate to subject selection with selected exam
-        router.push('/(onboarding)/subject-selection');
+        router.push('/(onboarding)/learning-style');
       } catch (error) {
-        console.error('Error saving exam data:', error);
+        console.error('Error saving subject intensity:', error);
         // Continue anyway for better UX
-        router.push('/(onboarding)/subject-selection');
+        router.push('/(onboarding)/learning-style');
       }
     }
   };
 
-  const renderExamCard = (item: typeof examTypes[0]) => {
-    const isSelected = selectedExam === item.id;
-    
+
+  if (showIntro) {
     return (
-      <TouchableOpacity
-        style={[
-          styles.examCard,
-          {
-            borderColor: isSelected ? item.color : colors.neutral[200],
-            backgroundColor: isSelected ? colors.neutral[0] : colors.neutral[0],
-            borderWidth: isSelected ? 3 : 2,
-            transform: isSelected ? [{ scale: 1.01 }] : [{ scale: 1 }],
-            shadowColor: isSelected ? item.color : '#000',
-            shadowOpacity: isSelected ? 0.25 : 0.1,
-            shadowRadius: isSelected ? 12 : 4,
-            elevation: isSelected ? 8 : 3,
-          },
-        ]}
-        onPress={() => handleExamSelect(item.id)}
-        activeOpacity={0.7}
-      >
-        {/* Card Header */}
-        <View style={styles.cardHeader}>
-          <View style={[styles.iconContainer, { backgroundColor: `${item.color}20` }]}>
-            <Text style={styles.iconText}>{item.icon}</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={[styles.backIcon, { color: colors.neutral[600] }]}>←</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.headerCenter}>
+            <Text 
+              style={[styles.headerTitle, { color: colors.neutral[900] }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.8}
+            >
+              Study Intensity Assessment
+            </Text>
           </View>
-          <View style={styles.examInfo}>
-                         <Text style={[styles.examName, { color: colors.neutral[900] }] as any}>
-               {item.name}
-             </Text>
-             <Text style={[styles.examFullName, { color: colors.neutral[600] }] as any}>
-               {item.fullName}
-             </Text>
-          </View>
-          {item.popular && (
-            <View style={[styles.popularBadge, { backgroundColor: colors.primary[500] }]}>
-              <Text style={styles.popularText}>Popular</Text>
-            </View>
-          )}
+          
+          <View style={styles.headerRight} />
         </View>
 
-        {/* Card Content */}
-        <Text style={[styles.examDescription, { color: colors.neutral[600] }]}>
-          {item.description}
-        </Text>
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Icon */}
+          <View style={styles.iconContainer}>
+            <Text style={styles.mainIcon}>📊</Text>
+          </View>
 
-        {/* Duration */}
-        <View style={styles.durationContainer}>
-          <Text style={[styles.durationLabel, { color: colors.neutral[500] }]}>
-            Duration:
+          {/* Title */}
+          <Text style={[styles.title, { color: colors.neutral[900] }]}>
+            Set Study Intensity{'\n'}for Each Subject
           </Text>
-          <Text style={[styles.durationValue, { color: colors.neutral[700] }]}>
-            {item.duration}
-          </Text>
-        </View>
 
-        {/* Subjects */}
-        <View style={styles.subjectsContainer}>
-          <Text style={[styles.subjectsLabel, { color: colors.neutral[500] }]}>
-            Subjects:
+          {/* Description */}
+          <Text style={[styles.description, { color: colors.neutral[600] }]}>
+            Tell us how much focus you want to put on each subject. This will help us allocate your study time effectively across all areas.
           </Text>
-          <View style={styles.subjectTags}>
-            {item.subjects.slice(0, 3).map((subject, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.subjectTag,
-                  { backgroundColor: `${item.color}20` }
-                ]}
-              >
-                <Text style={[styles.subjectText, { color: item.color }]}>
-                  {subject}
+
+          {/* Features */}
+          <View style={styles.featuresContainer}>
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.primary[50] }]}>
+                <Text style={styles.featureEmoji}>⚖️</Text>
+              </View>
+              <View style={styles.featureContent}>
+                <Text style={[styles.featureTitle, { color: colors.neutral[800] }]}>
+                  Smart Time Allocation
+                </Text>
+                <Text style={[styles.featureDesc, { color: colors.neutral[600] }]}>
+                  Distribute study hours effectively
                 </Text>
               </View>
-            ))}
-            {item.subjects.length > 3 && (
-              <Text style={[styles.moreSubjects, { color: colors.neutral[500] }]}>
-                +{item.subjects.length - 3} more
-              </Text>
-            )}
+            </View>
+
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.success[50] }]}>
+                <Text style={styles.featureEmoji}>🎯</Text>
+              </View>
+              <View style={styles.featureContent}>
+                <Text style={[styles.featureTitle, { color: colors.neutral[800] }]}>
+                  Focused Learning
+                </Text>
+                <Text style={[styles.featureDesc, { color: colors.neutral[600] }]}>
+                  Prioritize subjects that matter most
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.warning[50] }]}>
+                <Text style={styles.featureEmoji}>📈</Text>
+              </View>
+              <View style={styles.featureContent}>
+                <Text style={[styles.featureTitle, { color: colors.neutral[800] }]}>
+                  Optimized Progress
+                </Text>
+                <Text style={[styles.featureDesc, { color: colors.neutral[600] }]}>
+                  Maximize improvement in key areas
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.featureItem}>
+              <View style={[styles.featureIcon, { backgroundColor: colors.primary[50] }]}>
+                <Text style={styles.featureEmoji}>🔄</Text>
+              </View>
+              <View style={styles.featureContent}>
+                <Text style={[styles.featureTitle, { color: colors.neutral[800] }]}>
+                  Flexible Adjustment
+                </Text>
+                <Text style={[styles.featureDesc, { color: colors.neutral[600] }]}>
+                  Change intensity anytime later
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Info Box */}
+          <View style={[styles.infoBox, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}>
+            <Text style={[styles.infoText, { color: colors.primary[700] }]}>
+              💡 This will take about 2-3 minutes to complete.
+            </Text>
           </View>
         </View>
 
-        {/* Selection Indicator */}
-        {isSelected && (
-          <View style={[styles.selectionIndicator, { backgroundColor: item.color }]}>
-            <Text style={styles.checkmark}>✓</Text>
-          </View>
-        )}
-        
-        {/* Premium Selection Glow */}
-        {isSelected && (
-          <View style={[styles.selectionGlow, { borderColor: item.color }]} />
-        )}
-      </TouchableOpacity>
+        {/* Bottom Action */}
+        <View style={styles.bottomSection}>
+          <TouchableOpacity
+            style={[styles.continueButton, { backgroundColor: colors.primary[500] }]}
+            onPress={() => setShowIntro(false)}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.continueButtonText}>Set Subject Intensity</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Background Gradient */}
+        <LinearGradient
+          colors={[
+            'rgba(59, 130, 246, 0.02)',
+            'transparent',
+            'rgba(99, 102, 241, 0.02)',
+          ]}
+          style={styles.backgroundGradient}
+          pointerEvents="none"
+        />
+      </SafeAreaView>
     );
-  };
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[0] }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[0]} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
       
-      {/* Content */}
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={true}
-        bounces={true}
-        scrollEnabled={true}
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={[styles.backIcon, { color: colors.neutral[600] }]}>←</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.headerCenter}>
+          <Text 
+            style={[styles.headerTitle, { color: colors.neutral[900] }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.8}
+          >
+            Study Intensity Assessment
+          </Text>
+          <View style={styles.progressInfo}>
+            <Text style={[styles.progressText, { color: colors.primary[600] }]}>
+              {currentSubjectIndex + 1}/{totalSubjects}
+            </Text>
+            <View style={[styles.progressBar, { backgroundColor: colors.neutral[200] }]}>
+              <View style={[
+                styles.progressFill,
+                { 
+                  backgroundColor: colors.primary[500],
+                  width: `${progress}%`
+                }
+              ]} />
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.headerRight} />
+      </View>
+
+      {/* Subject Dots */}
+      <View style={styles.subjectDots}>
+        {examSubjects.map((_, index) => {
+          const isActive = index === currentSubjectIndex;
+          const isAssessedSubject = subjectIntensity[examSubjects[index].name] !== undefined;
+          
+          return (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: isActive 
+                    ? colors.primary[500] 
+                    : isAssessedSubject 
+                      ? colors.success[500]
+                      : colors.neutral[300],
+                  transform: [{ scale: isActive ? 1.1 : 1 }]
+                }
+              ]}
+              onPress={() => jumpToSubject(index)}
+              activeOpacity={0.7}
+            />
+          );
+        })}
+      </View>
+
+      {/* Main Content */}
+      <Animated.View 
+        style={[
+          styles.contentContainer,
+          { transform: [{ translateX: slideAnim }] }
+        ]}
       >
-        {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={[styles.title, { color: colors.neutral[900] }]}>
-            Choose Your Exam
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.neutral[600] }]}>
-            Select the exam you&apos;re preparing for to get a personalized study plan
-          </Text>
+        {/* Subject Header */}
+        <LinearGradient
+          colors={[currentSubject.gradient[0], currentSubject.gradient[1], `${currentSubject.gradient[1]}80`]}
+          style={styles.subjectHeader}
+        >
+          <Text style={styles.subjectIcon}>{currentSubject.icon}</Text>
+          <Text style={styles.subjectName}>{currentSubject.name}</Text>
+          <Text style={styles.subjectDescription}>{currentSubject.description}</Text>
+          
+          <View style={styles.subjectMeta}>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaValue}>{currentSubject.totalHours}h</Text>
+              <Text style={styles.metaLabel}>Total Hours</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* Assessment Question */}
+        <Text style={[styles.assessmentTitle, { color: colors.neutral[900] }]}>
+          How much focus should we put on this subject?
+        </Text>
+        
+        {/* Intensity Level Cards */}
+        <View style={styles.intensityContainer}>
+          {intensityLevels.map((level, index) => {
+            const isSelected = currentValue === level.value;
+            
+            return (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.intensityCard,
+                  {
+                    backgroundColor: isSelected ? level.color : colors.neutral[0],
+                    borderColor: isSelected ? level.color : colors.neutral[200],
+                    transform: [{ scale: isSelected ? 1.02 : 1 }]
+                  }
+                ]}
+                onPress={() => handleIntensityChange(level.value)}
+                activeOpacity={0.9}
+              >
+                <View style={styles.cardContent}>
+                  <View style={styles.cardLeft}>
+                    <Text style={styles.cardIcon}>{level.icon}</Text>
+                  </View>
+                  
+                  <View style={styles.cardRight}>
+                    <Text style={[
+                      styles.cardLabel,
+                      { color: isSelected ? '#FFFFFF' : colors.neutral[800] }
+                    ]}>
+                      {level.label}
+                    </Text>
+                    <Text style={[
+                      styles.cardDescription, 
+                      { color: isSelected ? 'rgba(255,255,255,0.9)' : colors.neutral[500] }
+                    ]}>
+                      {level.description}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.cardPercentage}>
+                    <Text style={[
+                      styles.percentageText,
+                      { color: isSelected ? '#FFFFFF' : colors.neutral[600] }
+                    ]}>
+                      {level.percentage}
+                    </Text>
+                  </View>
+                  
+                  {isSelected && (
+                    <View style={styles.selectedIndicator}>
+                      <Text style={styles.checkIcon}>✓</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Popular Exams */}
-        {popularExams.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.neutral[800] }]}>
-              Popular Exams
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: colors.primary[600] }]}>
+              {getAssessedCount()}/{totalSubjects}
             </Text>
-            <View style={styles.examsList}>
-              {popularExams.map((item, index) => (
-                <View key={item.id} style={index > 0 ? { marginTop: 20 } : {}}>
-                  {renderExamCard(item)}
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Other Exams */}
-        {otherExams.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.neutral[800] }]}>
-              Other Exams
+            <Text style={[styles.statLabel, { color: colors.neutral[500] }]}>
+              Done
             </Text>
-            <View style={styles.examsList}>
-              {otherExams.map((item, index) => (
-                <View key={item.id} style={index > 0 ? { marginTop: 20 } : {}}>
-                  {renderExamCard(item)}
-                </View>
-              ))}
-            </View>
           </View>
-        )}
-      </ScrollView>
+          
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: colors.success[600] }]}>
+              {Math.round(progress)}%
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.neutral[500] }]}>
+              Progress
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
 
-      {/* Bottom Action */}
-      <View style={[styles.bottomSection, { backgroundColor: colors.neutral[0], borderTopColor: colors.neutral[200] }]}>
-                 <Button
-           variant="primary"
-           onPress={handleContinue}
-           disabled={!selectedExam}
-           style={styles.continueButton}
-         >
-          Continue to Subjects
-        </Button>
+      {/* Bottom Navigation */}
+      <View style={styles.bottomSection}>
+        <View style={styles.navigationButtons}>
+          <TouchableOpacity
+            style={[
+              styles.navButton,
+              styles.prevButton,
+              { 
+                backgroundColor: currentSubjectIndex > 0 ? colors.neutral[200] : colors.neutral[100],
+                opacity: currentSubjectIndex > 0 ? 1 : 0.5
+              }
+            ]}
+            onPress={navigateToPrevious}
+            disabled={currentSubjectIndex === 0 || isAnimating}
+          >
+            <Text style={[styles.navButtonText, { color: colors.neutral[700] }]}>
+              ←
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.navButton,
+              styles.mainButton,
+              { 
+                backgroundColor: currentSubjectIndex < totalSubjects - 1 
+                  ? colors.primary[500] 
+                  : colors.success[500]
+              }
+            ]}
+            onPress={currentSubjectIndex < totalSubjects - 1 ? navigateToNext : handleContinue}
+            disabled={isAnimating}
+          >
+            <Text style={styles.mainButtonText}>
+              {currentSubjectIndex < totalSubjects - 1 ? 'Next →' : 'Complete'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Background Gradient */}
       <LinearGradient
         colors={[
-          'rgba(99, 102, 241, 0.03)',
+          'rgba(59, 130, 246, 0.02)',
           'transparent',
-          'rgba(139, 92, 246, 0.03)',
+          'rgba(99, 102, 241, 0.02)',
         ]}
         style={styles.backgroundGradient}
         pointerEvents="none"
@@ -277,176 +623,257 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
+  loadingContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-  },
-  contentContainer: {
-    paddingTop: isIOS ? 20 : 24,
-    paddingBottom: 140,
-    minHeight: '120%', // Force scrollable content
-  },
-  titleSection: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-    paddingHorizontal: 16,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  examCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 4,
-    marginVertical: 4,
-    position: 'relative',
-    shadowOffset: { width: 0, height: 2 },
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: isIOS ? 4 : 8,
+    paddingBottom: 8,
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backIcon: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  headerRight: {
+    width: 32,
+  },
+  headerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  progressInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  progressBar: {
+    width: 50,
+    height: 2,
+    borderRadius: 1,
+  },
+  progressFill: {
+    height: 2,
+    borderRadius: 1,
+  },
+  subjectDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 4,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  subjectHeader: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  subjectIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  subjectName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 6,
+    letterSpacing: -0.2,
+  },
+  subjectDescription: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  subjectMeta: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  metaItem: {
+    alignItems: 'center',
+  },
+  metaValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  metaLabel: {
+    fontSize: 9,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
+  },
+  assessmentTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 16,
+    letterSpacing: -0.1,
+  },
+  intensityContainer: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  intensityCard: {
+    borderRadius: 12,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    position: 'relative',
+  },
+  cardLeft: {
     marginRight: 12,
+    minWidth: 32,
+    alignItems: 'center',
   },
-  iconText: {
-    fontSize: 24,
+  cardIcon: {
+    fontSize: 22,
   },
-  examInfo: {
+  cardRight: {
     flex: 1,
   },
-  examName: {
-    fontSize: 20,
+  cardLabel: {
+    fontSize: 14,
     fontWeight: '700',
     marginBottom: 2,
   },
-  examFullName: {
-    fontSize: 14,
+  cardDescription: {
+    fontSize: 11,
     fontWeight: '500',
+    lineHeight: 15,
   },
-  popularBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  cardPercentage: {
     marginLeft: 8,
-  },
-  popularText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  examDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  durationContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    minWidth: 32,
   },
-  durationLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginRight: 8,
-  },
-  durationValue: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  subjectsContainer: {
-    marginBottom: 8,
-  },
-  subjectsLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  subjectTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  subjectTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
-    marginBottom: 4,
-  },
-  subjectText: {
+  percentageText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  moreSubjects: {
-    fontSize: 12,
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
-  selectionIndicator: {
+  selectedIndicator: {
     position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    top: 10,
+    right: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  checkmark: {
-    fontSize: 16,
+  checkIcon: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#10B981',
   },
-  selectionGlow: {
-    position: 'absolute',
-    top: -1,
-    left: -1,
-    right: -1,
-    bottom: -1,
-    borderRadius: 17,
-    borderWidth: 1,
-    opacity: 0.4,
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 9,
+    fontWeight: '500',
   },
   bottomSection: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: isIOS ? 34 : 20,
-    borderTopWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
+    paddingHorizontal: 16,
+    paddingBottom: isIOS ? 4 : 16,
+    paddingTop: 8,
   },
-  continueButton: {
-    width: '100%',
+  navigationButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  navButton: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prevButton: {
+    width: 44,
+  },
+  mainButton: {
+    flex: 1,
+  },
+  navButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  mainButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   backgroundGradient: {
     position: 'absolute',
@@ -456,7 +883,88 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: -1,
   },
-  examsList: {
-    // Add any necessary styles for the exams list
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  mainIcon: {
+    fontSize: 64,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 36,
+    letterSpacing: -0.5,
+  },
+  description: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  featuresContainer: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featureIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  featureEmoji: {
+    fontSize: 20,
+  },
+  featureContent: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  infoBox: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  infoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  continueButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  continueButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 }); 
