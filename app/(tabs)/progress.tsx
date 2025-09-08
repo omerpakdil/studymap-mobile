@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useState } from 'react';
@@ -333,7 +334,7 @@ export default function ProgressScreen() {
       {/* Quick Stats Grid */}
       <View style={styles.quickStatsGrid}>
         <View style={[styles.quickStatCard, { backgroundColor: colors.success[50] }]}>
-          <Text style={styles.quickStatEmoji}>🔥</Text>
+          <Ionicons name="flame" size={28} color={colors.success[600]} style={styles.quickStatIcon} />
           <Text style={[styles.quickStatValue, { color: colors.success[700] }]}>
             {studyStreak}
           </Text>
@@ -343,7 +344,7 @@ export default function ProgressScreen() {
         </View>
         
         <View style={[styles.quickStatCard, { backgroundColor: colors.primary[50] }]}>
-          <Text style={styles.quickStatEmoji}>📚</Text>
+          <Ionicons name="book" size={28} color={colors.primary[600]} style={styles.quickStatIcon} />
           <Text style={[styles.quickStatValue, { color: colors.primary[700] }]}>
             {programMetadata.completedTasks}
           </Text>
@@ -353,7 +354,7 @@ export default function ProgressScreen() {
         </View>
         
         <View style={[styles.quickStatCard, { backgroundColor: colors.warning[50] }]}>
-          <Text style={styles.quickStatEmoji}>⏰</Text>
+          <Ionicons name="time" size={28} color={colors.warning[600]} style={styles.quickStatIcon} />
           <Text style={[styles.quickStatValue, { color: colors.warning[700] }]}>
             {weeklyProgress.hours}h
           </Text>
@@ -363,7 +364,7 @@ export default function ProgressScreen() {
         </View>
         
         <View style={[styles.quickStatCard, { backgroundColor: colors.error[50] }]}>
-          <Text style={styles.quickStatEmoji}>🎯</Text>
+          <Ionicons name="trophy" size={28} color={colors.error[600]} style={styles.quickStatIcon} />
           <Text style={[styles.quickStatValue, { color: colors.error[700] }]}>
             {programMetadata.weeklyHours}h
           </Text>
@@ -373,7 +374,7 @@ export default function ProgressScreen() {
         </View>
         
         <View style={[styles.quickStatCard, { backgroundColor: colors.neutral[50] }]}>
-          <Text style={styles.quickStatEmoji}>📅</Text>
+          <Ionicons name="calendar" size={28} color={colors.neutral[600]} style={styles.quickStatIcon} />
           <Text style={[styles.quickStatValue, { color: colors.neutral[700] }]}>
             {dailyProgress.minutes}m
           </Text>
@@ -571,7 +572,7 @@ export default function ProgressScreen() {
             </View>
           </View>
           <View style={[styles.achievementBadgeContainer, { backgroundColor: colors.primary[50] }]}>
-            <Text style={styles.achievementBadgeIcon}>🏆</Text>
+            <Ionicons name="trophy" size={20} color={colors.primary[600]} />
             <Text style={[styles.achievementBadgeCount, { color: colors.primary[600] }]}>
               {unlockedCount}
             </Text>
@@ -670,9 +671,12 @@ export default function ProgressScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-          📊 Progress Analytics
-        </Text>
+        <View style={styles.headerTitleContainer}>
+          <Ionicons name="analytics" size={24} color={colors.primary[600]} style={{ marginRight: 8 }} />
+          <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
+            Progress Analytics
+          </Text>
+        </View>
         <Text style={[styles.headerSubtitle, { color: colors.neutral[600] }]}>
           Detailed insights into your study journey
         </Text>
@@ -702,6 +706,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: isIOS ? 8 : 16,
     paddingBottom: 16,
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 24,
@@ -819,8 +827,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  quickStatEmoji: {
-    fontSize: 24,
+  quickStatIcon: {
     marginBottom: 8,
   },
   quickStatValue: {

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect as useFocusEffectNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -182,11 +183,21 @@ export default function DashboardScreen() {
 
   const getTaskTypeIcon = (type: string) => {
     switch (type) {
-      case 'practice': return '✏️';
-      case 'study': return '📚';
-      case 'review': return '🔄';
-      case 'quiz': return '🧠';
-      default: return '📝';
+      case 'practice': return 'create-outline';
+      case 'study': return 'book-outline';
+      case 'review': return 'refresh-outline';
+      case 'quiz': return 'bulb-outline';
+      default: return 'document-text-outline';
+    }
+  };
+
+  const getTaskTypeColor = (type: string) => {
+    switch (type) {
+      case 'practice': return colors.warning[600];
+      case 'study': return colors.primary[600];
+      case 'review': return colors.success[600];
+      case 'quiz': return colors.secondary[600];
+      default: return colors.neutral[600];
     }
   };
 
@@ -314,7 +325,7 @@ export default function DashboardScreen() {
           {/* Quick Stats */}
           <View style={styles.quickStats}>
             <View style={[styles.statCard, { backgroundColor: colors.success[50] }]}>
-              <Text style={styles.statEmoji}>🎯</Text>
+              <Ionicons name="checkmark-circle" size={28} color={colors.success[600]} style={styles.statIcon} />
               <Text style={[styles.statValue, { color: colors.success[700] }]}>
                 {completedTasks}/{todayTasks.length}
               </Text>
@@ -323,7 +334,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.warning[50] }]}>
-              <Text style={styles.statEmoji}>⏱️</Text>
+              <Ionicons name="time" size={28} color={colors.warning[600]} style={styles.statIcon} />
               <Text style={[styles.statValue, { color: colors.warning[700] }]}>
                 {dailyProgress.minutes}m
               </Text>
@@ -332,7 +343,7 @@ export default function DashboardScreen() {
               </Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
-              <Text style={styles.statEmoji}>🔥</Text>
+              <Ionicons name="flame" size={28} color={colors.primary[600]} style={styles.statIcon} />
               <Text style={[styles.statValue, { color: colors.primary[700] }]}>
                 {programMetadata.currentStreak || 0}
               </Text>
@@ -383,8 +394,9 @@ export default function DashboardScreen() {
           <View style={styles.taskList}>
             {todayTasks.length === 0 ? (
               <View style={[styles.noTasksContainer, { backgroundColor: colors.neutral[50] }]}>
+                <Ionicons name="checkmark-done-circle" size={48} color={colors.success[600]} style={{ marginBottom: 12 }} />
                 <Text style={[styles.noTasksTitle, { color: colors.neutral[600] }]}>
-                  🎉 No tasks scheduled for today!
+                  No tasks scheduled for today!
                 </Text>
                 <Text style={[styles.noTasksText, { color: colors.neutral[500] }]}>
                   Enjoy your free day or check the calendar for upcoming tasks.
@@ -418,9 +430,11 @@ export default function DashboardScreen() {
                       <Text style={[styles.taskSubject, { color: colors.neutral[900] }]}>
                         {task.subject}
                       </Text>
-                      <Text style={[styles.taskType, { color: colors.neutral[500] }]}>
-                        {getTaskTypeIcon(task.type)}
-                      </Text>
+                      <Ionicons 
+                        name={getTaskTypeIcon(task.type) as any} 
+                        size={18} 
+                        color={getTaskTypeColor(task.type)} 
+                      />
                     </View>
                     <Text style={[styles.taskDuration, { color: colors.neutral[500] }]}>
                       {task.duration} minutes {isCompleted ? '(Completed ✅)' : ''}
@@ -472,7 +486,7 @@ export default function DashboardScreen() {
 
         {/* Motivational Quote */}
         <View style={[styles.motivationCard, { backgroundColor: colors.success[50], borderColor: colors.success[200] }]}>
-          <Text style={styles.motivationIcon}>✨</Text>
+          <Ionicons name="star" size={32} color={colors.success[600]} style={styles.motivationIcon} />
           <Text style={[styles.motivationQuote, { color: colors.success[800] }]}>
             {getDailyMotivationQuote()}
           </Text>
@@ -602,8 +616,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  statEmoji: {
-    fontSize: 24,
+  statIcon: {
     marginBottom: 8,
   },
   statValue: {

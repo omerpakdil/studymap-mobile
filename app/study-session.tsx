@@ -1,18 +1,23 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Modal,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { generateStudyContent } from '@/app/utils/aiProviderManager';
@@ -86,6 +91,9 @@ export default function StudySessionScreen() {
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [isNotesFocused, setIsNotesFocused] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const notesHeightAnim = useRef(new Animated.Value(160)).current;
 
   // Content state
   const [content, setContent] = useState<ContentItem[]>([]);
@@ -99,6 +107,45 @@ export default function StudySessionScreen() {
   // Notes state
   const [notes, setNotes] = useState('');
   const [isSessionCompleted, setIsSessionCompleted] = useState(false);
+
+  // Keyboard listeners
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      // Add a small delay to ensure keyboard is fully hidden
+      setTimeout(() => {
+        setIsKeyboardVisible(false);
+        setIsNotesFocused(false);
+      }, 100);
+    });
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // Handle notes height animation based on keyboard state only
+  useEffect(() => {
+    let targetHeight = 160; // Default large size
+    
+    if (isKeyboardVisible) {
+      // When keyboard is visible, make it small
+      targetHeight = 80;
+    } else {
+      // When keyboard is hidden, always make it large (regardless of content)
+      targetHeight = 160;
+    }
+    
+    Animated.timing(notesHeightAnim, {
+      toValue: targetHeight,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  }, [isKeyboardVisible]);
 
   // Load Claude-generated content
   const loadContent = async () => {
@@ -359,11 +406,9 @@ export default function StudySessionScreen() {
     };
   }, []);
 
-  // Auto-save notes when they change
+  // Auto-save notes when they change (including empty string)
   useEffect(() => {
-    if (notes) {
-      saveNotes(notes);
-    }
+    saveNotes(notes);
   }, [notes]);
 
   const renderTimer = () => (
@@ -398,9 +443,17 @@ export default function StudySessionScreen() {
           style={[styles.timerButton, { backgroundColor: getTimerColor() }]}
           onPress={isRunning ? pauseTimer : startTimer}
         >
-          <Text style={[styles.timerButtonText, { color: '#FFFFFF' }]}>
-            {isRunning ? 'Pause' : 'Start'}
-          </Text>
+          <View style={styles.timerButtonContent}>
+            <Ionicons 
+              name={isRunning ? 'pause' : 'play'} 
+              size={20} 
+              color="white" 
+              style={{ marginRight: 8 }} 
+            />
+            <Text style={[styles.timerButtonText, { color: '#FFFFFF' }]}>
+              {isRunning ? 'Pause' : 'Start'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -413,32 +466,54 @@ export default function StudySessionScreen() {
           {params?.subject}
         </Text>
         <Text style={[styles.contentType, { color: colors.neutral[500] }]}>
-          📝 Focus & Notes
+          Focus & Notes
         </Text>
       </View>
 
       {/* Notes Panel */}
       <View style={[styles.notesContainer, { backgroundColor: colors.neutral[0] }]}>
-        <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-          {isSessionCompleted ? '✅ Study Notes (Completed)' : '📝 Study Notes'}
-        </Text>
+        <View style={styles.sectionTitleContainer}>
+          {isSessionCompleted ? (
+            <Ionicons name="checkmark-circle" size={20} color={colors.success[600]} style={{ marginRight: 8 }} />
+          ) : (
+            <Ionicons name="document-text" size={20} color={colors.primary[600]} style={{ marginRight: 8 }} />
+          )}
+          <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
+            {isSessionCompleted ? 'Study Notes (Completed)' : 'Study Notes'}
+          </Text>
+        </View>
         
-        <TextInput
-          style={[
-            styles.notesInput,
-            {
-              backgroundColor: colors.neutral[50],
-              borderColor: colors.neutral[200],
-              color: colors.neutral[900],
-            }
-          ]}
-          placeholder="Take notes during your study session..."
-          placeholderTextColor={colors.neutral[400]}
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          textAlignVertical="top"
-        />
+        <Animated.View
+          style={{
+            height: notesHeightAnim,
+          }}
+        >
+          <TextInput
+            style={[
+              styles.notesInput,
+              {
+                backgroundColor: colors.neutral[50],
+                borderColor: isNotesFocused || notes.length > 0 ? colors.primary[300] : colors.neutral[200],
+                color: colors.neutral[900],
+                flex: 1,
+              }
+            ]}
+            placeholder="Take notes during your study session..."
+            placeholderTextColor={colors.neutral[400]}
+            value={notes}
+            onChangeText={setNotes}
+            onFocus={() => setIsNotesFocused(true)}
+            onBlur={() => setIsNotesFocused(false)}
+            multiline
+            textAlignVertical="top"
+            scrollEnabled={true}
+            keyboardType="default"
+            returnKeyType="default"
+            blurOnSubmit={false}
+            autoCorrect={true}
+            spellCheck={true}
+          />
+        </Animated.View>
       </View>
 
       {/* Complete Session Button */}
@@ -447,14 +522,20 @@ export default function StudySessionScreen() {
           style={[styles.completeButton, { backgroundColor: colors.success[500] }]}
           onPress={handleSessionComplete}
         >
-          <Text style={styles.completeButtonText}>Complete Session 🎉</Text>
+          <View style={styles.completeButtonContent}>
+            <Ionicons name="checkmark-circle" size={20} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.completeButtonText}>Complete Session</Text>
+          </View>
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
           style={[styles.completeButton, { backgroundColor: colors.primary[500] }]}
           onPress={() => router.back()}
         >
-          <Text style={styles.completeButtonText}>Back to Dashboard 📚</Text>
+          <View style={styles.completeButtonContent}>
+            <Ionicons name="home" size={20} color="white" style={{ marginRight: 8 }} />
+            <Text style={styles.completeButtonText}>Back to Dashboard</Text>
+          </View>
         </TouchableOpacity>
       )}
     </View>
@@ -472,9 +553,12 @@ export default function StudySessionScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: colors.neutral[0] }]}>
-            <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
-              ⏱️ Set Focus Duration
-            </Text>
+            <View style={styles.modalTitleContainer}>
+              <Ionicons name="timer" size={24} color={colors.primary[600]} style={{ marginRight: 8 }} />
+              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
+                Set Focus Duration
+              </Text>
+            </View>
             
             <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
               Choose how long you want to focus
@@ -535,7 +619,7 @@ export default function StudySessionScreen() {
           <View style={[styles.completionModalContent, { backgroundColor: colors.neutral[0] }]}>
             {/* Success Animation/Icon */}
             <View style={[styles.successCircle, { backgroundColor: colors.success[100] }]}>
-              <Text style={styles.successIcon}>🎉</Text>
+              <Ionicons name="trophy" size={48} color={colors.success[600]} />
             </View>
             
             {/* Title */}
@@ -551,7 +635,7 @@ export default function StudySessionScreen() {
             {/* Stats Cards */}
             <View style={styles.statsContainer}>
               <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
-                <Text style={styles.statIcon}>⏱️</Text>
+                <Ionicons name="time" size={24} color={colors.primary[600]} style={styles.statIcon} />
                 <Text style={[styles.statNumber, { color: colors.primary[700] }]}>
                   {totalStudyTime}
                 </Text>
@@ -561,7 +645,7 @@ export default function StudySessionScreen() {
               </View>
               
               <View style={[styles.statCard, { backgroundColor: colors.success[50] }]}>
-                <Text style={styles.statIcon}>📝</Text>
+                <Ionicons name="document-text" size={24} color={colors.success[600]} style={styles.statIcon} />
                 <Text style={[styles.statNumber, { color: colors.success[700] }]}>
                   {notesLength}
                 </Text>
@@ -618,7 +702,7 @@ export default function StudySessionScreen() {
         <View style={[styles.exitModalContent, { backgroundColor: colors.neutral[0] }]}>
           {/* Icon */}
           <View style={[styles.exitIconContainer, { backgroundColor: colors.warning[100] }]}>
-            <Text style={styles.exitIcon}>⚠️</Text>
+            <Ionicons name="warning" size={32} color={colors.warning[600]} />
           </View>
           
           {/* Title & Message */}
@@ -704,33 +788,57 @@ export default function StudySessionScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
+    <View style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.exitButton, { backgroundColor: colors.neutral[100] }]}
-          onPress={exitSession}
-        >
-          <Text style={[styles.exitButtonText, { color: colors.neutral[700] }]}>✕</Text>
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-            {isSessionCompleted ? '✅ Completed Session' : 'Study Session'}
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: colors.neutral[600] }]}>
-            {params?.type} • {params?.duration} min planned
-          </Text>
+      {/* Header - Fixed */}
+      <SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.exitButton, { backgroundColor: colors.neutral[100] }]}
+            onPress={exitSession}
+          >
+            <Text style={[styles.exitButtonText, { color: colors.neutral[700] }]}>✕</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.headerContent}>
+            <View style={styles.headerTitleContainer}>
+              {isSessionCompleted ? (
+                <Ionicons name="checkmark-circle" size={24} color={colors.success[600]} style={{ marginRight: 8 }} />
+              ) : (
+                <Ionicons name="book" size={24} color={colors.primary[600]} style={{ marginRight: 8 }} />
+              )}
+              <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
+                {isSessionCompleted ? 'Completed Session' : 'Study Session'}
+              </Text>
+            </View>
+            <Text style={[styles.headerSubtitle, { color: colors.neutral[600] }]}>
+              {params?.type} • {params?.duration} min planned
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Timer Section */}
-      {renderTimer()}
+        {/* Timer Section - Fixed */}
+        {renderTimer()}
+      </SafeAreaView>
 
-      {/* Content Section */}
-      {renderContent()}
+      {/* Content Section with Keyboard Avoiding */}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          keyboardDismissMode="interactive"
+        >
+          {renderContent()}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Duration Modal */}
       {renderDurationModal()}
@@ -740,7 +848,7 @@ export default function StudySessionScreen() {
 
       {/* Exit Modal */}
       {renderExitModal()}
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -774,6 +882,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 2,
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerSubtitle: {
     fontSize: 14,
@@ -816,6 +928,11 @@ const styles = StyleSheet.create({
     minWidth: 70,
     alignItems: 'center',
   },
+  timerButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   timerButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -824,7 +941,6 @@ const styles = StyleSheet.create({
   // Content Styles
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   contentHeader: {
     flexDirection: 'row',
@@ -852,14 +968,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 8,
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   notesInput: {
-    flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1.5,
+    borderRadius: 12,
     fontSize: 16,
+    lineHeight: 24,
     textAlignVertical: 'top',
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   completeButton: {
     padding: 16,
@@ -870,6 +991,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  completeButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Duration Modal Styles
@@ -887,6 +1013,12 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   modalSubtitle: {

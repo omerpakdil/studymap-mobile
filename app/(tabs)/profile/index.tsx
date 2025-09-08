@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -434,9 +435,7 @@ export default function ProfileScreen() {
       >
         <View style={styles.userInfo}>
           <View style={styles.avatarContainer}>
-            <Text style={styles.avatarText}>
-              👤
-            </Text>
+            <Ionicons name="person" size={48} color={colors.primary[600]} />
           </View>
           <View style={styles.userDetails}>
             <Text style={styles.userName}>
@@ -489,7 +488,13 @@ export default function ProfileScreen() {
         >
           <View style={styles.settingsItemLeft}>
             {item.icon && (
-              <Text style={styles.settingsIcon}>{item.icon}</Text>
+              typeof item.icon === 'string' ? (
+                <Text style={styles.settingsIcon}>{item.icon}</Text>
+              ) : (
+                <View style={styles.settingsIconContainer}>
+                  {item.icon}
+                </View>
+              )
             )}
             <View style={styles.settingsTextContainer}>
               <Text style={[styles.settingsTitle, { color: colors.neutral[800] }]}>
@@ -531,9 +536,12 @@ export default function ProfileScreen() {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-          👤 Profile
-        </Text>
+        <View style={styles.headerTitleContainer}>
+          <Ionicons name="person-circle" size={24} color={colors.primary[600]} style={{ marginRight: 8 }} />
+          <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
+            Profile
+          </Text>
+        </View>
         <TouchableOpacity
           style={[styles.editButton, { backgroundColor: colors.neutral[100] }]}
           onPress={handleEditProfile}
@@ -596,7 +604,7 @@ export default function ProfileScreen() {
             onChange: (value: boolean) => updateReminderSetting('dailyReminder', value as boolean),
           },
           {
-            icon: '⏰',
+            icon: <Ionicons name="time" size={20} color={colors.primary[600]} />,
             title: 'Study Time',
             subtitle: `Daily reminder at ${reminderSettings.studyTime}`,
             onPress: handleStudyTimePress,
@@ -616,7 +624,7 @@ export default function ProfileScreen() {
         {/* Notification Settings */}
         {renderSettingsSection('Notifications', [
           {
-            icon: '☕',
+            icon: <Ionicons name="cafe" size={20} color={colors.warning[600]} />,
             title: 'Break Reminders',
             subtitle: 'Pomodoro break notifications',
             type: 'switch',
@@ -624,7 +632,7 @@ export default function ProfileScreen() {
             onChange: (value: boolean) => updateReminderSetting('breakReminder', value as boolean),
           },
           {
-            icon: '📊',
+            icon: <Ionicons name="bar-chart" size={20} color={colors.success[600]} />,
             title: 'Weekly Reports',
             subtitle: 'Progress summary every Sunday',
             type: 'switch',
@@ -632,7 +640,7 @@ export default function ProfileScreen() {
             onChange: (value: boolean) => updateReminderSetting('weeklyReport', value as boolean),
           },
           {
-            icon: '✨',
+            icon: <Ionicons name="star" size={20} color={colors.secondary[600]} />,
             title: 'Motivational Quotes',
             subtitle: 'Daily inspiration',
             type: 'switch',
@@ -644,7 +652,7 @@ export default function ProfileScreen() {
         {/* Privacy & Data */}
         {renderSettingsSection('Privacy & Data', [
           {
-            icon: '📈',
+            icon: <Ionicons name="trending-up" size={20} color={colors.primary[600]} />,
             title: 'Usage Analytics',
             subtitle: 'Help improve the app',
             type: 'switch',
@@ -652,7 +660,7 @@ export default function ProfileScreen() {
             onChange: (value: boolean) => updatePrivacySetting('analytics', value),
           },
           {
-            icon: '🤝',
+            icon: <Ionicons name="people" size={20} color={colors.warning[600]} />,
             title: 'Data Sharing',
             subtitle: 'Share with partners',
             type: 'switch',
@@ -660,7 +668,7 @@ export default function ProfileScreen() {
             onChange: (value: boolean) => updatePrivacySetting('dataSharing', value),
           },
           {
-            icon: '📧',
+            icon: <Ionicons name="mail" size={20} color={colors.primary[600]} />,
             title: 'Marketing Emails',
             subtitle: 'Tips and updates',
             type: 'switch',
@@ -672,26 +680,26 @@ export default function ProfileScreen() {
         {/* Account & Support */}
         {renderSettingsSection('Account & Support', [
           {
-            icon: '📱',
+            icon: <Ionicons name="phone-portrait" size={20} color={colors.neutral[600]} />,
             title: 'App Version',
             subtitle: '1.0.0 (Build 1)',
             type: 'info',
             value: '',
           },
           {
-            icon: '❓',
+            icon: <Ionicons name="help-circle" size={20} color={colors.primary[600]} />,
             title: 'Help & Support',
             subtitle: 'Contact us or browse FAQs',
             onPress: handleContactSupport,
           },
           {
-            icon: '⭐',
+            icon: <Ionicons name="star-outline" size={20} color={colors.warning[600]} />,
             title: 'Rate StudyMap',
             subtitle: 'Share your feedback',
             onPress: handleRateApp,
           },
           {
-            icon: '🗑️',
+            icon: <Ionicons name="trash" size={20} color={colors.error[600]} />,
             title: 'Delete Account',
             subtitle: 'Permanently delete your account',
             onPress: handleDeleteAccount,
@@ -701,7 +709,7 @@ export default function ProfileScreen() {
         {/* Developer */}
         {renderSettingsSection('Developer', [
           {
-            icon: '🔄',
+            icon: <Ionicons name="refresh" size={20} color={colors.neutral[600]} />,
             title: 'Reset Onboarding',
             subtitle: 'Clear all data and restart onboarding',
             onPress: handleResetOnboarding,
@@ -1104,6 +1112,10 @@ const styles = StyleSheet.create({
     paddingTop: isIOS ? 8 : 16,
     paddingBottom: 16,
   },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
@@ -1238,6 +1250,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
     width: 24,
     textAlign: 'center',
+  },
+  settingsIconContainer: {
+    marginRight: 16,
+    width: 24,
+    alignItems: 'center',
   },
   settingsTitle: {
     fontSize: 16,
