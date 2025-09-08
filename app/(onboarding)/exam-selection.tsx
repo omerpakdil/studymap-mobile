@@ -2,15 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { availableExams } from '@/app/data';
@@ -42,7 +42,7 @@ const examIcons: { [key: string]: string } = {
 
 export default function ExamSelectionScreen() {
   const { colors } = useTheme();
-  const [loading, setLoading] = useState(false);
+  const [loadingExamId, setLoadingExamId] = useState<string | null>(null);
 
   const getExamDescription = (examId: string): string => {
     const descriptions: { [key: string]: string } = {
@@ -58,14 +58,14 @@ export default function ExamSelectionScreen() {
 
   const handleExamSelection = async (exam: any) => {
     try {
-      setLoading(true);
+      setLoadingExamId(exam.id);
       await saveExamData(exam);
       console.log('✅ Exam data saved:', exam);
       router.push('/(onboarding)/assessment');
     } catch (error) {
       console.error('❌ Error saving exam data:', error);
     } finally {
-      setLoading(false);
+      setLoadingExamId(null);
     }
   };
 
@@ -113,17 +113,18 @@ export default function ExamSelectionScreen() {
           {availableExams.map((exam: any, index: number) => {
             const gradient = examGradients[exam.id] || ['#6B7280', '#4B5563'];
             const icon = examIcons[exam.id] || '📚';
+            const isLoading = loadingExamId === exam.id;
             
             return (
               <TouchableOpacity
                 key={exam.id}
                 style={[
                   styles.examCard,
-                  { opacity: loading ? 0.6 : 1 }
+                  { opacity: isLoading ? 0.6 : 1 }
                 ]}
                 onPress={() => handleExamSelection(exam)}
                 activeOpacity={0.8}
-                disabled={loading}
+                disabled={loadingExamId !== null}
               >
                 <LinearGradient
                   colors={gradient as any}
@@ -141,7 +142,7 @@ export default function ExamSelectionScreen() {
                 </LinearGradient>
                 
                 {/* Loading overlay */}
-                {loading && (
+                {isLoading && (
                   <View style={styles.loadingOverlay}>
                     <Text style={styles.loadingText}>●●●</Text>
                   </View>

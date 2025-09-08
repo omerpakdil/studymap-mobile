@@ -8,7 +8,7 @@ const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
 
 export interface SubscriptionStatus {
   isActive: boolean;
-  type?: 'monthly' | 'annual' | 'weekly';
+  type?: 'monthly' | 'annual' | 'weekly' | 'lifetime';
   expiresDate?: string;
   willRenew?: boolean;
   productId?: string;
@@ -225,11 +225,13 @@ export const getSubscriptionDetails = async (): Promise<CustomerInfo | null> => 
 /**
  * Helper function to determine subscription type from package identifier
  */
-const getSubscriptionType = (packageId: string): 'monthly' | 'annual' | 'weekly' => {
+const getSubscriptionType = (packageId: string): 'monthly' | 'annual' | 'weekly' | 'lifetime' => {
   if (packageId.includes('annual') || packageId.includes('yearly')) {
     return 'annual';
   } else if (packageId.includes('weekly')) {
     return 'weekly';
+  } else if (packageId.includes('lifetime') || packageId.includes('permanent')) {
+    return 'lifetime';
   } else {
     return 'monthly';
   }

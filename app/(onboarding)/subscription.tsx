@@ -211,6 +211,8 @@ export default function SubscriptionScreen() {
         return 'Monthly Plan';
       case 'WEEKLY':
         return 'Weekly Plan';
+      case 'LIFETIME':
+        return 'Lifetime Plan';
       default:
         return packageItem.product.title || 'Subscription Plan';
     }
@@ -236,21 +238,48 @@ export default function SubscriptionScreen() {
   };
 
   const getMonthlyEquivalent = (packageItem: PurchasesPackage): string | null => {
-    if (packageItem.packageType === 'ANNUAL') {
-      const price = packageItem.product.price;
-      const monthlyPrice = price / 12;
-      return `Only $${monthlyPrice.toFixed(2)}/month`;
+    const price = packageItem.product.price;
+    
+    switch (packageItem.packageType) {
+      case 'ANNUAL':
+        const monthlyFromAnnual = price / 12;
+        return `Only $${monthlyFromAnnual.toFixed(2)}/month`;
+      case 'WEEKLY':
+        const monthlyFromWeekly = price * 4.33; // ~4.33 weeks per month
+        return `$${monthlyFromWeekly.toFixed(2)}/month`;
+      case 'LIFETIME':
+        return 'Pay once, use forever';
+      default:
+        return null;
     }
-    return null;
   };
 
   const getSavingsText = (packageItem: PurchasesPackage): string | null => {
-    if (packageItem.packageType === 'ANNUAL') {
-      return 'SAVE 50%';
-    } else if (packageItem.packageType === 'LIFETIME') {
-      return 'BEST DEAL';
+    if (!offerings) return null;
+    
+    const monthlyPackage = offerings.availablePackages.find(pkg => pkg.packageType === 'MONTHLY');
+    if (!monthlyPackage) return null;
+    
+    const monthlyPrice = monthlyPackage.product.price;
+    const currentPrice = packageItem.product.price;
+    
+    switch (packageItem.packageType) {
+      case 'ANNUAL':
+        const annualEquivalentMonthly = currentPrice / 12;
+        const annualSavings = Math.round(((monthlyPrice - annualEquivalentMonthly) / monthlyPrice) * 100);
+        return annualSavings > 0 ? `SAVE ${annualSavings}%` : null;
+      case 'WEEKLY':
+        const weeklyEquivalentMonthly = currentPrice * 4.33;
+        if (weeklyEquivalentMonthly > monthlyPrice) {
+          return null; // No savings for weekly
+        }
+        const weeklySavings = Math.round(((monthlyPrice - weeklyEquivalentMonthly) / monthlyPrice) * 100);
+        return weeklySavings > 0 ? `SAVE ${weeklySavings}%` : null;
+      case 'LIFETIME':
+        return 'BEST DEAL';
+      default:
+        return null;
     }
-    return null;
   };
 
   const getPeriodText = (packageItem: PurchasesPackage): string => {
@@ -356,6 +385,7 @@ export default function SubscriptionScreen() {
             styles.pricingContainer,
             offerings.availablePackages.length === 1 && styles.singlePricingContainer,
             offerings.availablePackages.length === 2 && styles.twoPricingContainer,
+            offerings.availablePackages.length >= 3 && styles.multiplePricingContainer,
           ]}>
             {offerings.availablePackages
               .sort((a, b) => {
@@ -376,6 +406,7 @@ export default function SubscriptionScreen() {
                       styles.pricingCard,
                       offerings.availablePackages.length === 1 && styles.singlePricingCard,
                       offerings.availablePackages.length === 2 && styles.twoPricingCard,
+                      offerings.availablePackages.length >= 3 && styles.multiplePricingCard,
                       { backgroundColor: colors.neutral[0] },
                       isSelected && { 
                         borderColor: colors.primary[500],
@@ -720,6 +751,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 16,
   },
+  multiplePricingContainer: {
+    flexDirection: 'column',
+    gap: 12,
+  },
   pricingCard: {
     flex: 1,
     padding: 18,
@@ -739,6 +774,10 @@ const styles = StyleSheet.create({
     maxWidth: 280,
   },
   twoPricingCard: {
+    flex: 0,
+    width: '100%',
+  },
+  multiplePricingCard: {
     flex: 0,
     width: '100%',
   },

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
@@ -14,7 +15,7 @@ import {
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
 import { loadDailyTasks } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -71,10 +72,12 @@ const formatTimeSlot = (timeSlot: string, compact: boolean = false) => {
 
 export default function CalendarScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const [currentView, setCurrentView] = useState<CalendarView>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState<CalendarData>({});
   const [loading, setLoading] = useState(true);
+  const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
 
   // Load calendar data from Claude-generated tasks
   const loadCalendarData = async () => {
@@ -117,13 +120,49 @@ export default function CalendarScreen() {
     }
   };
 
+  // Load task completion status from AsyncStorage
+  const loadTaskCompletions = async () => {
+    try {
+      const completions: Record<string, boolean> = {};
+      
+      // Get all tasks from calendar data
+      const allTasks = Object.values(calendarData).flat();
+      
+      for (const task of allTasks) {
+        const key = `session_completed_${task.id}`;
+        const status = await AsyncStorage.getItem(key);
+        completions[task.id] = status === 'true' || task.completed;
+      }
+      
+      setTaskCompletions(completions);
+      console.log('📋 Task completions loaded:', Object.keys(completions).length);
+    } catch (error) {
+      console.log('Error loading task completions:', error);
+    }
+  };
+
   useEffect(() => {
     loadCalendarData();
   }, []);
 
+  useEffect(() => {
+    if (Object.keys(calendarData).length > 0) {
+      loadTaskCompletions();
+    }
+  }, [calendarData]);
+
   useFocusEffect(
     useCallback(() => {
       loadCalendarData();
+    }, [])
+  );
+
+  // Reload completions when screen focuses (after returning from study session)
+  useFocusEffect(
+    useCallback(() => {
+      if (Object.keys(calendarData).length > 0) {
+        loadTaskCompletions();
+      }
     }, [])
   );
 
@@ -203,12 +242,27 @@ export default function CalendarScreen() {
   const getDateProgress = (date: Date) => {
     const tasks = getDateTasks(date);
     if (tasks.length === 0) return 0;
-    const completed = tasks.filter((task: StudyTask) => task.completed).length;
+    const completed = tasks.filter((task: StudyTask) => 
+      taskCompletions[task.id] || task.completed
+    ).length;
     return (completed / tasks.length) * 100;
   };
 
   const getSubjectColor = (subject: string) => {
     return subjectColors[subject as keyof typeof subjectColors] || subjectColors.Default;
+  };
+
+  const handleStartStudySession = (task: StudyTask) => {
+    router.push({
+      pathname: '/study-session' as any,
+      params: {
+        taskId: task.id,
+        subject: task.subject,
+        type: task.type,
+        duration: task.duration.toString(),
+        title: task.title,
+      },
+    });
   };
 
   const renderViewToggle = () => (
@@ -395,17 +449,23 @@ export default function CalendarScreen() {
         </View>
 
         <ScrollView style={styles.weekTasksContainer}>
-          {weekDays.map((day, dayIndex) => {
-            const tasks = getDateTasks(day);
-            if (tasks.length === 0) return null;
-
-            return (
-              <View key={dayIndex} style={styles.weekDayTasks}>
-                <Text style={[styles.weekDayTitle, { color: colors.neutral[800] }]}>
-                  {dayNames[day.getDay()]}, {day.getDate()}
-                </Text>
-                {tasks.map((task: StudyTask, taskIndex: number) => (
-                  <View
+          <View style={styles.weekDayTasks}>
+            <Text style={[styles.weekDayTitle, { color: colors.neutral[800] }]}>
+              {dayNames[selectedDate.getDay()]}, {selectedDate.getDate()}
+            </Text>
+            
+            {(() => {
+              const tasks = getDateTasks(selectedDate);
+              
+              return tasks.length === 0 ? (
+                <View style={styles.weekEmptyDay}>
+                  <Text style={[styles.weekEmptyText, { color: colors.neutral[500] }]}>
+                    📅 No study sessions planned for this day
+                  </Text>
+                </View>
+              ) : (
+                tasks.map((task: StudyTask, taskIndex: number) => (
+                  <TouchableOpacity
                     key={taskIndex}
                     style={[
                       styles.weekTaskCard,
@@ -414,6 +474,8 @@ export default function CalendarScreen() {
                         borderLeftColor: subjectColors[task.subject as keyof typeof subjectColors]?.border,
                       }
                     ]}
+                    onPress={() => handleStartStudySession(task)}
+                    activeOpacity={0.7}
                   >
                     <View style={styles.weekTaskContent}>
                       <Text style={[
@@ -433,15 +495,17 @@ export default function CalendarScreen() {
                       <Text style={[styles.weekTaskDuration, { color: colors.neutral[500] }]}>
                         {task.duration}m
                       </Text>
-                      {task.completed && (
-                        <Text style={styles.weekTaskCompleted}>✓</Text>
+                      {(taskCompletions[task.id] || task.completed) && (
+                        <View style={[styles.weekCompletedBadge, { backgroundColor: colors.success[500] }]}>
+                          <Text style={styles.weekCompletedIcon}>✓</Text>
+                        </View>
                       )}
                     </View>
-                  </View>
-                ))}
-              </View>
-            );
-          })}
+                  </TouchableOpacity>
+                ))
+              );
+            })()}
+          </View>
         </ScrollView>
       </View>
     );
@@ -461,7 +525,7 @@ export default function CalendarScreen() {
         ) : (
           <View style={styles.dayTasksList}>
             {tasks.map((task: StudyTask, index: number) => (
-              <View
+              <TouchableOpacity
                 key={index}
                 style={[
                   styles.dayTaskCard,
@@ -470,6 +534,8 @@ export default function CalendarScreen() {
                     borderLeftColor: subjectColors[task.subject as keyof typeof subjectColors]?.border,
                   }
                 ]}
+                onPress={() => handleStartStudySession(task)}
+                activeOpacity={0.7}
               >
                 <View style={styles.dayTaskTime}>
                   <Text style={[styles.dayTaskTimeText, { color: colors.neutral[600] }]}>
@@ -488,7 +554,7 @@ export default function CalendarScreen() {
                     ]}>
                       {task.subject}
                     </Text>
-                    {task.completed && (
+                    {(taskCompletions[task.id] || task.completed) && (
                       <View style={[styles.completedBadge, { backgroundColor: colors.success[500] }]}>
                         <Text style={styles.completedBadgeText}>✓</Text>
                       </View>
@@ -498,7 +564,7 @@ export default function CalendarScreen() {
                   {task.type[0].toUpperCase() + task.type.slice(1)} Session
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -717,6 +783,30 @@ const styles = StyleSheet.create({
     color: '#10B981',
     marginTop: 4,
   },
+  weekCompletedBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  weekCompletedIcon: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  weekEmptyDay: {
+    padding: 16,
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  weekEmptyText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
 
   // Day View
   dayContainer: {
@@ -747,7 +837,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   dayTaskTime: {
-    width: 80,
+    width: 90,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',

@@ -78,6 +78,36 @@ export default function ScheduleScreen() {
     return Object.values(selectedSchedule).filter(daySlots => daySlots.length > 0).length;
   };
 
+  const getNextUnscheduledDay = () => {
+    for (const day of daysOfWeek) {
+      if (!selectedSchedule[day.id] || selectedSchedule[day.id].length === 0) {
+        return day.id;
+      }
+    }
+    return null; // All days are scheduled
+  };
+
+  const getCurrentDayIndex = () => {
+    return daysOfWeek.findIndex(day => day.id === selectedDay);
+  };
+
+  const isLastDay = () => {
+    return selectedDay === 'sunday';
+  };
+
+  const hasCurrentDaySchedule = () => {
+    return selectedSchedule[selectedDay]?.length > 0;
+  };
+
+  const handleNextDay = () => {
+    const currentIndex = getCurrentDayIndex();
+    const nextDayIndex = currentIndex + 1;
+    
+    if (nextDayIndex < daysOfWeek.length) {
+      setSelectedDay(daysOfWeek[nextDayIndex].id);
+    }
+  };
+
   const handleContinue = async () => {
     try {
       // Save schedule data
@@ -200,11 +230,18 @@ export default function ScheduleScreen() {
         {/* Bottom Action */}
         <View style={styles.bottomSection}>
           <TouchableOpacity
-            style={[styles.continueButton, { backgroundColor: colors.primary[500] }]}
+            style={styles.continueButton}
             onPress={() => setShowIntro(false)}
             activeOpacity={0.9}
           >
-            <Text style={styles.continueButtonText}>Set My Schedule</Text>
+            <LinearGradient
+              colors={[colors.primary[500], colors.primary[600]]}
+              style={styles.buttonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.continueButtonText}>Set My Schedule</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
@@ -251,9 +288,9 @@ export default function ScheduleScreen() {
         <View style={styles.headerRight} />
       </View>
 
-      {/* Day Selection */}
-      <View style={styles.daySelector}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysContainer}>
+      {/* Day Pills */}
+      <View style={styles.dayPillsContainer}>
+        <View style={styles.dayPillsRow}>
           {daysOfWeek.map((day) => {
             const isSelected = selectedDay === day.id;
             const hasSchedule = selectedSchedule[day.id]?.length > 0;
@@ -262,43 +299,40 @@ export default function ScheduleScreen() {
               <TouchableOpacity
                 key={day.id}
                 style={[
-                  styles.dayButton,
+                  styles.dayPill,
                   {
                     backgroundColor: isSelected 
                       ? colors.primary[500] 
                       : hasSchedule 
-                        ? colors.success[50]
-                        : colors.neutral[0],
+                        ? colors.success[100]
+                        : colors.neutral[100],
                     borderColor: isSelected 
                       ? colors.primary[500] 
                       : hasSchedule 
-                        ? colors.success[200]
-                        : colors.neutral[200],
+                        ? colors.success[400]
+                        : colors.neutral[300],
                   }
                 ]}
                 onPress={() => setSelectedDay(day.id)}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
               >
                 <Text style={[
-                  styles.dayButtonText,
+                  styles.dayPillText,
                   {
                     color: isSelected 
                       ? '#FFFFFF' 
                       : hasSchedule 
                         ? colors.success[700]
                         : colors.neutral[600],
-                    fontWeight: isSelected || hasSchedule ? '700' : '600'
+                    fontWeight: isSelected ? '700' : hasSchedule ? '600' : '500'
                   }
                 ]}>
                   {day.short}
                 </Text>
-                {hasSchedule && !isSelected && (
-                  <View style={[styles.scheduleDot, { backgroundColor: colors.success[500] }]} />
-                )}
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Time Slots */}
@@ -395,25 +429,67 @@ export default function ScheduleScreen() {
 
       {/* Bottom Action */}
       <View style={styles.bottomSection}>
-        <TouchableOpacity
-          style={[
-            styles.continueButton, 
-            { 
-              backgroundColor: getTotalHours() > 0 ? colors.primary[500] : colors.neutral[300],
-              opacity: getTotalHours() > 0 ? 1 : 0.6
-            }
-          ]}
-          onPress={handleContinue}
-          disabled={getTotalHours() === 0}
-          activeOpacity={0.9}
-        >
-          <Text style={[
-            styles.continueButtonText,
-            { color: getTotalHours() > 0 ? '#FFFFFF' : colors.neutral[500] }
-          ]}>
-            Continue to Goals ({getTotalHours()}h/week)
-          </Text>
-        </TouchableOpacity>
+        {isLastDay() ? (
+          <TouchableOpacity
+            style={[
+              styles.continueButton, 
+              { 
+                opacity: getTotalHours() > 0 ? 1 : 0.6
+              }
+            ]}
+            onPress={handleContinue}
+            disabled={getTotalHours() === 0}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={getTotalHours() > 0 
+                ? [colors.primary[500], colors.primary[600]] 
+                : [colors.neutral[300], colors.neutral[400]]
+              }
+              style={styles.buttonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={[
+                styles.continueButtonText,
+                { color: getTotalHours() > 0 ? '#FFFFFF' : colors.neutral[500] }
+              ]}>
+                Continue to Goals
+              </Text>
+              {getTotalHours() > 0 && (
+                <Text style={styles.buttonSubtext}>
+                  {getTotalHours()}h/week planned
+                </Text>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.continueButton}
+            onPress={handleNextDay}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={[colors.primary[500], colors.primary[600]]}
+              style={styles.buttonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.continueButtonText}>
+                {hasCurrentDaySchedule() 
+                  ? `Next Day → ${daysOfWeek[getCurrentDayIndex() + 1]?.name || ''}`
+                  : `Skip to ${daysOfWeek[getCurrentDayIndex() + 1]?.name || ''} →`
+                }
+              </Text>
+              <Text style={styles.buttonSubtext}>
+                {hasCurrentDaySchedule() 
+                  ? `${selectedSchedule[selectedDay]?.length || 0} time slot${(selectedSchedule[selectedDay]?.length || 0) > 1 ? 's' : ''} selected`
+                  : 'No schedule for this day'
+                }
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Background Gradient */}
@@ -540,34 +616,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-  daySelector: {
+  dayPillsContainer: {
     paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingVertical: 8,
   },
-  daysContainer: {
-    gap: 8,
-    paddingHorizontal: 4,
-  },
-  dayButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    minWidth: 50,
+  dayPillsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
+    gap: 6,
   },
-  dayButtonText: {
-    fontSize: 14,
+  dayPill: {
+    width: (width - 32 - (6 * 6)) / 7, // Ekran genişliği - padding (32) - gaps (6*6), 7'ye bölünmüş
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
+  },
+  dayPillText: {
+    fontSize: 12,
+    textAlign: 'center',
     fontWeight: '600',
-  },
-  scheduleDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    position: 'absolute',
-    top: 6,
-    right: 6,
   },
   timeSlotsContainer: {
     flex: 1,
@@ -672,23 +742,35 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingHorizontal: 16,
-    paddingBottom: isIOS ? 0 : 16,
+    paddingBottom: isIOS ? 30 : 16,
     paddingTop: 16,
   },
   continueButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 16,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  buttonGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   continueButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  buttonSubtext: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
   },
   backgroundGradient: {
     position: 'absolute',

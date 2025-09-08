@@ -506,6 +506,11 @@ export default function AssessmentScreen() {
                 <View style={styles.cardContent}>
                   <View style={styles.cardLeft}>
                     <Text style={styles.cardIcon}>{level.icon}</Text>
+                    {isSelected && (
+                      <View style={styles.selectedIndicator}>
+                        <Text style={styles.checkIcon}>✓</Text>
+                      </View>
+                    )}
                   </View>
                   
                   <View style={styles.cardRight}>
@@ -531,12 +536,6 @@ export default function AssessmentScreen() {
                       {level.percentage}
                     </Text>
                   </View>
-                  
-                  {isSelected && (
-                    <View style={styles.selectedIndicator}>
-                      <Text style={styles.checkIcon}>✓</Text>
-                    </View>
-                  )}
                 </View>
               </TouchableOpacity>
             );
@@ -771,8 +770,9 @@ const styles = StyleSheet.create({
   },
   cardLeft: {
     marginRight: 12,
-    minWidth: 32,
+    minWidth: 38,
     alignItems: 'center',
+    position: 'relative',
   },
   cardIcon: {
     fontSize: 22,
@@ -801,19 +801,19 @@ const styles = StyleSheet.create({
   },
   selectedIndicator: {
     position: 'absolute',
-    top: 10,
-    right: 12,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    top: -6,
+    right: -6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.15,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 3,
   },
   checkIcon: {
     fontSize: 12,
