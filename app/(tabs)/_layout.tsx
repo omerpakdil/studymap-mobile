@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { Platform, Text } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/themes';
 
@@ -12,19 +14,64 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary[500],
         tabBarInactiveTintColor: colors.neutral[400],
+        tabBarAllowFontScaling: false,
+        ...(Platform.OS === 'android' && {
+          tabBarHideOnKeyboard: true,
+          tabBarKeyboardHidesTabBar: true,
+        }),
         tabBarStyle: {
-          backgroundColor: colors.neutral[0],
-          borderTopColor: colors.neutral[200],
-          borderTopWidth: 1,
-          paddingTop: Platform.OS === 'ios' ? 4 : 8,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-          height: Platform.OS === 'ios' ? 84 : 68,
+          backgroundColor: Platform.OS === 'ios' ? 'rgba(255, 255, 255, 0.9)' : colors.neutral[0],
+          borderTopWidth: 0,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+          paddingHorizontal: 20,
+          height: Platform.OS === 'ios' ? 88 : 76,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: 0.12,
+          shadowRadius: 24,
+          elevation: 20,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 6,
+          backgroundColor: 'transparent',
+          borderRadius: 0,
+          margin: 0,
+          marginHorizontal: 0,
+          overflow: 'hidden',
+          ...Platform.select({
+            android: {
+              rippleColor: 'transparent',
+              borderless: false,
+            },
+            ios: {
+              activeOpacity: 1,
+            },
+          }),
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: '600',
-          marginTop: 4,
+          marginTop: 6,
+          letterSpacing: 0.3,
         },
+        tabBarIconStyle: {
+          marginBottom: 0,
+        },
+        tabBarBackground: () => (
+          Platform.OS === 'ios' ? (
+            <BlurView 
+              intensity={80} 
+              tint="light" 
+              style={StyleSheet.absoluteFill}
+            />
+          ) : null
+        ),
       }}
     >
       <Tabs.Screen
@@ -32,7 +79,13 @@ export default function TabLayout() {
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="dashboard" focused={focused} color={color} />
+            <ModernTabIcon 
+              name="dashboard" 
+              focused={focused} 
+              color={color}
+              activeColor={colors.primary[500]}
+              inactiveColor={colors.neutral[400]}
+            />
           ),
         }}
       />
@@ -41,7 +94,13 @@ export default function TabLayout() {
         options={{
           title: 'Calendar',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="calendar" focused={focused} color={color} />
+            <ModernTabIcon 
+              name="calendar" 
+              focused={focused} 
+              color={color}
+              activeColor={colors.primary[500]}
+              inactiveColor={colors.neutral[400]}
+            />
           ),
         }}
       />
@@ -50,7 +109,13 @@ export default function TabLayout() {
         options={{
           title: 'Progress',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="progress" focused={focused} color={color} />
+            <ModernTabIcon 
+              name="progress" 
+              focused={focused} 
+              color={color}
+              activeColor={colors.primary[500]}
+              inactiveColor={colors.neutral[400]}
+            />
           ),
         }}
       />
@@ -59,7 +124,13 @@ export default function TabLayout() {
         options={{
           title: 'Profile',
           tabBarIcon: ({ focused, color }) => (
-            <TabIcon name="profile" focused={focused} color={color} />
+            <ModernTabIcon 
+              name="profile" 
+              focused={focused} 
+              color={color}
+              activeColor={colors.primary[500]}
+              inactiveColor={colors.neutral[400]}
+            />
           ),
         }}
       />
@@ -67,31 +138,50 @@ export default function TabLayout() {
   );
 }
 
-interface TabIconProps {
+interface ModernTabIconProps {
   name: string;
   focused: boolean;
   color: string;
+  activeColor: string;
+  inactiveColor: string;
 }
 
-function TabIcon({ name, focused, color }: TabIconProps) {
-  const getIcon = () => {
+function ModernTabIcon({ name, focused, color, activeColor, inactiveColor }: ModernTabIconProps) {
+  const getIconName = (): keyof typeof Ionicons.glyphMap => {
     switch (name) {
       case 'dashboard':
-        return focused ? '🏠' : '🏠';
+        return focused ? 'home' : 'home-outline';
       case 'calendar':
-        return focused ? '📅' : '📅';
+        return focused ? 'calendar' : 'calendar-outline';
       case 'progress':
-        return focused ? '📊' : '📊';
+        return focused ? 'stats-chart' : 'stats-chart-outline';
       case 'profile':
-        return focused ? '👤' : '👤';
+        return focused ? 'person' : 'person-outline';
       default:
-        return '📱';
+        return 'apps-outline';
     }
   };
 
   return (
-    <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.7 }}>
-      {getIcon()}
-    </Text>
+    <View style={styles.iconContainer}>
+      <Ionicons
+        name={getIconName()}
+        size={24}
+        color={focused ? activeColor : inactiveColor}
+      />
+    </View>
   );
-} 
+}
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
+  },
+  tabButton: {
+    backgroundColor: 'transparent !important' as any,
+    borderRadius: 0,
+  },
+}); 

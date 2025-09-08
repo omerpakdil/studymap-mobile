@@ -2,25 +2,25 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import {
-  Achievement,
-  calculateDailyProgress,
-  calculateWeeklyProgress,
-  getProgramMetadata,
-  getStudyStreak,
-  getSubjectProgress,
-  getUserAchievements
+    Achievement,
+    calculateDailyProgress,
+    calculateWeeklyProgress,
+    getProgramMetadata,
+    getStudyStreak,
+    getSubjectProgress,
+    getUserAchievements
 } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
@@ -687,8 +687,8 @@ export default function ProgressScreen() {
         {selectedTab === 'subjects' && renderSubjects()}
         {selectedTab === 'achievements' && renderAchievements()}
         
-        {/* Bottom Spacing */}
-        <View style={{ height: 20 }} />
+        {/* Bottom Spacing - Account for tab bar */}
+        <View style={{ height: Platform.OS === 'ios' ? 100 : 88 }} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,15 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
@@ -448,7 +448,10 @@ export default function CalendarScreen() {
           })}
         </View>
 
-        <ScrollView style={styles.weekTasksContainer}>
+        <ScrollView 
+          style={styles.weekTasksContainer}
+          contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 100 : 88 }}
+        >
           <View style={styles.weekDayTasks}>
             <Text style={[styles.weekDayTitle, { color: colors.neutral[800] }]}>
               {dayNames[selectedDate.getDay()]}, {selectedDate.getDate()}
@@ -515,7 +518,10 @@ export default function CalendarScreen() {
     const tasks = getDateTasks(selectedDate);
 
     return (
-      <ScrollView style={styles.dayContainer}>
+      <ScrollView 
+        style={styles.dayContainer}
+        contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 100 : 88 }}
+      >
         {tasks.length === 0 ? (
           <View style={styles.emptyDayContainer}>
             <Text style={[styles.emptyDayText, { color: colors.neutral[500] }]}>

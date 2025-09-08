@@ -481,8 +481,8 @@ export default function DashboardScreen() {
           </Text>
         </View>
 
-        {/* Bottom Spacing */}
-        <View style={{ height: 20 }} />
+        {/* Bottom Spacing - Account for tab bar */}
+        <View style={{ height: Platform.OS === 'ios' ? 100 : 88 }} />
       </ScrollView>
     </SafeAreaView>
   );

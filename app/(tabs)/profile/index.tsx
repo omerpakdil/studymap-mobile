@@ -4,20 +4,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    Linking,
-    Modal,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Linking,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 
@@ -715,8 +715,8 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        {/* Bottom Spacing */}
-        <View style={{ height: 20 }} />
+        {/* Bottom Spacing - Account for tab bar */}
+        <View style={{ height: Platform.OS === 'ios' ? 100 : 88 }} />
       </ScrollView>
 
       {/* Reminder Frequency Modal */}
