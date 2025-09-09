@@ -2,16 +2,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  View
+    Animated,
+    Dimensions,
+    Platform,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
-import { Button, Text } from '@/components';
+import { Text } from '@/components';
 import { useTheme } from '@/themes';
 
 const { width, height } = Dimensions.get('window');
@@ -25,18 +26,53 @@ export default function WelcomeScreen() {
   const slideAnim = useRef(new Animated.Value(30)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const titleScaleAnim = useRef(new Animated.Value(0.8)).current;
+  const featureAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
+  const ctaAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Start animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
+    // Start main animations sequence
+    Animated.sequence([
+      // Initial fade and slide
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Title scale animation
+      Animated.spring(titleScaleAnim, {
         toValue: 1,
-        duration: 1000,
+        tension: 80,
+        friction: 8,
         useNativeDriver: true,
       }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
+      // Staggered feature cards animation
+      Animated.stagger(150, 
+        featureAnims.map(anim =>
+          Animated.spring(anim, {
+            toValue: 1,
+            tension: 60,
+            friction: 8,
+            useNativeDriver: true,
+          })
+        )
+      ),
+      // CTA button animation
+      Animated.spring(ctaAnim, {
+        toValue: 1,
+        tension: 70,
+        friction: 9,
         useNativeDriver: true,
       }),
     ]).start();
@@ -45,13 +81,13 @@ export default function WelcomeScreen() {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 2000,
+          toValue: 1.08,
+          duration: 2500,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 2000,
+          duration: 2500,
           useNativeDriver: true,
         }),
       ])
@@ -61,7 +97,7 @@ export default function WelcomeScreen() {
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
-        duration: 20000,
+        duration: 25000,
         useNativeDriver: true,
       })
     ).start();
@@ -132,84 +168,138 @@ export default function WelcomeScreen() {
 
         {/* Content Section */}
         <View style={styles.contentSection}>
-                     <Text style={{
-             ...styles.title,
-             color: colors.neutral[900]
-           }}>
-             Welcome to
-           </Text>
-          <LinearGradient
-            colors={[colors.primary[600], colors.primary[400]]}
-            style={styles.titleGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+          {/* Modern Welcome Text */}
+          <Animated.View 
+            style={[
+              styles.welcomeTextContainer,
+              {
+                transform: [{ scale: titleScaleAnim }],
+                opacity: fadeAnim,
+              }
+            ]}
           >
-            <Text style={styles.titleAccent}>StudyMap AI</Text>
-          </LinearGradient>
+            <Text style={[styles.welcomeLabel, { color: colors.primary[600] }]}>
+              WELCOME TO THE FUTURE
+            </Text>
+            <View style={styles.titleContainer}>
+              <Text style={[styles.title, { color: colors.neutral[900] }]}>
+                StudyMap
+              </Text>
+              <LinearGradient
+                colors={[colors.primary[500], colors.secondary[500], colors.accent[500]]}
+                style={styles.aiGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.aiText}>AI</Text>
+              </LinearGradient>
+            </View>
+          </Animated.View>
           
-          <Text style={{
-            ...styles.subtitle,
-            color: colors.neutral[600]
-          }}>
-            Your intelligent study companion that adapts to your learning style and maximizes your success.
+          <Text style={[styles.subtitle, { color: colors.neutral[600] }]}>
+            Transform your study habits with personalized learning plans. 
+            <Text style={[styles.subtitleAccent, { color: colors.primary[600] }]}> Achieve more, stress less.</Text>
           </Text>
 
-          {/* Feature Pills */}
-          <View style={styles.featurePills}>
-            <View style={{
-              ...styles.pill,
-              backgroundColor: colors.primary[50]
-            }}>
-              <Text style={{
-                ...styles.pillText,
-                color: colors.primary[700]
-              }}>
-                🎯 Personalized Plans
-              </Text>
-            </View>
-            <View style={{
-              ...styles.pill,
-              backgroundColor: colors.secondary[50]
-            }}>
-              <Text style={{
-                ...styles.pillText,
-                color: colors.secondary[700]
-              }}>
-                📊 Smart Analytics
-              </Text>
-            </View>
-            <View style={{
-              ...styles.pill,
-              backgroundColor: colors.accent[50]
-            }}>
-              <Text style={{
-                ...styles.pillText,
-                color: colors.accent[700]
-              }}>
-                🚀 Goal Achievement
-              </Text>
-            </View>
+          {/* Modern Feature Cards */}
+          <View style={styles.featureGrid}>
+            {[
+              {
+                emoji: '🎯',
+                title: 'Smart Plans',
+                description: 'Personalized study schedules that work',
+                backgroundColor: colors.neutral[0],
+                borderColor: colors.primary[100],
+                shadowColor: colors.primary[500],
+                iconBg: colors.primary[50],
+              },
+              {
+                emoji: '📊',
+                title: 'Analytics',
+                description: 'Track progress with insights',
+                backgroundColor: colors.neutral[0],
+                borderColor: colors.secondary[100],
+                shadowColor: colors.secondary[500],
+                iconBg: colors.secondary[50],
+              },
+              {
+                emoji: '🚀',
+                title: 'Goals',
+                description: 'Achieve targets faster',
+                backgroundColor: colors.neutral[0],
+                borderColor: colors.accent[100],
+                shadowColor: colors.accent[500],
+                iconBg: colors.accent[50],
+              },
+            ].map((feature, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.featureCard,
+                  {
+                    backgroundColor: feature.backgroundColor,
+                    borderColor: feature.borderColor,
+                    shadowColor: feature.shadowColor,
+                    opacity: featureAnims[index],
+                    transform: [
+                      {
+                        scale: featureAnims[index],
+                      },
+                      {
+                        translateY: featureAnims[index].interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [20, 0],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <View style={[styles.featureIcon, { backgroundColor: feature.iconBg }]}>
+                  <Text style={styles.featureEmoji}>{feature.emoji}</Text>
+                </View>
+                <Text style={[styles.featureTitle, { color: colors.neutral[800] }]}>
+                  {feature.title}
+                </Text>
+                <Text style={[styles.featureDesc, { color: colors.neutral[600] }]}>
+                  {feature.description}
+                </Text>
+              </Animated.View>
+            ))}
           </View>
         </View>
       </Animated.View>
 
       {/* Bottom Action Section */}
-      <View style={styles.bottomSection}>
-        <Button
-          variant="primary"
+      <Animated.View 
+        style={[
+          styles.bottomSection,
+          {
+            opacity: ctaAnim,
+            transform: [
+              {
+                translateY: ctaAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[styles.ctaButton, { backgroundColor: colors.primary[500] }]}
           onPress={handleGetStarted}
-          style={styles.ctaButton}
+          activeOpacity={0.9}
         >
-          Start Your AI Journey
-        </Button>
+          <Text style={styles.ctaText}>Get Started</Text>
+          <Text style={styles.ctaArrow}>→</Text>
+        </TouchableOpacity>
         
-        <Text style={{
-          ...styles.disclaimer,
-          color: colors.neutral[500]
-        }}>
-          Free to start • Powered by advanced AI
+        <Text style={[styles.disclaimer, { color: colors.neutral[500] }]}>
+          Free to start • No credit card required
         </Text>
-      </View>
+      </Animated.View>
 
       {/* Background Gradient */}
       <LinearGradient
@@ -317,68 +407,138 @@ const styles = StyleSheet.create({
   },
   contentSection: {
     alignItems: 'center',
-    maxWidth: 320,
-    marginBottom: 40,
+    maxWidth: width - 48,
+    marginBottom: 32,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '300',
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 40,
-    paddingVertical: 4,
-  },
-  titleGradient: {
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  welcomeTextContainer: {
+    alignItems: 'center',
     marginBottom: 20,
   },
-  titleAccent: {
-    fontSize: 36,
+  welcomeLabel: {
+    fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    opacity: 0.8,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
+    paddingVertical: 8,
+  },
+  title: {
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: -1,
+    lineHeight: 52,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  aiGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  aiText: {
+    fontSize: 32,
+    fontWeight: '900',
     color: '#FFFFFF',
-    textAlign: 'center',
-    lineHeight: 44,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 17,
+    lineHeight: 26,
     textAlign: 'center',
     fontWeight: '400',
-    marginBottom: 24,
-    opacity: 0.9,
+    marginBottom: 32,
+    opacity: 0.85,
+    paddingHorizontal: 8,
   },
-  featurePills: {
+  subtitleAccent: {
+    fontWeight: '600',
+  },
+  featureGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 12,
+    maxWidth: 340,
   },
-  pill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  featureCard: {
+    width: (width - 80) / 3,
+    minWidth: 100,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  featureIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  pillText: {
-    fontSize: 14,
-    fontWeight: '600',
+  featureEmoji: {
+    fontSize: 18,
+  },
+  featureTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  featureDesc: {
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 14,
+    opacity: 0.8,
   },
   bottomSection: {
     paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: isIOS ? 30 : 30,
     alignItems: 'center',
   },
   ctaButton: {
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 18,
+    paddingHorizontal: 32,
+    borderRadius: 16,
     marginBottom: 16,
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
+    gap: 8,
+  },
+  ctaText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  ctaArrow: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   disclaimer: {
     fontSize: 14,

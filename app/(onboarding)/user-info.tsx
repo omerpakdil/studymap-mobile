@@ -3,16 +3,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View
+    Alert,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -82,31 +82,40 @@ export default function UserInfoScreen() {
         >
           {/* Content */}
           <View style={styles.content}>
-            {/* Title Section */}
-            <View style={styles.titleSection}>
-              <Text style={[styles.title, { color: colors.neutral[900] }]}>
-                Let&apos;s Get to Know You
-              </Text>
-              <Text style={[styles.subtitle, { color: colors.neutral[600] }]}>
-                Tell us a bit about yourself to personalize your study experience
-              </Text>
-            </View>
-
-            {/* User Avatar Section */}
-            <View style={styles.avatarSection}>
-              <LinearGradient
-                colors={[colors.primary[500], colors.primary[600]]}
-                style={styles.avatarContainer}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.avatarIcon}>✨</Text>
-              </LinearGradient>
-              <View style={styles.decorativeElements}>
-                <View style={[styles.floatingElement, styles.element1, { backgroundColor: colors.secondary[400] }]} />
-                <View style={[styles.floatingElement, styles.element2, { backgroundColor: colors.accent[400] }]} />
-                <View style={[styles.floatingElement, styles.element3, { backgroundColor: colors.primary[300] }]} />
+            {/* Beautiful Header */}
+            <View style={styles.beautifulHeader}>
+              {/* Floating Icon */}
+              <View style={styles.iconContainer}>
+                <LinearGradient
+                  colors={[colors.primary[400], colors.primary[600]]}
+                  style={styles.iconGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <Text style={styles.iconEmoji}>👋</Text>
+                </LinearGradient>
+                
+                {/* Decorative Elements */}
+                <View style={[styles.decorativeDot, styles.dot1, { backgroundColor: colors.secondary[300] }]} />
+                <View style={[styles.decorativeDot, styles.dot2, { backgroundColor: colors.accent[300] }]} />
+                <View style={[styles.decorativeDot, styles.dot3, { backgroundColor: colors.primary[200] }]} />
               </View>
+
+              {/* Content */}
+              <View style={styles.headerTextContent}>
+                <Text style={[styles.greetingText, { color: colors.primary[600] }]}>
+                  Nice to meet you!
+                </Text>
+                <Text style={[styles.mainHeaderTitle, { color: colors.neutral[900] }]}>
+                  Let's get started
+                </Text>
+                <Text style={[styles.headerDescription, { color: colors.neutral[500] }]}>
+                  Tell us a bit about yourself so we can create your perfect study plan
+                </Text>
+              </View>
+
+              {/* Subtle Accent */}
+              <View style={[styles.accentLine, { backgroundColor: colors.primary[200] }]} />
             </View>
 
             {/* Form Section */}
@@ -250,66 +259,81 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: isIOS ? 40 : 32,
   },
-  titleSection: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
-    paddingHorizontal: 16,
-  },
-  avatarSection: {
+  // Beautiful Header
+  beautifulHeader: {
     alignItems: 'center',
-    marginBottom: 32,
-    position: 'relative',
+    marginBottom: 36,
+    paddingVertical: 8,
   },
-  avatarContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  iconContainer: {
+    position: 'relative',
+    marginBottom: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 5,
   },
-  avatarIcon: {
-    fontSize: 36,
-    color: '#FFFFFF',
+  iconEmoji: {
+    fontSize: 28,
   },
-  decorativeElements: {
+  decorativeDot: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    top: -20,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    opacity: 0.6,
   },
-  floatingElement: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    opacity: 0.7,
+  dot1: {
+    top: 8,
+    right: -4,
   },
-  element1: {
-    top: 10,
-    left: 20,
+  dot2: {
+    bottom: 12,
+    left: -8,
   },
-  element2: {
-    top: 30,
-    right: 15,
+  dot3: {
+    top: -2,
+    left: 18,
   },
-  element3: {
-    bottom: 15,
-    left: 30,
+  headerTextContent: {
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 20,
+  },
+  greetingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  mainHeaderTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.8,
+    marginVertical: 2,
+  },
+  headerDescription: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 24,
+    marginTop: 4,
+  },
+  accentLine: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
+    opacity: 0.8,
   },
   formSection: {
     flex: 1,

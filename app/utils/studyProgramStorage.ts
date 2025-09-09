@@ -418,8 +418,19 @@ export const getProgramMetadata = async (): Promise<{
 // Clear all study program data
 export const clearStudyProgramData = async (): Promise<void> => {
   try {
+    // Clear main storage keys
     await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
-    console.log('✅ Study program data cleared');
+    
+    // Clear all session completion keys
+    const allKeys = await AsyncStorage.getAllKeys();
+    const sessionKeys = allKeys.filter(key => key.startsWith('session_completed_'));
+    
+    if (sessionKeys.length > 0) {
+      await AsyncStorage.multiRemove(sessionKeys);
+      console.log(`🗑️ Cleared ${sessionKeys.length} session completion keys`);
+    }
+    
+    console.log('✅ Study program data cleared completely');
   } catch (error) {
     console.error('❌ Error clearing study program data:', error);
     throw error;

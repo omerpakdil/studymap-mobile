@@ -90,6 +90,11 @@ export default function CompletionScreen() {
       // Mark onboarding as complete
       await markOnboardingComplete();
       
+      // Clear any existing study program data first
+      const { clearStudyProgramData } = await import('@/app/utils/studyProgramStorage');
+      await clearStudyProgramData();
+      console.log('🗑️ Cleared existing study program data before generating new program');
+      
       // Load complete onboarding data
       const onboardingData = await loadCompleteOnboardingData();
       

@@ -2,25 +2,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Modal,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    Modal,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '../../themes';
 import {
-  checkIntroEligibility,
-  getSubscriptionOfferings,
-  initializeRevenueCat,
-  restorePurchases
+    checkIntroEligibility,
+    getSubscriptionOfferings,
+    initializeRevenueCat,
+    restorePurchases
 } from '../utils/subscriptionManager';
 
 const { width, height } = Dimensions.get('window');
@@ -30,7 +29,11 @@ export default function SubscriptionScreen() {
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showRestoreSuccessModal, setShowRestoreSuccessModal] = useState(false);
+  const [showRestoreFailModal, setShowRestoreFailModal] = useState(false);
+  const [restoreErrorMessage, setRestoreErrorMessage] = useState('');
   const [offerings, setOfferings] = useState<PurchasesOffering | null>(null);
   const [isIntroEligible, setIsIntroEligible] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,29 +158,21 @@ export default function SubscriptionScreen() {
 
   const handleRestore = async () => {
     try {
-      setLoading(true);
+      setRestoring(true);
       const restoredStatus = await restorePurchases();
       
       if (restoredStatus.isActive) {
-        Alert.alert(
-          'Subscription Restored',
-          'Your subscription has been restored successfully!',
-          [{ text: 'OK', onPress: () => router.replace('/(tabs)/dashboard') }]
-        );
+        setShowRestoreSuccessModal(true);
       } else {
-        Alert.alert(
-          'No Subscription Found',
-          'No active subscription found to restore. If you believe this is an error, please contact support.'
-        );
+        setRestoreErrorMessage('No active subscription found to restore. If you believe this is an error, please contact support.');
+        setShowRestoreFailModal(true);
       }
     } catch (error: any) {
       console.error('❌ Restore failed:', error);
-      Alert.alert(
-        'Restore Failed',
-        'Unable to restore subscription. Please try again or contact support if the issue persists.'
-      );
+      setRestoreErrorMessage('Unable to restore subscription. Please try again or contact support if the issue persists.');
+      setShowRestoreFailModal(true);
     } finally {
-      setLoading(false);
+      setRestoring(false);
     }
   };
 
@@ -197,6 +192,17 @@ export default function SubscriptionScreen() {
       // Fallback to push navigation
       router.push('/(tabs)/dashboard');
     }
+  };
+
+  const handleRestoreSuccessClose = async () => {
+    setShowRestoreSuccessModal(false);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    router.replace('/(tabs)/dashboard');
+  };
+
+  const handleRestoreFailClose = () => {
+    setShowRestoreFailModal(false);
+    setRestoreErrorMessage('');
   };
 
   const formatPrice = (packageItem: PurchasesPackage): string => {
@@ -540,10 +546,24 @@ export default function SubscriptionScreen() {
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.restoreButton} onPress={handleRestore}>
-            <Text style={[styles.restoreText, { color: colors.neutral[500] }]}>
-              Restore purchases
-            </Text>
+          <TouchableOpacity 
+            style={[styles.restoreButton, restoring && styles.restoreButtonLoading]} 
+            onPress={handleRestore}
+            disabled={restoring}
+            activeOpacity={restoring ? 1 : 0.7}
+          >
+            {restoring ? (
+              <View style={styles.restoreLoadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+                <Text style={[styles.restoreLoadingText, { color: colors.primary[500] }]}>
+                  Restoring...
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.restoreText, { color: colors.neutral[500] }]}>
+                Restore purchases
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -615,6 +635,117 @@ export default function SubscriptionScreen() {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.modalButtonText}>Get Started</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Restore Success Modal */}
+      <Modal
+        visible={showRestoreSuccessModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleRestoreSuccessClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.neutral[0] }]}>
+            <LinearGradient
+              colors={[colors.success[500], colors.success[600]]}
+              style={styles.modalHeader}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.successIconContainer}>
+                <Text style={styles.successIcon}>✅</Text>
+              </View>
+            </LinearGradient>
+            
+            <View style={styles.modalBody}>
+              <Text style={[styles.modalTitle, { color: colors.neutral[800] }]}>
+                Subscription Restored
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
+                Your subscription has been restored successfully! Welcome back to Premium.
+              </Text>
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.success[500] }]}
+              onPress={handleRestoreSuccessClose}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[colors.success[400], colors.success[500], colors.success[600]]}
+                style={styles.modalButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.modalButtonText}>Continue</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Restore Fail Modal */}
+      <Modal
+        visible={showRestoreFailModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={handleRestoreFailClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.neutral[0] }]}>
+            <LinearGradient
+              colors={[colors.error[500], colors.error[600]]}
+              style={styles.modalHeader}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.successIconContainer}>
+                <Text style={styles.successIcon}>⚠️</Text>
+              </View>
+            </LinearGradient>
+            
+            <View style={styles.modalBody}>
+              <Text style={[styles.modalTitle, { color: colors.neutral[800] }]}>
+                {restoreErrorMessage.includes('No active subscription') ? 'No Subscription Found' : 'Restore Failed'}
+              </Text>
+              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
+                {restoreErrorMessage}
+              </Text>
+              
+              {restoreErrorMessage.includes('contact support') && (
+                <View style={styles.modalFeatures}>
+                  <View style={styles.modalFeatureItem}>
+                    <Text style={styles.modalFeatureIcon}>💡</Text>
+                    <Text style={[styles.modalFeatureText, { color: colors.neutral[700] }]}>
+                      Check your App Store purchase history
+                    </Text>
+                  </View>
+                  <View style={styles.modalFeatureItem}>
+                    <Text style={styles.modalFeatureIcon}>📧</Text>
+                    <Text style={[styles.modalFeatureText, { color: colors.neutral[700] }]}>
+                      Contact our support team for help
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.neutral[600] }]}
+              onPress={handleRestoreFailClose}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[colors.neutral[500], colors.neutral[600], colors.neutral[700]]}
+                style={styles.modalButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Text style={styles.modalButtonText}>Got it</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -928,6 +1059,22 @@ const styles = StyleSheet.create({
   restoreButton: {
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  restoreButtonLoading: {
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+  },
+  restoreLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  restoreLoadingText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   restoreText: {
     fontSize: 14,
