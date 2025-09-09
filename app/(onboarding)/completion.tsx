@@ -90,12 +90,27 @@ export default function CompletionScreen() {
       // Mark onboarding as complete
       await markOnboardingComplete();
       
+      // Load complete onboarding data
+      const onboardingData = await loadCompleteOnboardingData();
+      
+      // Initialize and sync notification settings after onboarding completion
+      const NotificationService = (await import('@/app/utils/notificationService')).default;
+      try {
+        const initialized = await NotificationService.initialize();
+        if (initialized) {
+          // Sync reminder frequency from goals data
+          if (onboardingData?.goalsData?.reminderFrequency) {
+            await NotificationService.syncReminderFrequency(onboardingData.goalsData.reminderFrequency);
+            console.log('✅ Notification settings synced during onboarding completion');
+          }
+        }
+      } catch (error) {
+        console.error('⚠️ Error initializing notifications during onboarding:', error);
+      }
+      
       // Debug: Check which AI provider is selected
       const currentProvider = await getCurrentAIProvider();
       console.log('🔍 Current AI Provider during onboarding:', currentProvider);
-      
-      // Load complete onboarding data
-      const onboardingData = await loadCompleteOnboardingData();
       console.log('Onboarding data loaded:', {
         hasExamData: !!onboardingData.examData,
         hasGoalsData: !!onboardingData.goalsData,

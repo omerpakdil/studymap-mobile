@@ -692,7 +692,7 @@ export const getUserAchievements = async (): Promise<Achievement[]> => {
           break;
           
         case 'well_rounded':
-          progress = allSubjectsAbove50 ? 100 : 0;
+          progress = allSubjectsAbove50 ? achievement.requirement : 0;
           break;
           
         case 'weekly_hero':
@@ -831,11 +831,287 @@ export const checkWeeklyGoalCompletion = async () => {
   }
 };
 
+// Auto-generate weekly report (called by notification system)
+export const autoGenerateWeeklyReport = async (): Promise<WeeklyReport | null> => {
+  try {
+    // Check if we already have a report for current week
+    const now = new Date();
+    const weekStart = getWeekStart(now).toISOString().split('T')[0];
+    const existingReport = await loadWeeklyReport(weekStart);
+    
+    if (existingReport) {
+      console.log('📊 Weekly report already exists for', weekStart);
+      return existingReport;
+    }
+    
+    // Generate new report
+    console.log('📊 Auto-generating weekly report for', weekStart);
+    const newReport = await generateWeeklyReport();
+    
+    return newReport;
+  } catch (error) {
+    console.error('❌ Error auto-generating weekly report:', error);
+    return null;
+  }
+};
+
 // Helper function to get week start date
 const getWeekStart = (date: Date): Date => {
   const day = date.getDay();
   const diff = date.getDate() - day;
   return new Date(date.setDate(diff));
+};
+
+// Weekly Report Interface
+export interface WeeklyReport {
+  weekStart: string;
+  weekEnd: string;
+  weekNumber: number;
+  summary: {
+    tasksCompleted: number;
+    totalTasks: number;
+    completionRate: number;
+    hoursStudied: number;
+    targetHours: number;
+    hoursGoalMet: boolean;
+  };
+  subjectBreakdown: {
+    [subject: string]: {
+      tasksCompleted: number;
+      totalTasks: number;
+      hoursStudied: number;
+      progress: number;
+    };
+  };
+  dailyBreakdown: {
+    [date: string]: {
+      tasksCompleted: number;
+      totalTasks: number;
+      minutesStudied: number;
+      goalMet: boolean;
+    };
+  };
+  achievements: {
+    newBadges: string[];
+    streakDays: number;
+    improvementAreas: string[];
+    strongPoints: string[];
+  };
+  nextWeekGoals: {
+    focusSubjects: string[];
+    targetHours: number;
+    priorityTasks: string[];
+  };
+  generatedAt: string;
+}
+
+// Generate Weekly Report
+export const generateWeeklyReport = async (weekStartDate?: Date): Promise<WeeklyReport> => {
+  try {
+    const baseDate = weekStartDate || new Date();
+    const weekStart = getWeekStart(new Date(baseDate));
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekEndStr = weekEnd.toISOString().split('T')[0];
+    
+    console.log('📊 Generating weekly report for', weekStartStr, 'to', weekEndStr);
+    
+    // Get week number
+    const startOfYear = new Date(weekStart.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil(((weekStart.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7);
+    
+    // Get program metadata for target hours
+    const metadata = await getProgramMetadata();
+    const targetHours = metadata?.weeklyHours || 15;
+    
+    // Calculate daily breakdown for the week
+    const dailyBreakdown: WeeklyReport['dailyBreakdown'] = {};
+    let totalTasksCompleted = 0;
+    let totalTasks = 0;
+    let totalMinutesStudied = 0;
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(weekStart);
+      currentDate.setDate(currentDate.getDate() + i);
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      const dailyProgress = await calculateDailyProgress(dateStr);
+      dailyBreakdown[dateStr] = {
+        tasksCompleted: dailyProgress.completed,
+        totalTasks: dailyProgress.total,
+        minutesStudied: dailyProgress.minutes,
+        goalMet: dailyProgress.total > 0 && dailyProgress.completed >= dailyProgress.total
+      };
+      
+      totalTasksCompleted += dailyProgress.completed;
+      totalTasks += dailyProgress.total;
+      totalMinutesStudied += dailyProgress.minutes;
+    }
+    
+    const hoursStudied = Math.round((totalMinutesStudied / 60) * 10) / 10;
+    const completionRate = totalTasks > 0 ? Math.round((totalTasksCompleted / totalTasks) * 100) : 0;
+    
+    // Get subject breakdown
+    const subjectProgress = await getSubjectProgress();
+    const subjectBreakdown: WeeklyReport['subjectBreakdown'] = {};
+    
+    Object.entries(subjectProgress).forEach(([subject, progress]) => {
+      subjectBreakdown[subject] = {
+        tasksCompleted: progress.completed,
+        totalTasks: progress.total,
+        hoursStudied: progress.hours,
+        progress: progress.progress
+      };
+    });
+    
+    // Get achievements data
+    const achievements = await getUserAchievements();
+    const streak = await getStudyStreak();
+    const newBadges = achievements
+      .filter(a => a.unlocked && a.unlockedAt)
+      .filter(a => {
+        const unlockedDate = new Date(a.unlockedAt!);
+        return unlockedDate >= weekStart && unlockedDate <= weekEnd;
+      })
+      .map(a => a.title);
+    
+    // Analyze performance for improvements and strengths
+    const improvementAreas: string[] = [];
+    const strongPoints: string[] = [];
+    
+    Object.entries(subjectBreakdown).forEach(([subject, data]) => {
+      if (data.progress < 50) {
+        improvementAreas.push(subject);
+      } else if (data.progress >= 80) {
+        strongPoints.push(subject);
+      }
+    });
+    
+    if (completionRate < 70) {
+      improvementAreas.push('Task Completion');
+    } else if (completionRate >= 90) {
+      strongPoints.push('Excellent Task Completion');
+    }
+    
+    if (hoursStudied < targetHours * 0.7) {
+      improvementAreas.push('Study Time');
+    } else if (hoursStudied >= targetHours) {
+      strongPoints.push('Study Time Goals Met');
+    }
+    
+    // Generate next week goals
+    const focusSubjects = improvementAreas.length > 0 
+      ? improvementAreas.filter(area => area !== 'Task Completion' && area !== 'Study Time').slice(0, 2)
+      : Object.keys(subjectBreakdown).slice(0, 2);
+    
+    const nextWeekTargetHours = hoursStudied < targetHours ? targetHours : Math.min(targetHours + 2, 25);
+    
+    const report: WeeklyReport = {
+      weekStart: weekStartStr,
+      weekEnd: weekEndStr,
+      weekNumber,
+      summary: {
+        tasksCompleted: totalTasksCompleted,
+        totalTasks,
+        completionRate,
+        hoursStudied,
+        targetHours,
+        hoursGoalMet: hoursStudied >= targetHours
+      },
+      subjectBreakdown,
+      dailyBreakdown,
+      achievements: {
+        newBadges,
+        streakDays: streak,
+        improvementAreas,
+        strongPoints
+      },
+      nextWeekGoals: {
+        focusSubjects,
+        targetHours: nextWeekTargetHours,
+        priorityTasks: [] // Could be enhanced to suggest specific tasks
+      },
+      generatedAt: new Date().toISOString()
+    };
+    
+    // Save the report
+    await saveWeeklyReport(report);
+    
+    console.log('✅ Weekly report generated:', {
+      completionRate: `${completionRate}%`,
+      hoursStudied: `${hoursStudied}h`,
+      newBadges: newBadges.length,
+      strongPoints: strongPoints.length,
+      improvementAreas: improvementAreas.length
+    });
+    
+    return report;
+    
+  } catch (error) {
+    console.error('❌ Error generating weekly report:', error);
+    throw error;
+  }
+};
+
+// Save Weekly Report
+export const saveWeeklyReport = async (report: WeeklyReport): Promise<void> => {
+  try {
+    const reportKey = `weekly_report_${report.weekStart}`;
+    await AsyncStorage.setItem(reportKey, JSON.stringify(report));
+    
+    // Also save to a list of all reports
+    const allReportsKey = 'all_weekly_reports';
+    const existing = await AsyncStorage.getItem(allReportsKey);
+    const allReports: string[] = existing ? JSON.parse(existing) : [];
+    
+    if (!allReports.includes(report.weekStart)) {
+      allReports.push(report.weekStart);
+      allReports.sort((a, b) => b.localeCompare(a)); // Most recent first
+      
+      // Keep only last 12 weeks
+      const trimmedReports = allReports.slice(0, 12);
+      await AsyncStorage.setItem(allReportsKey, JSON.stringify(trimmedReports));
+    }
+    
+  } catch (error) {
+    console.error('❌ Error saving weekly report:', error);
+  }
+};
+
+// Load Weekly Report
+export const loadWeeklyReport = async (weekStart: string): Promise<WeeklyReport | null> => {
+  try {
+    const reportKey = `weekly_report_${weekStart}`;
+    const reportData = await AsyncStorage.getItem(reportKey);
+    return reportData ? JSON.parse(reportData) : null;
+  } catch (error) {
+    console.error('❌ Error loading weekly report:', error);
+    return null;
+  }
+};
+
+// Get Latest Weekly Report
+export const getLatestWeeklyReport = async (): Promise<WeeklyReport | null> => {
+  try {
+    const allReportsKey = 'all_weekly_reports';
+    const existing = await AsyncStorage.getItem(allReportsKey);
+    const allReports: string[] = existing ? JSON.parse(existing) : [];
+    
+    if (allReports.length === 0) {
+      // Generate current week report if none exists
+      return await generateWeeklyReport();
+    }
+    
+    // Try to load the most recent report
+    const latestWeekStart = allReports[0];
+    return await loadWeeklyReport(latestWeekStart);
+    
+  } catch (error) {
+    console.error('❌ Error getting latest weekly report:', error);
+    return null;
+  }
 };
 
 // Daily motivation quotes collection

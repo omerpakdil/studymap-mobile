@@ -1,27 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import {
-    Achievement,
-    calculateDailyProgress,
-    calculateWeeklyProgress,
-    getProgramMetadata,
-    getStudyStreak,
-    getSubjectProgress,
-    getUserAchievements
+  Achievement,
+  WeeklyReport,
+  calculateDailyProgress,
+  calculateWeeklyProgress,
+  generateWeeklyReport,
+  getLatestWeeklyReport,
+  getProgramMetadata,
+  getStudyStreak,
+  getSubjectProgress,
+  getUserAchievements
 } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
 
@@ -30,7 +34,8 @@ const isIOS = Platform.OS === 'ios';
 
 export default function ProgressScreen() {
   const { colors } = useTheme();
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'subjects' | 'achievements'>('overview');
+  const { tab } = useLocalSearchParams();
+  const [selectedTab, setSelectedTab] = useState<'overview' | 'subjects' | 'achievements' | 'weekly'>('overview');
   
   // Real data states
   const [programMetadata, setProgramMetadata] = useState<any>(null);
@@ -39,6 +44,7 @@ export default function ProgressScreen() {
   const [dailyProgress, setDailyProgress] = useState({ completed: 0, total: 0, minutes: 0 });
   const [studyStreak, setStudyStreak] = useState(0);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Calculate overall progress
@@ -53,13 +59,14 @@ export default function ProgressScreen() {
       
       // Load all progress data
       const today = new Date().toISOString().split('T')[0];
-      const [metadata, subjects, weekly, daily, streak, userAchievements] = await Promise.all([
+      const [metadata, subjects, weekly, daily, streak, userAchievements, latestReport] = await Promise.all([
         getProgramMetadata(),
         getSubjectProgress(),
         calculateWeeklyProgress(),
         calculateDailyProgress(today),
         getStudyStreak(),
-        getUserAchievements()
+        getUserAchievements(),
+        getLatestWeeklyReport()
       ]);
       
       setProgramMetadata(metadata);
@@ -68,11 +75,19 @@ export default function ProgressScreen() {
       setDailyProgress(daily);
       setStudyStreak(streak);
       setAchievements(userAchievements);
+      setWeeklyReport(latestReport);
       
       // Check for goal completions
       const { checkDailyGoalCompletion, checkWeeklyGoalCompletion } = await import('@/app/utils/studyProgramStorage');
       await checkDailyGoalCompletion(today);
       await checkWeeklyGoalCompletion();
+      
+      // Detailed achievement debugging
+      const unlockedAchievements = userAchievements.filter(a => a.unlocked);
+      const achievementsByCategory = userAchievements.reduce((acc, a) => {
+        acc[a.category] = (acc[a.category] || 0) + (a.unlocked ? 1 : 0);
+        return acc;
+      }, {} as Record<string, number>);
       
       console.log('📊 Progress data loaded:', {
         subjects: Object.keys(subjects).length,
@@ -80,8 +95,20 @@ export default function ProgressScreen() {
         dailyMinutes: daily.minutes,
         streak: streak,
         achievements: userAchievements.length,
-        daysRemaining: metadata?.daysRemaining
+        unlockedAchievements: unlockedAchievements.length,
+        achievementsByCategory,
+        daysRemaining: metadata?.daysRemaining,
+        totalTasks: metadata?.totalTasks,
+        completedTasks: metadata?.completedTasks
       });
+      
+      // Debug each achievement individually
+      if (__DEV__) {
+        console.log('🏆 Achievement Details:');
+        userAchievements.forEach(achievement => {
+          console.log(`  ${achievement.unlocked ? '✅' : '⭕'} ${achievement.title}: ${achievement.progress}/${achievement.requirement} ${achievement.unit}`);
+        });
+      }
       
     } catch (error) {
       console.error('❌ Error loading progress data:', error);
@@ -93,6 +120,17 @@ export default function ProgressScreen() {
   useEffect(() => {
     loadProgressData();
   }, []);
+
+  // Handle URL parameter for direct tab navigation
+  useEffect(() => {
+    if (tab && typeof tab === 'string') {
+      const validTabs = ['overview', 'subjects', 'achievements', 'weekly'];
+      if (validTabs.includes(tab)) {
+        setSelectedTab(tab as 'overview' | 'subjects' | 'achievements' | 'weekly');
+        console.log('🔗 URL parameter detected - navigating to tab:', tab);
+      }
+    }
+  }, [tab]);
 
   useFocusEffect(
     useCallback(() => {
@@ -261,33 +299,59 @@ export default function ProgressScreen() {
     return insights;
   };
 
-  const renderTabBar = () => (
-    <View style={styles.tabBar}>
-      {[
-        { key: 'overview', label: 'Overview' },
-        { key: 'subjects', label: 'Subjects' },
-        { key: 'achievements', label: 'Achievements' },
-      ].map((tab) => (
-        <TouchableOpacity
-          key={tab.key}
-          style={[
-            styles.tabItem,
-            selectedTab === tab.key && { backgroundColor: colors.primary[500] },
-          ]}
-          onPress={() => setSelectedTab(tab.key as any)}
-        >
-          <Text
+  const renderTabBar = () => {
+    const tabs = [
+      { key: 'overview', label: 'Overview', shortLabel: 'Overview', icon: '📊' },
+      { key: 'subjects', label: 'Subjects', shortLabel: 'Subjects', icon: '📚' },
+      { key: 'achievements', label: 'Achievements', shortLabel: 'Badges', icon: '🏆' },
+      { key: 'weekly', label: 'Weekly Report', shortLabel: 'Weekly', icon: '📈' },
+    ];
+
+    const isVerySmallScreen = width < 350;
+    const isSmallScreen = width < 400;
+
+    return (
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
             style={[
-              styles.tabText,
-              { color: selectedTab === tab.key ? '#FFFFFF' : colors.neutral[600] },
+              styles.tabItem,
+              selectedTab === tab.key && { backgroundColor: colors.primary[500] },
             ]}
+            onPress={() => setSelectedTab(tab.key as any)}
           >
-            {tab.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+            {isVerySmallScreen ? (
+              <View style={styles.tabIconContainer}>
+                <Text style={[styles.tabIcon, { fontSize: 16 }]}>{tab.icon}</Text>
+                <Text
+                  style={[
+                    styles.tabIconText,
+                    { color: selectedTab === tab.key ? '#FFFFFF' : colors.neutral[600] },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {tab.key.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            ) : (
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: selectedTab === tab.key ? '#FFFFFF' : colors.neutral[600] },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit={true}
+                minimumFontScale={0.75}
+              >
+                {isSmallScreen ? tab.shortLabel : tab.label}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
 
   // Show loading state
   if (loading || !programMetadata) {
@@ -665,6 +729,200 @@ export default function ProgressScreen() {
     );
   };
 
+  const renderWeeklyReport = () => {
+    if (!weeklyReport) {
+      return (
+        <View style={styles.tabContent}>
+          <View style={[styles.reportCard, { backgroundColor: colors.neutral[0] }]}>
+            <Text style={[styles.reportTitle, { color: colors.neutral[900] }]}>
+              📊 Weekly Report
+            </Text>
+            <Text style={[styles.reportSubtitle, { color: colors.neutral[600] }]}>
+              No report available yet. Complete some study sessions to generate your first weekly report.
+            </Text>
+            <TouchableOpacity
+              style={[styles.generateButton, { backgroundColor: colors.primary[500] }]}
+              onPress={async () => {
+                try {
+                  setLoading(true);
+                  const newReport = await generateWeeklyReport();
+                  setWeeklyReport(newReport);
+                } catch (error) {
+                  console.error('Error generating report:', error);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
+              <Text style={styles.generateButtonText}>Generate This Week's Report</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    const formatDate = (dateStr: string) => {
+      return new Date(dateStr).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    };
+
+    return (
+      <View style={styles.tabContent}>
+        {/* Report Header */}
+        <View style={[styles.reportHeader, { backgroundColor: colors.primary[500] }]}>
+          <View style={styles.reportHeaderContent}>
+            <Text style={styles.reportHeaderTitle}>
+              📊 Week {weeklyReport.weekNumber} Report
+            </Text>
+            <Text style={styles.reportHeaderSubtitle}>
+              {formatDate(weeklyReport.weekStart)} - {formatDate(weeklyReport.weekEnd)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Summary Cards */}
+        <View style={styles.summaryGrid}>
+          <View style={[styles.summaryCard, { backgroundColor: colors.success[50] }]}>
+            <Text style={[styles.summaryValue, { color: colors.success[700] }]}>
+              {weeklyReport.summary.completionRate}%
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.success[600] }]}>
+              Task Completion
+            </Text>
+          </View>
+          
+          <View style={[styles.summaryCard, { backgroundColor: colors.primary[50] }]}>
+            <Text style={[styles.summaryValue, { color: colors.primary[700] }]}>
+              {weeklyReport.summary.hoursStudied}h
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.primary[600] }]}>
+              Hours Studied
+            </Text>
+          </View>
+          
+          <View style={[styles.summaryCard, { backgroundColor: colors.warning[50] }]}>
+            <Text style={[styles.summaryValue, { color: colors.warning[700] }]}>
+              {weeklyReport.achievements.streakDays}
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.warning[600] }]}>
+              Study Streak
+            </Text>
+          </View>
+          
+          <View style={[styles.summaryCard, { backgroundColor: colors.error[50] }]}>
+            <Text style={[styles.summaryValue, { color: colors.error[700] }]}>
+              {weeklyReport.achievements.newBadges.length}
+            </Text>
+            <Text style={[styles.summaryLabel, { color: colors.error[600] }]}>
+              New Badges
+            </Text>
+          </View>
+        </View>
+
+        {/* Achievements Section */}
+        {(weeklyReport.achievements.strongPoints.length > 0 || weeklyReport.achievements.improvementAreas.length > 0) && (
+          <View style={[styles.reportSection, { backgroundColor: colors.neutral[0] }]}>
+            <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
+              🎯 This Week's Performance
+            </Text>
+            
+            {weeklyReport.achievements.strongPoints.length > 0 && (
+              <View style={styles.performanceGroup}>
+                <Text style={[styles.performanceTitle, { color: colors.success[600] }]}>
+                  ✅ Strong Points
+                </Text>
+                {weeklyReport.achievements.strongPoints.map((point, index) => (
+                  <Text key={index} style={[styles.performanceItem, { color: colors.success[700] }]}>
+                    • {point}
+                  </Text>
+                ))}
+              </View>
+            )}
+            
+            {weeklyReport.achievements.improvementAreas.length > 0 && (
+              <View style={styles.performanceGroup}>
+                <Text style={[styles.performanceTitle, { color: colors.warning[600] }]}>
+                  📈 Areas to Improve
+                </Text>
+                {weeklyReport.achievements.improvementAreas.map((area, index) => (
+                  <Text key={index} style={[styles.performanceItem, { color: colors.warning[700] }]}>
+                    • {area}
+                  </Text>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Subject Breakdown */}
+        <View style={[styles.reportSection, { backgroundColor: colors.neutral[0] }]}>
+          <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
+            📚 Subject Progress
+          </Text>
+          {Object.entries(weeklyReport.subjectBreakdown).map(([subject, data]) => (
+            <View key={subject} style={styles.subjectReportCard}>
+              <View style={styles.subjectReportHeader}>
+                <Text style={[styles.subjectReportName, { color: colors.neutral[900] }]}>
+                  {subject}
+                </Text>
+                <Text style={[styles.subjectReportHours, { color: colors.neutral[600] }]}>
+                  {data.hoursStudied}h
+                </Text>
+              </View>
+              <View style={styles.subjectReportProgress}>
+                <View style={[styles.subjectReportBar, { backgroundColor: colors.neutral[200] }]}>
+                  <View 
+                    style={[
+                      styles.subjectReportFill, 
+                      { 
+                        backgroundColor: data.progress >= 75 ? colors.success[500] : 
+                                        data.progress >= 50 ? colors.warning[500] : colors.error[500],
+                        width: `${data.progress}%`
+                      }
+                    ]} 
+                  />
+                </View>
+                <Text style={[styles.subjectReportText, { color: colors.neutral[600] }]}>
+                  {data.tasksCompleted}/{data.totalTasks} tasks ({data.progress}%)
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Next Week Goals */}
+        <View style={[styles.reportSection, { backgroundColor: colors.neutral[0] }]}>
+          <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
+            🎯 Next Week Goals
+          </Text>
+          <View style={styles.goalsContainer}>
+            <View style={styles.goalItem}>
+              <Text style={[styles.goalLabel, { color: colors.neutral[600] }]}>
+                Target Hours:
+              </Text>
+              <Text style={[styles.goalValue, { color: colors.primary[600] }]}>
+                {weeklyReport.nextWeekGoals.targetHours}h
+              </Text>
+            </View>
+            
+            {weeklyReport.nextWeekGoals.focusSubjects.length > 0 && (
+              <View style={styles.goalItem}>
+                <Text style={[styles.goalLabel, { color: colors.neutral[600] }]}>
+                  Focus Subjects:
+                </Text>
+                <Text style={[styles.goalValue, { color: colors.warning[600] }]}>
+                  {weeklyReport.nextWeekGoals.focusSubjects.join(', ')}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
@@ -690,6 +948,7 @@ export default function ProgressScreen() {
         {selectedTab === 'overview' && renderOverview()}
         {selectedTab === 'subjects' && renderSubjects()}
         {selectedTab === 'achievements' && renderAchievements()}
+        {selectedTab === 'weekly' && renderWeeklyReport()}
         
         {/* Bottom Spacing - Account for tab bar */}
         <View style={{ height: Platform.OS === 'ios' ? 100 : 88 }} />
@@ -724,23 +983,41 @@ const styles = StyleSheet.create({
   // Tab Bar
   tabBar: {
     flexDirection: 'row',
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginBottom: 20,
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
-    padding: 4,
+    padding: 3,
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 40,
   },
   tabText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
+    flexShrink: 1,
+  },
+  tabIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  tabIcon: {
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  tabIconText: {
+    fontSize: 9,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   
   // Content
@@ -1206,5 +1483,168 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  
+  // Weekly Report Styles
+  reportCard: {
+    padding: 24,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    alignItems: 'center',
+  },
+  reportTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  reportSubtitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  generateButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  generateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reportHeader: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  reportHeaderContent: {
+    alignItems: 'center',
+  },
+  reportHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  reportHeaderSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  summaryCard: {
+    width: (width - 64) / 2,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  summaryValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reportSection: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  performanceGroup: {
+    marginBottom: 16,
+  },
+  performanceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  performanceItem: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginLeft: 8,
+  },
+  subjectReportCard: {
+    marginBottom: 16,
+  },
+  subjectReportHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  subjectReportName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  subjectReportHours: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  subjectReportProgress: {
+    marginTop: 8,
+  },
+  subjectReportBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  subjectReportFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  subjectReportText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  goalsContainer: {
+    gap: 12,
+  },
+  goalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  goalLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  goalValue: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 }); 

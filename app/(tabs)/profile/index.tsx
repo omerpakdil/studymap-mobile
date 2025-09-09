@@ -129,6 +129,41 @@ export default function ProfileScreen() {
         }
       }
 
+      // Sync study time from schedule data if not manually set
+      if (onboarding?.scheduleData && Object.keys(onboarding.scheduleData).length > 0) {
+        const scheduleEntries = Object.entries(onboarding.scheduleData);
+        if (scheduleEntries.length > 0) {
+          // Find the most common time slot to determine preferred study time
+          const timeSlotCounts: {[key: string]: number} = {};
+          scheduleEntries.forEach(([day, timeSlots]) => {
+            (timeSlots as string[]).forEach(slot => {
+              timeSlotCounts[slot] = (timeSlotCounts[slot] || 0) + 1;
+            });
+          });
+          
+          const mostCommonSlot = Object.entries(timeSlotCounts)
+            .sort(([,a], [,b]) => b - a)[0]?.[0];
+          
+          // Map time slots to notification times
+          const slotToTime: {[key: string]: string} = {
+            'early_morning': '07:00',
+            'morning': '10:00', 
+            'afternoon': '14:00',
+            'evening': '18:00',
+            'night': '21:00'
+          };
+          
+          const preferredTime = slotToTime[mostCommonSlot] || '09:00';
+          
+          // Only sync if notification service has default time (not user-customized)
+          if (notificationSettings.studyTime === '09:00' && preferredTime !== '09:00') {
+            await NotificationService.updateSettings({ studyTime: preferredTime });
+            setReminderSettings(prev => ({ ...prev, studyTime: preferredTime }));
+            console.log(`✅ Study time synced from schedule: ${preferredTime}`);
+          }
+        }
+      }
+
       // Load privacy settings
       const privacyStr = await AsyncStorage.getItem('privacy_settings');
       if (privacyStr) {

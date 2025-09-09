@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
 // Notification configuration
@@ -63,6 +64,7 @@ class NotificationService {
   private isScheduling: boolean = false;
   private updateTimeout: ReturnType<typeof setTimeout> | null = null;
   private breakReminderId: string | null = null;
+  private notificationResponseListener: Notifications.Subscription | null = null;
 
   static getInstance(): NotificationService {
     if (!NotificationService.instance) {
@@ -80,6 +82,11 @@ class NotificationService {
     try {
       console.log('📱 Initializing notification service...');
       
+      // In development mode, ask user before initializing notifications
+      if (__DEV__) {
+        console.log('🚧 Development mode detected - notification scheduling will be limited');
+      }
+      
       // Request permissions
       this.hasPermission = await this.requestPermissions();
       
@@ -87,11 +94,14 @@ class NotificationService {
         // Load settings
         await this.loadSettings();
         
-        // Schedule notifications for future delivery (no immediate notifications)
+        // Setup notification response listener
+        this.setupNotificationResponseListener();
+        
+        // Schedule notifications (with validation to prevent excessive rescheduling)
         await this.scheduleAllNotifications();
         
         this.isInitialized = true;
-        console.log('✅ Notification service initialized - future notifications scheduled');
+        console.log('✅ Notification service initialized');
         return true;
       }
       
@@ -192,12 +202,24 @@ class NotificationService {
       return;
     }
 
+    // Check if notifications are already properly scheduled to avoid unnecessary rescheduling
+    const existingNotifications = await Notifications.getAllScheduledNotificationsAsync();
+    const hasValidSchedule = await this.validateExistingSchedule(existingNotifications);
+    
+    if (hasValidSchedule && !__DEV__) {
+      console.log('✅ Valid notification schedule already exists, skipping rescheduling');
+      return;
+    }
+
     try {
       this.isScheduling = true;
-      console.log('📅 Setting up future notification schedule (no immediate notifications)...');
+      console.log('📅 Setting up notification schedule...');
 
-      // Cancel all existing notifications
-      await Notifications.cancelAllScheduledNotificationsAsync();
+      // Only cancel in development mode or when schedule is invalid
+      if (__DEV__ || !hasValidSchedule) {
+        console.log('🔄 Cancelling existing notifications and rescheduling...');
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      }
 
       let scheduledCount = 0;
       const activeSettings = [];
@@ -250,7 +272,11 @@ class NotificationService {
         content: {
           title: '📚 Weekly Study Check-in',
           body: `Time for your weekly study session. Let's review your goals and plan ahead!`,
-          data: { type: 'weekly_reminder' },
+          data: { 
+            type: 'weekly_reminder',
+            targetScreen: 'dashboard',
+            action: 'study_reminder'
+          },
         },
         trigger: {
           weekday: 1, // Sunday
@@ -267,7 +293,11 @@ class NotificationService {
         content: {
           title: '📚 Daily Study Time',
           body: `Your daily study session is ready. Let's achieve your goals!`,
-          data: { type: 'daily_reminder' },
+          data: { 
+            type: 'daily_reminder',
+            targetScreen: 'dashboard',
+            action: 'study_reminder'
+          },
         },
         trigger: {
           hour: hours,
@@ -291,7 +321,12 @@ class NotificationService {
           content: {
             title: `📚 ${reminder.title}`,
             body: reminder.body,
-            data: { type: 'frequent_reminder', session: i + 1 },
+            data: { 
+              type: 'frequent_reminder', 
+              session: i + 1,
+              targetScreen: 'dashboard',
+              action: 'study_reminder'
+            },
           },
           trigger: {
             hour: reminder.hour,
@@ -313,7 +348,11 @@ class NotificationService {
       content: {
         title: '✨ Daily Motivation',
         body: randomQuote,
-        data: { type: 'motivational' },
+        data: { 
+          type: 'motivational',
+          targetScreen: 'dashboard',
+          action: 'daily_motivation'
+        },
       },
       trigger: {
         hour: 8,
@@ -331,7 +370,11 @@ class NotificationService {
       content: {
         title: '📊 Weekly Progress Report',
         body: 'Your weekly study summary is ready! Check your achievements and plan for the upcoming week.',
-        data: { type: 'weekly_report' },
+        data: { 
+          type: 'weekly_report',
+          targetScreen: 'progress',
+          action: 'view_progress'
+        },
       },
       trigger: {
         weekday: 1, // 1 = Sunday (starts from Sunday = 1)
@@ -359,7 +402,11 @@ class NotificationService {
         content: {
           title: "Study Break Time! 🧠",
           body: "You've been studying for 25 minutes. Take a 5-minute break to refresh your mind.",
-          data: { type: 'break_reminder' },
+          data: { 
+            type: 'break_reminder',
+            targetScreen: 'current',
+            action: 'take_break'
+          },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -436,6 +483,142 @@ class NotificationService {
     console.log('🔕 All notifications cancelled');
   }
 
+  // Validate if existing scheduled notifications match current settings
+  private async validateExistingSchedule(notifications: Notifications.NotificationRequest[]): Promise<boolean> {
+    if (notifications.length === 0) {
+      return false;
+    }
+
+    try {
+      let expectedCount = 0;
+      const expectedTypes: string[] = [];
+
+      // Count expected notifications based on current settings
+      if (this.settings.dailyReminder) {
+        if (this.settings.reminderFrequency === 'frequent') {
+          expectedCount += 3; // 3 daily reminders
+        } else {
+          expectedCount += 1; // 1 reminder (daily or weekly)
+        }
+        expectedTypes.push('daily_reminder', 'weekly_reminder', 'frequent_reminder');
+      }
+
+      if (this.settings.motivationalQuotes) {
+        expectedCount += 1;
+        expectedTypes.push('motivational');
+      }
+
+      if (this.settings.weeklyReport) {
+        expectedCount += 1;
+        expectedTypes.push('weekly_report');
+      }
+
+      // Check if notification count matches
+      if (notifications.length !== expectedCount) {
+        console.log(`⚠️ Notification count mismatch: expected ${expectedCount}, found ${notifications.length}`);
+        return false;
+      }
+
+      // Check if notification types are correct
+      const existingTypes = notifications.map(n => n.content.data?.type).filter(Boolean);
+      const hasAllExpectedTypes = expectedTypes.some(type => 
+        existingTypes.includes(type)
+      );
+
+      if (!hasAllExpectedTypes && expectedCount > 0) {
+        console.log('⚠️ Notification types don\'t match current settings');
+        return false;
+      }
+
+      console.log(`✅ Existing schedule is valid: ${notifications.length} notifications match settings`);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Error validating notification schedule:', error);
+      return false;
+    }
+  }
+
+  // Setup notification response listener for navigation
+  private setupNotificationResponseListener(): void {
+    // Clean up existing listener if any
+    if (this.notificationResponseListener) {
+      this.notificationResponseListener.remove();
+    }
+
+    // Setup new listener for notification responses (user taps notification)
+    this.notificationResponseListener = Notifications.addNotificationResponseReceivedListener(
+      this.handleNotificationResponse.bind(this)
+    );
+
+    console.log('✅ Notification response listener setup complete');
+  }
+
+  // Handle notification tap navigation
+  private handleNotificationResponse(response: Notifications.NotificationResponse): void {
+    const { notification } = response;
+    const notificationType = notification.request.content.data?.type;
+
+    console.log('📱 Notification tapped:', {
+      type: notificationType,
+      title: notification.request.content.title
+    });
+
+    try {
+      // Navigate based on notification type
+      switch (notificationType) {
+        case 'daily_reminder':
+        case 'weekly_reminder':
+        case 'frequent_reminder':
+          // Navigate to dashboard for study reminders
+          router.push('/(tabs)/dashboard');
+          console.log('🎯 Navigated to dashboard for study reminder');
+          break;
+
+        case 'motivational':
+          // Navigate to dashboard for motivation
+          router.push('/(tabs)/dashboard');
+          console.log('✨ Navigated to dashboard for daily motivation');
+          break;
+
+        case 'weekly_report':
+          // Navigate directly to weekly report tab
+          router.push('/(tabs)/progress?tab=weekly');
+          console.log('📊 Navigated directly to weekly report tab');
+          break;
+
+        case 'break_reminder':
+          // For break reminders during active study, just open the app
+          // (study session should already be active)
+          console.log('☕ Break reminder tapped - app opened');
+          break;
+
+        default:
+          // Default navigation to dashboard
+          router.push('/(tabs)/dashboard');
+          console.log('🏠 Default navigation to dashboard');
+          break;
+      }
+    } catch (error) {
+      console.error('❌ Error handling notification navigation:', error);
+      // Fallback to dashboard
+      try {
+        router.push('/(tabs)/dashboard');
+      } catch (fallbackError) {
+        console.error('❌ Fallback navigation also failed:', fallbackError);
+      }
+    }
+  }
+
+  // Cleanup method
+  cleanup(): void {
+    if (this.notificationResponseListener) {
+      this.notificationResponseListener.remove();
+      this.notificationResponseListener = null;
+      console.log('🧹 Notification response listener cleaned up');
+    }
+  }
+
   getSettings(): NotificationSettings {
     return { ...this.settings };
   }
@@ -453,6 +636,48 @@ async syncReminderFrequency(reminderFrequency: string): Promise<void> {
         reminderFrequency: reminderFrequency as 'minimal' | 'moderate' | 'frequent' 
       });
       console.log(`✅ Notification reminder frequency synced: ${reminderFrequency}`);
+    }
+  }
+
+  // Sync study time from schedule data
+  async syncStudyTimeFromSchedule(scheduleData: any): Promise<void> {
+    const service = NotificationService.getInstance();
+    
+    if (!scheduleData || Object.keys(scheduleData).length === 0) {
+      return;
+    }
+
+    try {
+      // Find the most common time slot to determine preferred study time
+      const timeSlotCounts: {[key: string]: number} = {};
+      Object.entries(scheduleData).forEach(([day, timeSlots]) => {
+        if (Array.isArray(timeSlots)) {
+          timeSlots.forEach(slot => {
+            timeSlotCounts[slot] = (timeSlotCounts[slot] || 0) + 1;
+          });
+        }
+      });
+      
+      const mostCommonSlot = Object.entries(timeSlotCounts)
+        .sort(([,a], [,b]) => b - a)[0]?.[0];
+      
+      // Map time slots to notification times
+      const slotToTime: {[key: string]: string} = {
+        'early_morning': '07:00',
+        'morning': '10:00', 
+        'afternoon': '14:00',
+        'evening': '18:00',
+        'night': '21:00'
+      };
+      
+      const preferredTime = slotToTime[mostCommonSlot];
+      
+      if (preferredTime && preferredTime !== this.settings.studyTime) {
+        await service.updateSettings({ studyTime: preferredTime });
+        console.log(`✅ Study time synced from schedule: ${preferredTime} (based on ${mostCommonSlot})`);
+      }
+    } catch (error) {
+      console.error('❌ Error syncing study time from schedule:', error);
     }
   }
 }
