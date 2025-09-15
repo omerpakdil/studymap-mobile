@@ -49,6 +49,22 @@ const monthNames = [
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+// Convert time slot to time of day period
+const getTimeOfDay = (timeSlot: string): string => {
+  if (!timeSlot) return 'Morning';
+
+  // Extract hour from timeSlot (e.g., "09:00-10:00" -> 9)
+  const hourMatch = timeSlot.match(/^(\d{1,2})/);
+  if (!hourMatch) return 'Morning';
+
+  const hour = parseInt(hourMatch[1], 10);
+
+  if (hour >= 6 && hour < 12) return 'Morning';
+  if (hour >= 12 && hour < 17) return 'Afternoon';
+  if (hour >= 17 && hour < 21) return 'Evening';
+  return 'Night';
+};
+
 // Time slot formatting utility
 const formatTimeSlot = (timeSlot: string, compact: boolean = false) => {
   const timeSlotMap: Record<string, { label: string; time: string; shortLabel: string }> = {
@@ -488,12 +504,12 @@ export default function CalendarScreen() {
                         {task.subject}
                       </Text>
                       <Text style={[styles.weekTaskTopic, { color: colors.neutral[600] }]}>
-                        {task.type[0].toUpperCase() + task.type.slice(1)} Session
+                        {task.title || `${task.type[0].toUpperCase() + task.type.slice(1)} Session`}
                       </Text>
                     </View>
                     <View style={styles.weekTaskInfo}>
                       <Text style={[styles.weekTaskTime, { color: colors.neutral[500] }]}>
-                        {formatTimeSlot(task.timeSlot || '', true)}
+                        {getTimeOfDay(task.timeSlot || '')}
                       </Text>
                       <Text style={[styles.weekTaskDuration, { color: colors.neutral[500] }]}>
                         {task.duration}m
@@ -545,7 +561,7 @@ export default function CalendarScreen() {
               >
                 <View style={styles.dayTaskTime}>
                   <Text style={[styles.dayTaskTimeText, { color: colors.neutral[600] }]}>
-                    {formatTimeSlot(task.timeSlot || '', true)}
+                    {getTimeOfDay(task.timeSlot || '')}
                   </Text>
                   <Text style={[styles.dayTaskDuration, { color: colors.neutral[500] }]}>
                     {task.duration} min
@@ -567,7 +583,7 @@ export default function CalendarScreen() {
                     )}
                   </View>
                   <Text style={[styles.dayTaskTopic, { color: colors.neutral[600] }]}>
-                  {task.type[0].toUpperCase() + task.type.slice(1)} Session
+                    {task.title || `${task.type[0].toUpperCase() + task.type.slice(1)} Session`}
                   </Text>
                 </View>
               </TouchableOpacity>

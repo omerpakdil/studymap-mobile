@@ -96,15 +96,82 @@ const parseExamDate = (dateString: string): Date | null => {
   }
 };
 
-// Generate intelligent prompt from onboarding data (same logic as Claude)
+// Optimized minimal prompt generator for long schedules
+const generateCompactGeminiPrompt = (onboardingData: OnboardingData): string => {
+  const { examData, subjectIntensity, goalsData, scheduleData } = onboardingData;
+
+  if (!examData || !goalsData) {
+    throw new Error('Missing required data');
+  }
+
+  const examDate = parseExamDate(goalsData.examDate);
+  const today = new Date();
+  const daysUntilExam = Math.ceil((examDate!.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const weeklyHours = calculateWeeklyHours(scheduleData, goalsData.studyIntensity);
+  const examSubjects = getExamSubjects(examData.id);
+  const studyDays = getStudyDays(scheduleData);
+
+  return `Generate ${examData.name} study tasks for ${Math.min(daysUntilExam, 14)} days.
+
+VALID SUBJECTS ONLY: ${examSubjects.join(', ')}
+Study days: ${studyDays.join(', ')}
+Weekly hours: ${weeklyHours}
+Start: ${getNextStudyDay(scheduleData, today).toISOString().split('T')[0]}
+
+CRITICAL: subject field must be EXACTLY one of: ${examSubjects.map(s => `"${s}"`).join(', ')}
+NEVER use numbers or indices for subjects!
+
+Return JSON with dailyTasks array. Each task needs:
+- id: "task_X"
+- title: "Subject: Session Type" (example: "Verbal: Study Session")
+- subject: EXACTLY one of these: ${examSubjects.join(', ')}
+- type: "study"|"practice"|"review"|"quiz"
+- duration: 60
+- difficulty: "easy"|"medium"|"hard"
+- priority: "high"|"medium"|"low"
+- description: "Practice [subject] skills"
+- date: study day dates only in YYYY-MM-DD format
+- timeSlot: "09:00-10:00"
+- completed: false
+- progress: 0
+
+Create ${Math.max(2, Math.floor(weeklyHours / studyDays.length))} tasks per study day. Focus on high-intensity subjects: ${Object.entries(subjectIntensity).filter(([,level]) => level >= 2).map(([subj]) => subj).join(', ')}.
+
+EXAMPLE VALID TASK:
+{
+  "id": "task_1",
+  "title": "Verbal: Study Session",
+  "subject": "Verbal",
+  "type": "study",
+  "duration": 60,
+  "difficulty": "medium",
+  "priority": "high",
+  "description": "Practice Verbal skills",
+  "date": "2025-09-15",
+  "timeSlot": "09:00-10:00",
+  "completed": false,
+  "progress": 0
+}
+
+Return only valid JSON - no explanations.`;
+};
+
+// Helper: Calculate weekly hours
+const calculateWeeklyHours = (scheduleData: any, intensity: string): number => {
+  const totalSlots = Object.values(scheduleData).flat().length;
+  const multiplier = { relaxed: 0.7, moderate: 0.85, intensive: 1.0, extreme: 1.2 };
+  return Math.max(5, Math.min(40, Math.round(totalSlots * (multiplier[intensity as keyof typeof multiplier] || 0.85))));
+};
+
+// Legacy detailed prompt (kept for short schedules)
 const generateGeminiPrompt = (onboardingData: OnboardingData): string => {
+  // Keep original implementation but remove verbose parts
   const { examData, subjectIntensity, goalsData, scheduleData, learningStyleData } = onboardingData;
 
   if (!examData || !goalsData) {
     throw new Error('Missing required onboarding data for prompt generation');
   }
 
-  // Parse exam date
   const examDate = parseExamDate(goalsData.examDate);
   if (!examDate) {
     throw new Error('Invalid exam date format');
@@ -112,321 +179,28 @@ const generateGeminiPrompt = (onboardingData: OnboardingData): string => {
 
   const today = new Date();
   const daysUntilExam = Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-  // Calculate weekly hours from schedule and intensity
-  const calculateWeeklyHours = (): number => {
-    const daysInWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    let totalWeeklySlots = 0;
-    
-    daysInWeek.forEach(day => {
-      const daySlots = scheduleData[day] || [];
-      totalWeeklySlots += daySlots.length;
-    });
-
-    const baseHoursPerSlot = 1;
-    let baseWeeklyHours = totalWeeklySlots * baseHoursPerSlot;
-
-    const intensityMultiplier = {
-      'relaxed': 0.7,
-      'moderate': 0.85,
-      'intensive': 1.0,
-      'extreme': 1.2
-    };
-
-    const multiplier = intensityMultiplier[goalsData.studyIntensity as keyof typeof intensityMultiplier] || 0.85;
-    const calculatedHours = Math.round(baseWeeklyHours * multiplier);
-
-    return Math.max(5, Math.min(40, calculatedHours));
-  };
-
-  const weeklyHours = calculateWeeklyHours();
-
-  // Generate subject intensity context
-  const intensityContext = Object.entries(subjectIntensity)
-    .map(([subject, level]) => {
-      const intensityLabels = ['Light', 'Moderate', 'High', 'Intensive'];
-      const percentages = ['20%', '40%', '60%', '80%'];
-      return `${subject}: ${intensityLabels[level]} focus (${percentages[level]} effort)`;
-    })
-    .join(', ');
-
-  const availableTimeSlots = Object.entries(scheduleData)
-    .map(([day, slots]) => `${day}: ${slots.join(', ')}`)
-    .filter(entry => !entry.endsWith(': '))
-    .join('; ');
-
-  const calculateTaskDuration = (): number => {
-    const allSlots = Object.values(scheduleData).flat();
-    if (allSlots.length === 0) return 60;
-    
-    const sessionLengthMultiplier = {
-      'Short': 0.75,
-      'Medium': 1.0,
-      'Long': 1.5
-    };
-    
-    const baseMinutes = 60;
-    const multiplier = sessionLengthMultiplier[learningStyleData?.preferences?.sessionLength as keyof typeof sessionLengthMultiplier] || 1.0;
-    return Math.round(baseMinutes * multiplier);
-  };
-
-  const typicalTaskDuration = calculateTaskDuration();
-
-  // Get exam-specific subjects and create dynamic subject breakdown
+  const weeklyHours = calculateWeeklyHours(scheduleData, goalsData.studyIntensity);
   const examSubjects = getExamSubjects(examData.id);
-  console.log('📚 Exam subjects for', examData.id, ':', examSubjects);
-  const createSubjectBreakdown = () => {
-    const breakdown: Record<string, any> = {};
-    const totalSubjects = examSubjects.length;
-    
-    // Calculate total intensity weights
-    const totalIntensityWeight = Object.values(subjectIntensity).reduce((sum, intensity) => sum + intensity + 1, 0);
-    
-    examSubjects.forEach((subject, index) => {
-      // Get intensity level for this subject (default to 1 if not set)
-      const intensityLevel = subjectIntensity[subject] ?? 1;
-      
-      // Calculate priority based on intensity level (higher intensity = higher priority)
-      const priority = intensityLevel + 1; // 1-4 scale
-      
-      // Distribute weekly hours based on intensity
-      const intensityWeight = (intensityLevel + 1) / totalIntensityWeight;
-      const subjectWeeklyHours = Math.max(1, Math.round(weeklyHours * intensityWeight));
-      
-      breakdown[subject] = {
-        totalHours: Math.round(subjectWeeklyHours * (daysUntilExam / 7)),
-        weeklyHours: subjectWeeklyHours,
-        intensityLevel: intensityLevel,
-        priority: priority,
-        currentProgress: 0
-      };
-    });
-    
-    return breakdown;
-  };
+  const studyDays = getStudyDays(scheduleData);
 
-  const subjectBreakdown = createSubjectBreakdown();
+  // Simplified prompt for short schedules
+  return `Create ${examData.name} study program:
 
-  // Calculate daily study time distribution - only for selected days
-  const dailyHoursDistribution = Object.entries(scheduleData).reduce((acc, [day, slots]) => {
-    if (slots && slots.length > 0) {
-      acc[day] = slots.length; // Each slot = 1 hour
-    }
-    return acc;
-  }, {} as Record<string, number>);
+Exam: ${examData.name}
+Subjects: ${examSubjects.join(', ')}
+Study days: ${studyDays.join(', ')}
+Weekly hours: ${weeklyHours}
+Days until exam: ${daysUntilExam}
+Start date: ${getNextStudyDay(scheduleData, today).toISOString().split('T')[0]}
 
-  const studyDays = Object.keys(dailyHoursDistribution);
-  const totalWeeklySlots = Object.values(dailyHoursDistribution).reduce((sum, hours) => sum + hours, 0);
-  
-  console.log(`📅 Selected study days: ${studyDays.join(', ')}`);
-  console.log(`⏰ Total weekly slots: ${totalWeeklySlots}, Weekly hours: ${weeklyHours}`);
+Generate JSON with:
+- id, examType, examDate, startDate, endDate, totalDays, weeklyHours
+- dailyTasks array with ${Math.min(daysUntilExam, 14)} tasks
+- Each task: id, title "Subject: Type", subject, type, duration 60, difficulty, priority, description, date, timeSlot, completed false, progress 0
 
-  // Generate comprehensive prompt for Gemini
-  const prompt = `
-You are an expert educational AI that creates highly personalized study programs. Generate a comprehensive study program based on this user profile:
+Distribute tasks across study days only. Focus on: ${Object.entries(subjectIntensity).map(([subj, level]) => `${subj} (${['light','moderate','high','intensive'][level]})`).join(', ')}.
 
-**USER PROFILE:**
-- Exam: ${examData.name} (${examData.id})
-- Target Score: ${goalsData.targetScore}
-- Current Date: ${today.toISOString().split('T')[0]}
-- Program Start Date: ${getNextStudyDay(scheduleData, today).toISOString().split('T')[0]}
-- Exam Date: ${goalsData.examDate}
-- Days Until Exam: ${daysUntilExam}
-- Study Intensity: ${goalsData.studyIntensity}
-- Total Weekly Hours: ${weeklyHours}
-- Learning Style: ${learningStyleData?.primaryStyle || 'Visual'}
-
-**STUDY SCHEDULE (Only selected days):**
-${Object.entries(dailyHoursDistribution).map(([day, hours]) => 
-  `${day}: ${hours} hours available (${scheduleData[day]?.join(', ')})`
-).join('\n')}
-${studyDays.length < 7 ? `\nNOTE: Study only on selected days: ${studyDays.join(', ')}. Other days = NO TASKS!` : ''}
-
-**SUBJECT INTENSITY PREFERENCES (Study focus allocation):**
-${intensityContext}
-
-**INTELLIGENT SUBJECT ALLOCATION:**
-${JSON.stringify(subjectBreakdown, null, 2)}
-
-**CRITICAL REQUIREMENTS:**
-
-1. **DAILY TASK DISTRIBUTION:**
-   - Generate tasks ONLY for selected study days: ${studyDays.join(', ')}
-   - For 3-4 hour intensity, create ${Math.max(2, Math.floor(weeklyHours / studyDays.length / (typicalTaskDuration/60)))} tasks per study day
-   - Fill ALL available time slots with appropriate tasks
-   - Generate tasks for ${daysUntilExam} days total, but distribute across ${studyDays.length} study days per week
-   - Non-study days (${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].filter(d => !studyDays.includes(d)).join(', ')}) should have NO tasks
-   - Match task scheduling to the exact available time slots provided
-
-2. **INTENSITY-BASED PRIORITIZATION:**
-   - Intensive focus subjects (level 3) should get 40-50% of total time
-   - High focus subjects (level 2) should get 30-35% of time  
-   - Moderate focus subjects (level 1) should get 20-25% of time
-   - Light focus subjects (level 0) should get 10-15% of time
-
-3. **PROGRESSIVE DIFFICULTY:**
-   - Week 1-2: Focus on fundamentals and assessment
-   - Week 3-4: Intermediate concepts and regular practice
-   - Final weeks: Advanced practice, full tests, weak area review
-   - Increase quiz frequency as exam approaches
-
-4. **TASK VARIETY & DURATION:**
-   - Use ${typicalTaskDuration}-minute sessions primarily
-   - 40% study sessions (learning new concepts)
-   - 30% practice sessions (applying knowledge)
-   - 20% review sessions (reinforcing previous material)
-   - 10% quiz sessions (testing knowledge)
-
-5. **WEEKLY STRUCTURE:**
-   - Each week should total approximately ${weeklyHours} hours
-   - Balance all subjects weekly, but prioritize high intensity subjects
-   - Include progressive milestones with specific skill targets
-
-**EXACT OUTPUT FORMAT (Return ONLY valid JSON):**
-
-{
-  "id": "study_program_${Date.now()}",
-  "examType": "${examData.name}",
-  "examDate": "${goalsData.examDate}",
-  "startDate": "${getNextStudyDay(scheduleData, today).toISOString().split('T')[0]}",
-  "endDate": "${examDate?.toISOString().split('T')[0]}",
-  "totalDays": ${daysUntilExam},
-  "weeklyHours": ${weeklyHours},
-  "dailyTasks": [
-    {
-      "id": "task_1",
-      "title": "Mathematics: Study Session - Day 1",
-c      "subject": "Mathematics",
-      "type": "study",
-      "duration": ${typicalTaskDuration},
-      "difficulty": "medium",
-      "priority": "high",
-      "description": "Study ${examSubjects[0]} fundamentals and core concepts",
-      "date": "${(() => {
-        const startDate = getNextStudyDay(scheduleData, today);
-        const studyDayNumbers = studyDays.map(day => getDayNumber(day)).filter(num => num !== -1);
-        for (let i = 0; i < Math.min(daysUntilExam, 14); i++) {
-          const currentDate = new Date(startDate);
-          currentDate.setDate(startDate.getDate() + i);
-          const dayNumber = currentDate.getDay();
-          if (studyDayNumbers.includes(dayNumber)) {
-            return currentDate.toISOString().split('T')[0];
-          }
-        }
-        return startDate.toISOString().split('T')[0];
-      })()}",
-      "timeSlot": "${Object.values(scheduleData).flat()[0] || '09:00-10:00'}",
-      "completed": false,
-      "progress": 0,
-      "resources": ["${examData.name} Study Guide", "Practice Materials"],
-      "notes": ""
-    }
-  ],
-  "weeklySchedule": {
-    "week_1": [],
-    "week_2": []
-  },
-  "subjectBreakdown": ${JSON.stringify(subjectBreakdown)},
-  "milestones": [
-    {
-      "date": "${new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}",
-      "title": "Week 1 ${examData.name} Foundation",
-      "description": "Complete foundational concepts for ${examData.name} preparation",
-      "completed": false
-    }
-  ],
-  "generatedAt": "${new Date().toISOString()}",
-  "lastUpdated": "${new Date().toISOString()}"
-}
-
-**GENERATE ${Math.min(daysUntilExam, 14)} DAYS OF STUDY TASKS (FIRST 2 WEEKS):**
-
-**MANDATORY TASK CREATION RULES:**
-1. Create tasks ONLY for the exact dates listed below
-2. Use the EXACT date strings provided - do NOT modify them
-3. Each task must have the exact date from the list below
-4. Do NOT calculate or change any dates
-
-**EXACT TASK DATES (USE THESE EXACTLY):**
-${(() => {
-  const startDate = getNextStudyDay(scheduleData, today);
-  const studyDayNumbers = studyDays.map(day => getDayNumber(day)).filter(num => num !== -1);
-  let taskDates = '';
-  let taskCount = 0;
-  
-  console.log(`🔍 Debug: Generating exact task dates from ${startDate.toISOString().split('T')[0]}`);
-  console.log(`🔍 Debug: Study day numbers: ${studyDayNumbers.join(', ')}`);
-  
-  for (let i = 0; i < Math.min(daysUntilExam, 14); i++) {
-    const currentDate = new Date(startDate);
-    currentDate.setDate(startDate.getDate() + i);
-    const dayNumber = currentDate.getDay();
-    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayNumber];
-    const dateString = currentDate.toISOString().split('T')[0];
-    
-    console.log(`🔍 Debug: Day ${i}: ${dateString} (${dayName}, day ${dayNumber}) - is study day: ${studyDayNumbers.includes(dayNumber)}`);
-    
-    if (studyDayNumbers.includes(dayNumber)) {
-      taskCount++;
-      taskDates += `Task ${taskCount}: ${dateString} (${dayName})\n`;
-    }
-  }
-  console.log(`🔍 Debug: Generated ${taskCount} task dates`);
-  console.log(`🔍 Debug: Final task dates list:\n${taskDates}`);
-  return taskDates;
-})()}
-
-**CRITICAL:** Create exactly ${(() => {
-  const startDate = getNextStudyDay(scheduleData, today);
-  const studyDayNumbers = studyDays.map(day => getDayNumber(day)).filter(num => num !== -1);
-  let count = 0;
-  for (let i = 0; i < Math.min(daysUntilExam, 14); i++) {
-    const currentDate = new Date(startDate);
-    currentDate.setDate(startDate.getDate() + i);
-    const dayNumber = currentDate.getDay();
-    if (studyDayNumbers.includes(dayNumber)) {
-      count++;
-    }
-  }
-  return count;
-})()} tasks using the exact dates above. Do NOT add extra days or change dates.
-
-**ABSOLUTE REQUIREMENT:** Each task's "date" field MUST be one of the exact dates listed above. Do NOT calculate dates yourself. Copy the exact date strings from the list above.
-
-**FINAL WARNING:** If you create tasks with dates that are NOT in the exact list above, the program will fail. You MUST use only the dates provided in the "EXACT TASK DATES" section above.
-
-**CRITICAL VALIDATION:** Before responding, verify that every task's "date" field matches exactly one of the dates in the "EXACT TASK DATES" list above. If any task has a different date, you have made an error and must fix it.
-
-**TASK NAMING:** Use format "[Subject]: [Session Type]" (e.g., "Mathematics: Practice Session", "Reading: Study Session")
-
-**DESCRIPTION RULES (CRITICAL - MUST FOLLOW EXACTLY):**
-- Reading tasks: "Practice reading comprehension and analysis skills"
-- Listening tasks: "Practice listening comprehension and note-taking skills"  
-- Speaking tasks: "Practice speaking fluency and pronunciation skills"
-- Writing tasks: "Practice writing structure and grammar skills"
-- Mathematics tasks: "Practice mathematical problem-solving and concepts"
-- Verbal Reasoning tasks: "Practice verbal reasoning and vocabulary skills"
-- Quantitative Reasoning tasks: "Practice quantitative reasoning and math skills"
-- Analytical Writing tasks: "Practice analytical writing and argumentation skills"
-- Logical Reasoning tasks: "Practice logical reasoning and critical thinking skills"
-- Reading Comprehension tasks: "Practice reading comprehension and analysis skills"
-- Analytical Reasoning tasks: "Practice analytical reasoning and logic skills"
-
-**ABSOLUTE REQUIREMENT:** Each task's "description" field MUST match the subject exactly:
-- If subject is "Reading" → description MUST be "Practice reading comprehension and analysis skills"
-- If subject is "Listening" → description MUST be "Practice listening comprehension and note-taking skills"
-- If subject is "Speaking" → description MUST be "Practice speaking fluency and pronunciation skills"
-- If subject is "Writing" → description MUST be "Practice writing structure and grammar skills"
-- If subject is "Mathematics" → description MUST be "Practice mathematical problem-solving and concepts"
-
-**FINAL WARNING:** If you create tasks with descriptions that don't match the subject, the program will fail. You MUST use the exact descriptions listed above.
-
-**AVAILABLE SUBJECTS:** ${examSubjects.join(', ')}
-
-**DISTRIBUTE ${Math.max(2, Math.floor(weeklyHours / studyDays.length / (typicalTaskDuration/60)))} TASKS PER STUDY DAY (only on ${studyDays.join(', ')}).**
-`;
-
-  return prompt;
+Return valid JSON only.`;
 };
 
 // Validate and fix subject names in AI response
@@ -511,7 +285,7 @@ const callGeminiAPI = async (prompt: string, examType?: string): Promise<any> =>
         temperature: 0.7,
         topP: 0.8,
         topK: 40,
-        maxOutputTokens: 16384, // Balanced for comprehensive study plans
+        maxOutputTokens: 8192, // Reduced for faster, more focused responses
       }
     });
 
@@ -600,15 +374,15 @@ export const generateStudyProgramWithGemini = async (
     console.log(`📅 Planning for ${daysUntilExam} days until exam`);
 
     if (daysUntilExam <= 14) {
-      // Short term: Generate all days at once
-      console.log('🔄 Using single-shot generation for short timeline');
+      // Short term: Use detailed prompt
+      console.log('🔄 Using detailed generation for short timeline');
       const prompt = generateGeminiPrompt(onboardingData);
       const response = await callGeminiAPI(prompt, examData.name);
       return response as StudyProgram;
     } else {
-      // Long term: Use chunked generation
-      console.log('🔄 Using chunked generation for long timeline');
-      return await generateChunkedStudyProgram(onboardingData, daysUntilExam, onProgress);
+      // Long term: Use optimized lightweight approach
+      console.log('🔄 Using optimized generation for long timeline');
+      return await generateOptimizedLongProgram(onboardingData, daysUntilExam, onProgress);
     }
   } catch (error) {
     console.error('❌ Error generating study program with Gemini:', error);
@@ -616,303 +390,369 @@ export const generateStudyProgramWithGemini = async (
   }
 };
 
-// Generate long-term study program with chunked approach
+// Legacy chunked approach (kept for fallback)
 const generateChunkedStudyProgram = async (
-  onboardingData: OnboardingData, 
+  onboardingData: OnboardingData,
+  totalDays: number,
+  onProgress?: (status: string, current: number, total: number) => void
+): Promise<StudyProgram | null> => {
+  console.log('⚠️ Using legacy chunked approach as fallback');
+
+  // Fallback to optimized approach
+  return generateOptimizedLongProgram(onboardingData, totalDays, onProgress);
+};
+
+// Optimized approach - generate week by week with proper progress
+const generateOptimizedLongProgram = async (
+  onboardingData: OnboardingData,
   totalDays: number,
   onProgress?: (status: string, current: number, total: number) => void
 ): Promise<StudyProgram | null> => {
   try {
-    console.log(`🧩 Generating AI-powered program for ${totalDays} days`);
-    
-    const chunkSize = 7; // Weekly chunks
-    const chunks: any[] = [];
-    let startDay = 0;
-    
-    // Calculate total number of weeks for progress tracking
-    const totalWeeks = Math.ceil(totalDays / chunkSize);
-    let currentWeek = 0;
-    
-    while (startDay < totalDays) {
-      const remainingDays = totalDays - startDay;
-      const currentChunkSize = Math.min(chunkSize, remainingDays);
-      currentWeek++;
-      
-      console.log(`📅 Generating week ${currentWeek}: days ${startDay + 1}-${startDay + currentChunkSize}`);
-      
-      // Update progress
+    const totalWeeks = Math.ceil(totalDays / 7);
+    console.log(`🚀 Generating program for ${totalDays} days (${totalWeeks} weeks)`);
+
+    // Step 1: Generate basic program structure
+    if (onProgress) onProgress('Program yapısı oluşturuluyor...', 0, totalWeeks);
+    const baseProgram = createBaseProgramStructure(onboardingData, totalDays);
+
+    // Step 2: Generate first 2 weeks with AI
+    if (onProgress) onProgress('İlk 2 hafta AI ile oluşturuluyor...', 1, totalWeeks);
+    const prompt = generateCompactGeminiPrompt(onboardingData);
+    const aiResponse = await callGeminiAPI(prompt, onboardingData.examData?.name);
+
+    // Step 3: Generate remaining weeks programmatically
+    const allTasks: StudyTask[] = [];
+
+    // Add AI-generated tasks (first 2 weeks)
+    if (aiResponse?.dailyTasks) {
+      allTasks.push(...aiResponse.dailyTasks);
+      if (onProgress) onProgress('İlk 2 hafta tamamlandı', 2, totalWeeks);
+    }
+
+    // Generate remaining weeks with progress updates
+    const examSubjects = getExamSubjects(onboardingData.examData!.id);
+    const studyDays = getStudyDays(onboardingData.scheduleData);
+    const weeklyHours = calculateWeeklyHours(onboardingData.scheduleData, onboardingData.goalsData!.studyIntensity);
+    const tasksPerDay = Math.max(2, Math.floor(weeklyHours / studyDays.length));
+
+    console.log(`🔍 Debug: Study days: ${studyDays.join(', ')}`);
+    console.log(`🔍 Debug: Tasks per day: ${tasksPerDay}`);
+    console.log(`🔍 Debug: AI generated ${aiResponse?.dailyTasks?.length || 0} tasks`);
+
+    let currentDate = new Date(baseProgram.startDate);
+    currentDate.setDate(currentDate.getDate() + 14); // Start after AI-generated tasks
+    let taskId = aiResponse?.dailyTasks?.length || 0;
+
+    console.log(`🔍 Debug: Starting from date: ${currentDate.toISOString().split('T')[0]}`);
+    console.log(`🔍 Debug: End date: ${baseProgram.endDate}`);
+
+    // Fallback if no study days found
+    if (studyDays.length === 0) {
+      console.warn('⚠️ No study days found, using default: Monday, Wednesday, Friday');
+      studyDays.push('Monday', 'Wednesday', 'Friday');
+    }
+
+    // Generate remaining weeks with realistic progress timing
+    const remainingWeeks = totalWeeks - 2;
+    const baseDelayPerWeek = Math.max(300, Math.min(1500, 3000 / remainingWeeks)); // 300ms-1500ms per week
+
+    for (let week = 3; week <= totalWeeks; week++) {
+      const weekProgress = week - 3; // 0-based for remaining weeks
+      const progressPercent = Math.round((weekProgress / remainingWeeks) * 100);
+
       if (onProgress) {
-        onProgress(`Generating Week ${currentWeek}...`, currentWeek - 1, totalWeeks);
+        onProgress(`${week}. hafta oluşturuluyor... (%${progressPercent})`, week - 1, totalWeeks);
       }
-      
-      // Create context-aware prompt for this chunk
-      const chunkPrompt = generateContextualChunkPrompt(
-        onboardingData, 
-        startDay, 
-        currentChunkSize, 
-        totalDays
-      );
-      
-      const chunkResult = await callGeminiAPI(chunkPrompt, onboardingData.examData?.name);
-      
-      if (chunkResult && chunkResult.dailyTasks) {
-        chunks.push(chunkResult);
-        console.log(`✅ Week ${currentWeek}: ${chunkResult.dailyTasks.length} tasks`);
-        
-        // Update progress - completed this week
-        if (onProgress) {
-          onProgress(`Week ${currentWeek} completed!`, currentWeek, totalWeeks);
+
+      console.log(`🔍 Debug: Generating week ${week}, current date: ${currentDate.toISOString().split('T')[0]}`);
+
+      // Generate tasks for this week
+      for (let day = 0; day < 7 && currentDate <= new Date(baseProgram.endDate); day++) {
+        const dayOfWeek = currentDate.getDay();
+        const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
+
+        const isStudyDay = studyDays.some(day => day.toLowerCase() === dayName.toLowerCase());
+        console.log(`🔍 Debug: Day ${day}, ${dayName} (${currentDate.toISOString().split('T')[0]}) - is study day: ${isStudyDay} (studyDays: ${studyDays.join(', ')})`);
+
+        if (isStudyDay) {
+          // Create tasks for this study day based on subject intensity
+          const { subjectIntensity } = onboardingData;
+
+          // Distribute subjects based on intensity for this day
+          const dailySubjects = distributeSubjectsByIntensity(examSubjects, subjectIntensity, tasksPerDay);
+
+          for (let i = 0; i < tasksPerDay && i < dailySubjects.length; i++) {
+            const subject = dailySubjects[i];
+            const taskTypes = ['study', 'practice', 'review', 'quiz'];
+            const sessionTypes = ['Study Session', 'Practice Session', 'Review Session', 'Quiz Session'];
+
+            // Vary task types based on week progress
+            const typeIndex = (week <= 2) ? 0 : (week <= 4) ? (i % 2) : (i % 4);
+            const type = taskTypes[typeIndex];
+            const sessionType = sessionTypes[typeIndex];
+
+            // Calculate difficulty based on overall progress
+            const overallProgress = (week - 1) / totalWeeks;
+            let difficulty: 'easy' | 'medium' | 'hard';
+            if (overallProgress < 0.3) difficulty = 'easy';
+            else if (overallProgress < 0.7) difficulty = 'medium';
+            else difficulty = 'hard';
+
+            const task: StudyTask = {
+              id: `task_${++taskId}`,
+              title: `${subject}: ${sessionType}`,
+              subject: subject,
+              type: type as any,
+              duration: 60,
+              difficulty: difficulty,
+              priority: overallProgress < 0.5 ? 'high' : overallProgress < 0.8 ? 'medium' : 'low',
+              description: getDescriptionForSubject(subject),
+              date: currentDate.toISOString().split('T')[0],
+              timeSlot: `${9 + i}:00-${10 + i}:00`,
+              completed: false,
+              progress: 0,
+              resources: [`${baseProgram.examType} Study Guide`],
+              notes: ''
+            };
+
+            allTasks.push(task);
+            console.log(`✅ Created task: ${task.title} for ${task.date}`);
+          }
         }
-      } else {
-        console.warn(`⚠️ Failed to generate week starting at day ${startDay}`);
-        if (onProgress) {
-          onProgress(`Week ${currentWeek} failed, retrying...`, currentWeek - 1, totalWeeks);
-        }
+
+        currentDate.setDate(currentDate.getDate() + 1);
       }
-      
-      startDay += currentChunkSize;
-      
-      // Delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      console.log(`🔍 Debug: Week ${week} completed. Total tasks so far: ${allTasks.length}`);
+
+      // Realistic delay based on week count - slower for fewer weeks, faster for many weeks
+      const dynamicDelay = Math.max(200, baseDelayPerWeek - (weekProgress * 50)); // Gradual speedup
+
+      // Update progress after each week with more descriptive text
+      if (onProgress) {
+        const completionMsg = week < totalWeeks ?
+          `${week}. hafta tamamlandı - ${totalWeeks - week} hafta kaldı` :
+          `${week}. hafta tamamlandı - Program hazır!`;
+
+        onProgress(completionMsg, week, totalWeeks);
+      }
+
+      // Progressive delay - starts slower, gets faster
+      await new Promise(resolve => setTimeout(resolve, dynamicDelay));
     }
-    
-    // Final progress update
-    if (onProgress) {
-      onProgress('Finalizing program...', totalWeeks, totalWeeks);
-    }
-    
-    // Merge all chunks
-    return mergeChunks(chunks, onboardingData, totalDays);
-    
+
+    // Finalize program
+    console.log(`🎉 Final program stats:`);
+    console.log(`📊 Total tasks generated: ${allTasks.length}`);
+    console.log(`📅 Date range: ${allTasks[0]?.date} to ${allTasks[allTasks.length - 1]?.date}`);
+    console.log(`📚 Subjects: ${[...new Set(allTasks.map(t => t.subject))].join(', ')}`);
+
+    const finalProgram = {
+      ...baseProgram,
+      dailyTasks: allTasks,
+      weeklySchedule: organizeTasksByWeek(allTasks)
+    };
+
+    if (onProgress) onProgress('Program başarıyla oluşturuldu!', totalWeeks, totalWeeks);
+    return finalProgram;
+
   } catch (error) {
-    console.error('❌ Error in chunked generation:', error);
+    console.error('❌ Error in optimized generation:', error);
     return null;
   }
 };
 
-// Generate context-aware chunk prompt
-const generateContextualChunkPrompt = (
-  onboardingData: OnboardingData, 
-  startDay: number, 
-  chunkDays: number, 
-  totalDays: number
-): string => {
-  const { examData, goalsData, scheduleData, subjectIntensity, learningStyleData } = onboardingData;
-  
-  if (!examData || !goalsData) {
-    throw new Error('Missing required data for chunk prompt');
-  }
-
+// Create base program structure without AI
+const createBaseProgramStructure = (onboardingData: OnboardingData, totalDays: number): StudyProgram => {
+  const { examData, goalsData, scheduleData } = onboardingData;
   const today = new Date();
-  const chunkStartDate = new Date(today);
-  chunkStartDate.setDate(today.getDate() + startDay);
-  
-  const chunkEndDate = new Date(today);
-  chunkEndDate.setDate(today.getDate() + startDay + chunkDays - 1);
-  
-  const examDate = parseExamDate(goalsData.examDate);
-  const daysUntilExam = examDate ? Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : totalDays;
-  
-  // Calculate weekly hours
-  const calculateWeeklyHours = (): number => {
-    let totalWeeklySlots = 0;
-    
-    Object.entries(scheduleData).forEach(([dayKey, slots]) => {
-      if (slots && slots.length > 0) {
-        totalWeeklySlots += slots.length;
-      }
-    });
+  const examDate = parseExamDate(goalsData!.examDate);
 
-    const intensityMultiplier = {
-      'relaxed': 0.7,
-      'moderate': 0.85,
-      'intensive': 1.0,
-      'extreme': 1.2
-    };
+  return {
+    id: `optimized_program_${Date.now()}`,
+    examType: examData!.name,
+    examDate: goalsData!.examDate,
+    startDate: getNextStudyDay(scheduleData, today).toISOString().split('T')[0],
+    endDate: examDate?.toISOString().split('T')[0] || today.toISOString().split('T')[0],
+    totalDays: totalDays,
+    weeklyHours: calculateWeeklyHours(scheduleData, goalsData!.studyIntensity),
+    dailyTasks: [],
+    weeklySchedule: {},
+    subjectBreakdown: createSubjectBreakdown(onboardingData, totalDays),
+    milestones: generateProgressiveMilestones(onboardingData, totalDays),
+    generatedAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString()
+  };
+};
 
-    const multiplier = intensityMultiplier[goalsData.studyIntensity as keyof typeof intensityMultiplier] || 0.85;
-    const calculatedHours = Math.round(totalWeeklySlots * multiplier);
-    return Math.max(5, Math.min(40, calculatedHours));
+// Extend program using AI-generated pattern
+const extendProgramWithPattern = (
+  baseProgram: StudyProgram,
+  aiTasks: StudyTask[],
+  totalDays: number
+): StudyProgram => {
+  const allTasks: StudyTask[] = [];
+  const { examData, scheduleData, subjectIntensity } = {
+    examData: { name: baseProgram.examType, id: baseProgram.examType.toLowerCase() },
+    scheduleData: {}, // Will be reconstructed
+    subjectIntensity: {} // Will be reconstructed
   };
 
-  const weeklyHours = calculateWeeklyHours();
-  const examSubjects = getExamSubjects(examData.id);
-  
-  // Current week and phase analysis
-  const currentWeek = Math.floor(startDay / 7) + 1;
-  const totalWeeks = Math.ceil(totalDays / 7);
-  
-  let phaseDescription = '';
-  if (currentWeek <= 2) {
-    phaseDescription = 'FOUNDATION PHASE - Focus on fundamental concepts and assessment';
-  } else if (currentWeek <= totalWeeks * 0.6) {
-    phaseDescription = 'BUILDING PHASE - Practice and skill development';
-  } else if (currentWeek <= totalWeeks * 0.8) {
-    phaseDescription = 'MASTERY PHASE - Advanced practice and weak area focus';
-  } else {
-    phaseDescription = 'FINAL PREP PHASE - Full practice tests and exam strategies';
-  }
+  // Use AI tasks as-is for first 14 days
+  allTasks.push(...aiTasks.slice(0, Math.min(aiTasks.length, 14)));
 
-  return `
-You are creating Week ${currentWeek} (Days ${startDay + 1}-${startDay + chunkDays}) of a ${totalDays}-day ${examData.name} exam preparation program.
+  // Generate remaining tasks programmatically
+  if (totalDays > 14) {
+    const examSubjects = getExamSubjects(baseProgram.examType.toLowerCase());
+    const studyDays = getStudyDays(scheduleData) || ['Monday', 'Wednesday', 'Friday']; // fallback
+    const tasksPerDay = Math.max(2, Math.floor(baseProgram.weeklyHours / studyDays.length));
 
-**PROGRAM CONTEXT:**
-- Current Phase: ${phaseDescription}
-- Week ${currentWeek} of ${totalWeeks} total weeks
-- Date Range: ${chunkStartDate.toISOString().split('T')[0]} to ${chunkEndDate.toISOString().split('T')[0]}
-- Days until exam: ${daysUntilExam}
-- Weekly study hours: ${weeklyHours}
+    let currentDate = new Date(baseProgram.startDate);
+    currentDate.setDate(currentDate.getDate() + 14); // Start after AI-generated tasks
 
-**EXAM SUBJECTS:** ${examSubjects.join(', ')}
+    let taskId = aiTasks.length + 1;
 
-**SUBJECT INTENSITY PREFERENCES:**
-${Object.entries(subjectIntensity)
-  .map(([subject, level]) => {
-    const intensityLabels = ['Light', 'Moderate', 'High', 'Intensive'];
-    return `${subject}: ${intensityLabels[level]} focus`;
-  })
-  .join(', ')}
+    for (let day = 14; day < totalDays; day++) {
+      const dayOfWeek = currentDate.getDay();
+      const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
 
-**SCHEDULE CONSTRAINTS (Study Days Only):**
-${Object.entries(scheduleData)
-  .filter(([day, slots]) => slots && slots.length > 0)
-  .map(([day, slots]) => `${day}: ${(slots as string[]).join(', ')}`)
-  .join('\n')}
+      if (studyDays.includes(dayName)) {
+        for (let i = 0; i < tasksPerDay; i++) {
+          const subject = examSubjects[i % examSubjects.length];
+          const taskTypes = ['study', 'practice', 'review', 'quiz'];
+          const sessionTypes = ['Study Session', 'Practice Session', 'Review Session', 'Quiz Session'];
+          const type = taskTypes[i % taskTypes.length];
+          const sessionType = sessionTypes[i % sessionTypes.length];
 
-**THIS WEEK'S OBJECTIVES:**
-1. Generate tasks for ${chunkDays} days, but ONLY for study days: ${Object.keys(scheduleData).filter(day => scheduleData[day] && scheduleData[day].length > 0).join(', ')}
-2. Create ${Math.max(2, Math.ceil(weeklyHours / Object.keys(scheduleData).filter(day => scheduleData[day] && scheduleData[day].length > 0).length / (60/60)))} tasks per study day
-3. Each task must have: id, title (Subject: Session Type), subject, type, duration, difficulty, priority, description, date, timeSlot
-4. Week ${currentWeek} difficulty level: ${currentWeek <= 2 ? 'beginner-intermediate' : currentWeek <= totalWeeks * 0.6 ? 'intermediate' : currentWeek <= totalWeeks * 0.8 ? 'intermediate-advanced' : 'advanced-expert'}
-5. Focus on high intensity subjects according to user preferences
-6. Use clear task titles: "Mathematics: Practice Session", "Reading: Study Session"
-7. Vary task types: study, practice, review, quiz
-8. Fill all available time slots for selected days
+          const task: StudyTask = {
+            id: `task_${taskId++}`,
+            title: `${subject}: ${sessionType}`,
+            subject: subject,
+            type: type as any,
+            duration: 60,
+            difficulty: day < totalDays * 0.3 ? 'easy' : day < totalDays * 0.7 ? 'medium' : 'hard',
+            priority: 'medium',
+            description: getDescriptionForSubject(subject),
+            date: currentDate.toISOString().split('T')[0],
+            timeSlot: `${9 + i}:00-${10 + i}:00`,
+            completed: false,
+            progress: 0,
+            resources: [`${baseProgram.examType} Study Guide`],
+            notes: ''
+          };
 
-**MANDATORY SUBJECT VALIDATION:**
-- Valid subjects for ${examData.name}: ${examSubjects.join(', ')}
-- Each task's "subject" field MUST be one of these exact strings
-- NEVER use numbers, indices, or abbreviations as subject names
-- Double-check every task has a valid subject name before responding
-
-**MANDATORY TASK CREATION RULES:**
-1. Create tasks ONLY for the exact dates listed below
-2. Use the EXACT date strings provided - do NOT modify them
-3. Each task must have the exact date from the list below
-4. Do NOT calculate or change any dates
-
-**EXACT TASK DATES FOR THIS CHUNK (USE THESE EXACTLY):**
-${(() => {
-  const studyDays = Object.keys(scheduleData).filter(day => scheduleData[day] && scheduleData[day].length > 0);
-  const studyDayNumbers = studyDays.map(day => getDayNumber(day)).filter(num => num !== -1);
-  let taskDates = '';
-  let taskCount = 0;
-  
-  console.log(`🔍 Debug: Chunk - Generating exact task dates from ${chunkStartDate.toISOString().split('T')[0]}`);
-  console.log(`🔍 Debug: Chunk - Study day numbers: ${studyDayNumbers.join(', ')}`);
-  
-  for (let i = 0; i < chunkDays; i++) {
-    const currentDate = new Date(chunkStartDate);
-    currentDate.setDate(chunkStartDate.getDate() + i);
-    const dayNumber = currentDate.getDay();
-    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayNumber];
-    const dateString = currentDate.toISOString().split('T')[0];
-    
-    console.log(`🔍 Debug: Chunk - Day ${i}: ${dateString} (${dayName}, day ${dayNumber}) - is study day: ${studyDayNumbers.includes(dayNumber)}`);
-    
-    if (studyDayNumbers.includes(dayNumber)) {
-      taskCount++;
-      taskDates += `Task ${taskCount}: ${dateString} (${dayName})\n`;
-    }
-  }
-  console.log(`🔍 Debug: Chunk - Generated ${taskCount} task dates`);
-  return taskDates;
-})()}
-
-**CRITICAL:** Create exactly ${(() => {
-  const studyDays = Object.keys(scheduleData).filter(day => scheduleData[day] && scheduleData[day].length > 0);
-  const studyDayNumbers = studyDays.map(day => getDayNumber(day)).filter(num => num !== -1);
-  let count = 0;
-  for (let i = 0; i < chunkDays; i++) {
-    const currentDate = new Date(chunkStartDate);
-    currentDate.setDate(chunkStartDate.getDate() + i);
-    const dayNumber = currentDate.getDay();
-    if (studyDayNumbers.includes(dayNumber)) {
-      count++;
-    }
-  }
-  return count;
-})()} tasks using the exact dates above. Do NOT add extra days or change dates.
-
-**ABSOLUTE REQUIREMENT:** Each task's "date" field MUST be one of the exact dates listed above. Do NOT calculate dates yourself. Copy the exact date strings from the list above.
-
-**FINAL WARNING:** If you create tasks with dates that are NOT in the exact list above, the program will fail. You MUST use only the dates provided in the "EXACT TASK DATES FOR THIS CHUNK" section above.
-
-**CRITICAL VALIDATION:** Before responding, verify that every task's "date" field matches exactly one of the dates in the "EXACT TASK DATES FOR THIS CHUNK" list above. If any task has a different date, you have made an error and must fix it.
-
-**DESCRIPTION RULES (CRITICAL - MUST FOLLOW EXACTLY):**
-- Reading tasks: "Practice reading comprehension and analysis skills"
-- Listening tasks: "Practice listening comprehension and note-taking skills"  
-- Speaking tasks: "Practice speaking fluency and pronunciation skills"
-- Writing tasks: "Practice writing structure and grammar skills"
-- Mathematics tasks: "Practice mathematical problem-solving and concepts"
-- Verbal Reasoning tasks: "Practice verbal reasoning and vocabulary skills"
-- Quantitative Reasoning tasks: "Practice quantitative reasoning and math skills"
-- Analytical Writing tasks: "Practice analytical writing and argumentation skills"
-- Logical Reasoning tasks: "Practice logical reasoning and critical thinking skills"
-- Reading Comprehension tasks: "Practice reading comprehension and analysis skills"
-- Analytical Reasoning tasks: "Practice analytical reasoning and logic skills"
-
-**ABSOLUTE REQUIREMENT:** Each task's "description" field MUST match the subject exactly:
-- If subject is "Reading" → description MUST be "Practice reading comprehension and analysis skills"
-- If subject is "Listening" → description MUST be "Practice listening comprehension and note-taking skills"
-- If subject is "Speaking" → description MUST be "Practice speaking fluency and pronunciation skills"
-- If subject is "Writing" → description MUST be "Practice writing structure and grammar skills"
-- If subject is "Mathematics" → description MUST be "Practice mathematical problem-solving and concepts"
-
-**FINAL WARNING:** If you create tasks with descriptions that don't match the subject, the program will fail. You MUST use the exact descriptions listed above.
-
-**OUTPUT FORMAT:** Return ONLY valid JSON with dailyTasks array containing exactly ${chunkDays} tasks.
-
-{
-  "id": "week_${currentWeek}_${Date.now()}",
-  "dailyTasks": [
-    {
-      "id": "task_w${currentWeek}_d1",
-      "title": "${examSubjects[0]}: Study Session",
-      "subject": "${examSubjects[0]}",
-      "type": "study",
-      "duration": 60,
-      "difficulty": "medium",
-      "priority": "high",
-      "description": "Study ${examSubjects[0]} fundamentals and core concepts",
-      "date": "${(() => {
-        const studyDays = Object.keys(scheduleData).filter(day => scheduleData[day] && scheduleData[day].length > 0);
-        const studyDayNumbers = studyDays.map(day => getDayNumber(day)).filter(num => num !== -1);
-        for (let i = 0; i < chunkDays; i++) {
-          const currentDate = new Date(chunkStartDate);
-          currentDate.setDate(chunkStartDate.getDate() + i);
-          const dayNumber = currentDate.getDay();
-          if (studyDayNumbers.includes(dayNumber)) {
-            return currentDate.toISOString().split('T')[0];
-          }
+          allTasks.push(task);
         }
-        return chunkStartDate.toISOString().split('T')[0];
-      })()}",
-      "timeSlot": "09:00-10:00",
-      "completed": false,
-      "progress": 0,
-      "resources": ["${examData.name} Study Guide"],
-      "notes": ""
-    }
-  ]
-}
+      }
 
-**FINAL VALIDATION CHECKLIST:**
-✓ All subjects are from the valid list: ${examSubjects.join(', ')}
-✓ No numeric subjects (0, 1, 2, 3)
-✓ Title format is "Subject: Session Type"
-✓ Tasks only on study days: ${Object.keys(scheduleData).filter(day => scheduleData[day] && scheduleData[day].length > 0).join(', ')}`;
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+  }
+
+  return {
+    ...baseProgram,
+    dailyTasks: allTasks,
+    weeklySchedule: organizeTasksByWeek(allTasks)
+  };
+};
+
+// Distribute subjects based on intensity preferences
+const distributeSubjectsByIntensity = (
+  examSubjects: string[],
+  subjectIntensity: any,
+  tasksPerDay: number
+): string[] => {
+  const subjects: string[] = [];
+
+  // Create weighted list based on intensity
+  const weightedSubjects: string[] = [];
+
+  examSubjects.forEach(subject => {
+    const intensity = subjectIntensity[subject] ?? 1;
+    // Add subject multiple times based on intensity (0: 1x, 1: 2x, 2: 3x, 3: 4x)
+    const weight = intensity + 1;
+    for (let i = 0; i < weight; i++) {
+      weightedSubjects.push(subject);
+    }
+  });
+
+  // Distribute for the required number of tasks
+  for (let i = 0; i < tasksPerDay; i++) {
+    if (weightedSubjects.length > 0) {
+      const index = i % weightedSubjects.length;
+      subjects.push(weightedSubjects[index]);
+    } else {
+      // Fallback to round-robin
+      subjects.push(examSubjects[i % examSubjects.length]);
+    }
+  }
+
+  return subjects;
+};
+
+// Get standard description for subject
+const getDescriptionForSubject = (subject: string): string => {
+  const descriptions: { [key: string]: string } = {
+    'Reading': 'Practice reading comprehension and analysis skills',
+    'Listening': 'Practice listening comprehension and note-taking skills',
+    'Speaking': 'Practice speaking fluency and pronunciation skills',
+    'Writing': 'Practice writing structure and grammar skills',
+    'Mathematics': 'Practice mathematical problem-solving and concepts',
+    'Verbal Reasoning': 'Practice verbal reasoning and vocabulary skills',
+    'Quantitative Reasoning': 'Practice quantitative reasoning and math skills',
+    'Analytical Writing': 'Practice analytical writing and argumentation skills',
+    'Logical Reasoning': 'Practice logical reasoning and critical thinking skills',
+    'Reading Comprehension': 'Practice reading comprehension and analysis skills',
+    'Analytical Reasoning': 'Practice analytical reasoning and logic skills'
+  };
+  return descriptions[subject] || `Practice ${subject.toLowerCase()} skills`;
+};
+
+// Create subject breakdown from onboarding data
+const createSubjectBreakdown = (onboardingData: OnboardingData, totalDays: number) => {
+  const { examData, subjectIntensity, goalsData, scheduleData } = onboardingData;
+  const examSubjects = getExamSubjects(examData!.id);
+  const weeklyHours = calculateWeeklyHours(scheduleData, goalsData!.studyIntensity);
+  const breakdown: Record<string, any> = {};
+
+  examSubjects.forEach(subject => {
+    const intensityLevel = subjectIntensity[subject] ?? 1;
+    const priority = intensityLevel + 1;
+    const subjectWeeklyHours = Math.max(1, Math.round(weeklyHours / examSubjects.length));
+
+    breakdown[subject] = {
+      totalHours: Math.round(subjectWeeklyHours * (totalDays / 7)),
+      weeklyHours: subjectWeeklyHours,
+      intensityLevel: intensityLevel,
+      priority: priority,
+      currentProgress: 0
+    };
+  });
+
+  return breakdown;
+};
+
+// Minimal chunk prompt (not used in new approach, but kept for reference)
+const generateContextualChunkPrompt = (
+  onboardingData: OnboardingData,
+  startDay: number,
+  chunkDays: number,
+  totalDays: number
+): string => {
+  const { examData, scheduleData } = onboardingData;
+  const examSubjects = getExamSubjects(examData!.id);
+  const studyDays = getStudyDays(scheduleData);
+  const currentWeek = Math.floor(startDay / 7) + 1;
+
+  return `Week ${currentWeek} tasks for ${examData!.name}.
+Subjects: ${examSubjects.join(', ')}
+Study days: ${studyDays.join(', ')}
+Days: ${chunkDays}
+
+Return JSON with dailyTasks array. Each task: id, title "Subject: Type", subject, type, duration 60, difficulty, priority, description, date, timeSlot, completed false, progress 0.
+
+Create ${Math.max(2, Math.ceil(chunkDays / studyDays.length))} tasks per study day.`;
 };
 
 // Merge multiple chunks into single program
