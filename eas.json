@@ -6,13 +6,31 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "env": {
+        "NODE_OPTIONS": "--max_old_space_size=4096"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_API_KEY": "$GOOGLE_API_KEY",
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "$REVENUECAT_API_KEY",
+        "EXPO_PUBLIC_APP_ENV": "production"
+      },
+      "ios": {
+        "buildConfiguration": "Release",
+        "simulator": false
+      }
     }
   },
   "submit": {

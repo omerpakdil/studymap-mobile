@@ -81,7 +81,7 @@ const parseExamDate = (dateString: string): Date | null => {
       const day = parseInt(dateParts[1], 10);
       const year = parseInt(dateParts[2], 10);
 
-      if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2024 && year <= 2030) {
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2025 && year <= 2030) {
         const date = new Date(year, month - 1, day);
         if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
           return date;
@@ -111,15 +111,28 @@ const generateCompactGeminiPrompt = (onboardingData: OnboardingData): string => 
   const examSubjects = getExamSubjects(examData.id);
   const studyDays = getStudyDays(scheduleData);
 
-  return `Generate ${examData.name} study tasks for ${Math.min(daysUntilExam, 14)} days.
+  // Build schedule info with time slots
+  const scheduleInfo = studyDays.map(day => {
+    const dayLower = day.toLowerCase();
+    const slots = scheduleData[dayLower] || [];
+    return `${day}: ${slots.join(', ')}`;
+  }).join('; ');
+
+  const startDate = getNextStudyDay(scheduleData, today);
+
+  return `Generate ${examData.name} study tasks starting from TODAY (${startDate.toISOString().split('T')[0]}) for the next 14 days.
 
 VALID SUBJECTS ONLY: ${examSubjects.join(', ')}
-Study days: ${studyDays.join(', ')}
+Study schedule with time slots: ${scheduleInfo}
 Weekly hours: ${weeklyHours}
-Start: ${getNextStudyDay(scheduleData, today).toISOString().split('T')[0]}
+TODAY'S DATE: ${startDate.toISOString().split('T')[0]}
 
-CRITICAL: subject field must be EXACTLY one of: ${examSubjects.map(s => `"${s}"`).join(', ')}
-NEVER use numbers or indices for subjects!
+CRITICAL REQUIREMENTS:
+- Start generating tasks from TODAY (${startDate.toISOString().split('T')[0]}) - do NOT skip today!
+- Include tasks for today if it's a study day
+- subject field must be EXACTLY one of: ${examSubjects.map(s => `"${s}"`).join(', ')}
+- NEVER use numbers or indices for subjects!
+- Use actual time slots from schedule (e.g., "evening", "night", "morning", "afternoon")
 
 Return JSON with dailyTasks array. Each task needs:
 - id: "task_X"
@@ -131,7 +144,7 @@ Return JSON with dailyTasks array. Each task needs:
 - priority: "high"|"medium"|"low"
 - description: "Practice [subject] skills"
 - date: study day dates only in YYYY-MM-DD format
-- timeSlot: "09:00-10:00"
+- timeSlot: use actual time slot from schedule for that day (e.g., "evening", "night", "morning")
 - completed: false
 - progress: 0
 
@@ -148,7 +161,7 @@ EXAMPLE VALID TASK:
   "priority": "high",
   "description": "Practice Verbal skills",
   "date": "2025-09-15",
-  "timeSlot": "09:00-10:00",
+  "timeSlot": "evening",
   "completed": false,
   "progress": 0
 }
@@ -477,10 +490,17 @@ const generateOptimizedLongProgram = async (
 
         if (isStudyDay) {
           // Create tasks for this study day based on subject intensity
-          const { subjectIntensity } = onboardingData;
+          const { subjectIntensity, scheduleData } = onboardingData;
 
-          // Distribute subjects based on intensity for this day
-          const dailySubjects = distributeSubjectsByIntensity(examSubjects, subjectIntensity, tasksPerDay);
+          // Get time slots for this day from schedule
+          const dayTimeSlots = scheduleData[dayName.toLowerCase()] || [];
+          console.log(`🔍 Debug: Time slots for ${dayName}: ${dayTimeSlots.join(', ')}`);
+
+          // Calculate day offset for rotation (cumulative study day count)
+          const totalDaysSinceStart = Math.floor((currentDate.getTime() - new Date(baseProgram.startDate).getTime()) / (1000 * 60 * 60 * 24));
+
+          // Distribute subjects based on intensity for this day with rotation
+          const dailySubjects = distributeSubjectsByIntensity(examSubjects, subjectIntensity, tasksPerDay, totalDaysSinceStart);
 
           for (let i = 0; i < tasksPerDay && i < dailySubjects.length; i++) {
             const subject = dailySubjects[i];
@@ -499,6 +519,9 @@ const generateOptimizedLongProgram = async (
             else if (overallProgress < 0.7) difficulty = 'medium';
             else difficulty = 'hard';
 
+            // Use actual time slot from schedule, or fallback to default
+            const timeSlot = dayTimeSlots[i % dayTimeSlots.length] || 'morning';
+
             const task: StudyTask = {
               id: `task_${++taskId}`,
               title: `${subject}: ${sessionType}`,
@@ -509,7 +532,7 @@ const generateOptimizedLongProgram = async (
               priority: overallProgress < 0.5 ? 'high' : overallProgress < 0.8 ? 'medium' : 'low',
               description: getDescriptionForSubject(subject),
               date: currentDate.toISOString().split('T')[0],
-              timeSlot: `${9 + i}:00-${10 + i}:00`,
+              timeSlot: timeSlot,
               completed: false,
               progress: 0,
               resources: [`${baseProgram.examType} Study Guide`],
@@ -517,7 +540,7 @@ const generateOptimizedLongProgram = async (
             };
 
             allTasks.push(task);
-            console.log(`✅ Created task: ${task.title} for ${task.date}`);
+            console.log(`✅ Created task: ${task.title} for ${task.date} at ${timeSlot}`);
           }
         }
 
@@ -618,12 +641,18 @@ const extendProgramWithPattern = (
       const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek];
 
       if (studyDays.includes(dayName)) {
+        // Get time slots for this day from schedule (if available)
+        const dayTimeSlots = scheduleData[dayName.toLowerCase()] || [];
+
         for (let i = 0; i < tasksPerDay; i++) {
           const subject = examSubjects[i % examSubjects.length];
           const taskTypes = ['study', 'practice', 'review', 'quiz'];
           const sessionTypes = ['Study Session', 'Practice Session', 'Review Session', 'Quiz Session'];
           const type = taskTypes[i % taskTypes.length];
           const sessionType = sessionTypes[i % sessionTypes.length];
+
+          // Use actual time slot from schedule, or fallback to default
+          const timeSlot = dayTimeSlots[i % dayTimeSlots.length] || 'morning';
 
           const task: StudyTask = {
             id: `task_${taskId++}`,
@@ -635,7 +664,7 @@ const extendProgramWithPattern = (
             priority: 'medium',
             description: getDescriptionForSubject(subject),
             date: currentDate.toISOString().split('T')[0],
-            timeSlot: `${9 + i}:00-${10 + i}:00`,
+            timeSlot: timeSlot,
             completed: false,
             progress: 0,
             resources: [`${baseProgram.examType} Study Guide`],
@@ -661,7 +690,8 @@ const extendProgramWithPattern = (
 const distributeSubjectsByIntensity = (
   examSubjects: string[],
   subjectIntensity: any,
-  tasksPerDay: number
+  tasksPerDay: number,
+  dayOffset: number = 0 // Add day offset for rotation
 ): string[] => {
   const subjects: string[] = [];
 
@@ -677,14 +707,16 @@ const distributeSubjectsByIntensity = (
     }
   });
 
-  // Distribute for the required number of tasks
+  // Distribute for the required number of tasks with rotation based on day offset
   for (let i = 0; i < tasksPerDay; i++) {
     if (weightedSubjects.length > 0) {
-      const index = i % weightedSubjects.length;
+      // Use day offset to rotate starting position, creating variety across days
+      const index = (i + dayOffset) % weightedSubjects.length;
       subjects.push(weightedSubjects[index]);
     } else {
-      // Fallback to round-robin
-      subjects.push(examSubjects[i % examSubjects.length]);
+      // Fallback to round-robin with rotation
+      const index = (i + dayOffset) % examSubjects.length;
+      subjects.push(examSubjects[index]);
     }
   }
 
@@ -1148,5 +1180,5 @@ export const getExamCurriculum = (examId: string) => {
 
 export const getExamSubjects = (examId: string): string[] => {
   const curriculum = getCurriculumByExamId(examId);
-  return curriculum ? Object.keys(curriculum.subjects) : [];
+  return curriculum ? curriculum.subjects.map(subject => subject.name) : [];
 };

@@ -1,0 +1,149 @@
+{
+  "identifier" : "D7F8E9A1",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "StudyMapPro",
+      "localizations" : [
+
+      ],
+      "name" : "StudyMap Pro Subscriptions",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "2.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "weekly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Try StudyMap Premium for one week with full access",
+              "displayName" : "Weekly Premium Trial",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.studymap.mobile.premium.weekly",
+          "recurringSubscriptionPeriod" : "P1W",
+          "referenceName" : "StudyMap Premium Weekly",
+          "subscriptionGroupID" : "StudyMapPro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Full access to StudyMap Premium features, billed monthly",
+              "displayName" : "Monthly Premium",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.studymap.mobile.premium.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "StudyMap Premium Monthly",
+          "subscriptionGroupID" : "StudyMapPro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "69.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "annual",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Full access to StudyMap Premium features for one year - Best Value!",
+              "displayName" : "Annual Premium",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.studymap.mobile.premium.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "StudyMap Premium Annual",
+          "subscriptionGroupID" : "StudyMapPro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

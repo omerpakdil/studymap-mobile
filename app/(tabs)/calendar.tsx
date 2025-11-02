@@ -49,17 +49,33 @@ const monthNames = [
 
 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+
 // Convert time slot to time of day period
 const getTimeOfDay = (timeSlot: string): string => {
   if (!timeSlot) return 'Morning';
 
-  // Extract hour from timeSlot (e.g., "09:00-10:00" -> 9)
+  // First check if it's already a named time slot
+  const timeSlotMap: Record<string, string> = {
+    'early_morning': 'Early Morning',
+    'morning': 'Morning',
+    'afternoon': 'Afternoon',
+    'evening': 'Evening',
+    'night': 'Night',
+  };
+
+  // If it matches a known time slot, return the label
+  if (timeSlotMap[timeSlot.toLowerCase()]) {
+    return timeSlotMap[timeSlot.toLowerCase()];
+  }
+
+  // Otherwise, try to extract hour from timeSlot (e.g., "09:00-10:00" -> 9)
   const hourMatch = timeSlot.match(/^(\d{1,2})/);
   if (!hourMatch) return 'Morning';
 
   const hour = parseInt(hourMatch[1], 10);
 
-  if (hour >= 6 && hour < 12) return 'Morning';
+  if (hour >= 6 && hour < 9) return 'Early Morning';
+  if (hour >= 9 && hour < 12) return 'Morning';
   if (hour >= 12 && hour < 17) return 'Afternoon';
   if (hour >= 17 && hour < 21) return 'Evening';
   return 'Night';

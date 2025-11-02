@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "studymapmobile",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "metro": {
       "resolver": {
@@ -18,7 +18,8 @@
           "json",
           "gif",
           "webp",
-          "svg"
+          "svg",
+          "html"
         ]
       }
     },
@@ -26,27 +27,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.studymap.mobile",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "background-processing",
-          "background-fetch",
-          "background-processing",
-          "background-fetch"
-        ],
         "ITSAppUsesNonExemptEncryption": false
       }
-    },
-    "android": {
-      "package": "com.studymap.mobile",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "WAKE_LOCK"
-      ],
-      "edgeToEdgeEnabled": true
     },
     "web": {
       "bundler": "metro",

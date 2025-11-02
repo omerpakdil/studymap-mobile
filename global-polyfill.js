@@ -55,4 +55,13 @@ if (typeof global.os === 'undefined') {
   global.os = require('os-browserify/browser');
 }
 
-console.log('🔧 Global polyfills loaded successfully (crypto disabled for compatibility)'); 
+if (__DEV__) {
+  console.log('🔧 Global polyfills loaded successfully (crypto disabled for compatibility)');
+}
+
+if (!__DEV__) {
+  const noop = () => {};
+  console.log = noop;
+  console.debug = noop;
+  console.info = noop;
+}

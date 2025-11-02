@@ -4,16 +4,18 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { Platform } from 'react-native';
 
-// Notification configuration
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Notification configuration - only configure on iOS
+if (Platform.OS === 'ios') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+}
 
 export interface NotificationSettings {
   dailyReminder: boolean;
@@ -79,9 +81,16 @@ class NotificationService {
       return this.hasPermission;
     }
 
+    // iOS only app
+    if (Platform.OS !== 'ios') {
+      console.log('⚠️ This app is iOS only');
+      this.isInitialized = true;
+      return false;
+    }
+
     try {
       console.log('📱 Initializing notification service...');
-      
+
       // In development mode, ask user before initializing notifications
       if (__DEV__) {
         console.log('🚧 Development mode detected - notification scheduling will be limited');
@@ -132,23 +141,6 @@ class NotificationService {
     if (finalStatus !== 'granted') {
       console.log('❌ Failed to get push token for push notification!');
       return false;
-    }
-
-    // Configure notification channel for Android
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('study-reminders', {
-        name: 'Study Reminders',
-        importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
-      });
-
-      await Notifications.setNotificationChannelAsync('motivational', {
-        name: 'Motivational Quotes',
-        importance: Notifications.AndroidImportance.DEFAULT,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#4CAF50',
-      });
     }
 
     return true;
@@ -308,11 +300,11 @@ class NotificationService {
       console.log(`📅 Daily study reminder scheduled for ${this.settings.studyTime} every day`);
       
     } else if (this.settings.reminderFrequency === 'frequent') {
-      // Multiple daily reminders - 3 times per day
+      // Multiple daily reminders - 3 times per day at fixed times (9 AM, 2 PM, 7 PM)
       const reminderTimes = [
-        { hour: hours, minute: minutes, title: 'Morning Study Session', body: 'Start your day with focused learning!' },
-        { hour: (hours + 6) % 24, minute: minutes, title: 'Afternoon Study Break', body: 'Time for your afternoon study session!' },
-        { hour: (hours + 12) % 24, minute: minutes, title: 'Evening Review', body: 'End your day by reviewing what you\'ve learned!' },
+        { hour: 9, minute: 0, title: 'Morning Study Session', body: 'Start your day with focused learning!' },
+        { hour: 14, minute: 0, title: 'Afternoon Study Break', body: 'Time for your afternoon study session!' },
+        { hour: 19, minute: 0, title: 'Evening Review', body: 'End your day by reviewing what you\'ve learned!' },
       ];
 
       for (let i = 0; i < reminderTimes.length; i++) {
@@ -321,8 +313,8 @@ class NotificationService {
           content: {
             title: `📚 ${reminder.title}`,
             body: reminder.body,
-            data: { 
-              type: 'frequent_reminder', 
+            data: {
+              type: 'frequent_reminder',
               session: i + 1,
               targetScreen: 'dashboard',
               action: 'study_reminder'
@@ -335,33 +327,49 @@ class NotificationService {
           } as any,
         });
       }
-      console.log(`📅 Frequent study reminders scheduled - 3 times daily starting at ${this.settings.studyTime}`);
+      console.log(`📅 Frequent study reminders scheduled - 3 times daily at 9:00 AM, 2:00 PM, 7:00 PM`);
     }
   }
 
   private async scheduleMotivationalQuotes(): Promise<void> {
-    // Schedule ONE motivational quote every day at 8 AM
+    // Schedule motivational quotes for the next 7 days (to ensure variety)
+    // Each day gets a different quote, cycling through the array
     const today = new Date();
-    const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
-    
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '✨ Daily Motivation',
-        body: randomQuote,
-        data: { 
-          type: 'motivational',
-          targetScreen: 'dashboard',
-          action: 'daily_motivation'
-        },
-      },
-      trigger: {
-        hour: 8,
-        minute: 0,
-        repeats: true, // This will repeat every day at 8:00 AM
-      } as any,
-    });
 
-    console.log('🌟 Daily motivational quote scheduled for 8:00 AM every day');
+    // Get a random starting point to add variety between rescheduling sessions
+    const startOffset = Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length);
+
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const scheduledDate = new Date(today);
+      scheduledDate.setDate(today.getDate() + dayOffset);
+      scheduledDate.setHours(8, 0, 0, 0);
+
+      // Select a different quote for each day, with random starting offset
+      const quoteIndex = (startOffset + dayOffset) % MOTIVATIONAL_QUOTES.length;
+      const quote = MOTIVATIONAL_QUOTES[quoteIndex];
+
+      // Only schedule if the date is in the future
+      if (scheduledDate > today) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '✨ Daily Motivation',
+            body: quote,
+            data: {
+              type: 'motivational',
+              targetScreen: 'dashboard',
+              action: 'daily_motivation',
+              dayOffset: dayOffset // Store day offset for tracking
+            },
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: scheduledDate,
+          },
+        });
+      }
+    }
+
+    console.log('🌟 Daily motivational quotes scheduled for next 7 days at 8:00 AM with different quotes each day');
   }
 
   private async scheduleWeeklyReports(): Promise<void> {
@@ -397,12 +405,12 @@ class NotificationService {
       // Stop any existing break reminders
       await this.stopBreakReminders();
 
-      // Schedule a break reminder for 25 minutes from now
-      await Notifications.scheduleNotificationAsync({
+      // Schedule a break reminder for 25 minutes from now and store the ID
+      const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: "Study Break Time! 🧠",
           body: "You've been studying for 25 minutes. Take a 5-minute break to refresh your mind.",
-          data: { 
+          data: {
             type: 'break_reminder',
             targetScreen: 'current',
             action: 'take_break'
@@ -414,7 +422,7 @@ class NotificationService {
         },
       });
 
-      this.breakReminderId = 'break_reminder_active';
+      this.breakReminderId = notificationId;
       console.log('⏱️ Break reminder set for 25 minutes during active study session');
     } catch (error) {
       console.error('❌ Error starting break reminders:', error);
@@ -504,7 +512,7 @@ class NotificationService {
       }
 
       if (this.settings.motivationalQuotes) {
-        expectedCount += 1;
+        expectedCount += 7; // 7 days of motivational quotes
         expectedTypes.push('motivational');
       }
 

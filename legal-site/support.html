@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StudyMap | Support</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+        background: #f6f8fb;
+        color: #111827;
+      }
+      header {
+        background: linear-gradient(135deg, #0ea5e9, #6366f1);
+        color: #ffffff;
+        padding: 54px 24px 72px;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0 0 12px;
+        font-size: 34px;
+        font-weight: 700;
+      }
+      header p {
+        margin: 0;
+        font-size: 18px;
+        opacity: 0.9;
+      }
+      main {
+        max-width: 960px;
+        margin: -64px auto 80px;
+        background: #ffffff;
+        border-radius: 28px;
+        padding: 56px 48px;
+        box-shadow: 0 28px 68px rgba(14, 165, 233, 0.18);
+      }
+      section + section {
+        margin-top: 40px;
+      }
+      h2 {
+        font-size: 22px;
+        margin-bottom: 16px;
+        color: #0f172a;
+      }
+      p {
+        margin: 0 0 18px;
+        line-height: 1.7;
+        color: #475569;
+        font-size: 16px;
+      }
+      ul {
+        margin: 0 0 18px;
+        padding-left: 20px;
+        color: #475569;
+      }
+      li {
+        margin-bottom: 10px;
+        line-height: 1.6;
+      }
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 18px;
+      }
+      .card {
+        background: #f1f5f9;
+        border-radius: 18px;
+        padding: 24px 20px;
+        box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.2);
+      }
+      .card strong {
+        display: block;
+        font-size: 18px;
+        margin-bottom: 8px;
+        color: #0f172a;
+      }
+      a {
+        color: #2563eb;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      footer {
+        text-align: center;
+        font-size: 14px;
+        color: #64748b;
+        margin: 56px 0 32px;
+      }
+      @media (max-width: 720px) {
+        header {
+          padding-bottom: 60px;
+        }
+        header h1 {
+          font-size: 28px;
+        }
+        main {
+          margin: -48px 16px 64px;
+          padding: 40px 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>StudyMap Support</h1>
+      <p>
+        Need a hand with StudyMap Pro? Review the quick fixes below or contact our team for
+        one-on-one assistance.
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>Quick Start Checklist</h2>
+        <div class="card-grid">
+          <div class="card">
+            <strong>Install the Beta</strong>
+            <p>
+              Open the TestFlight invitation email and tap <em>View in TestFlight</em>. Install
+              StudyMap Pro and sign in with your account to sync existing study plans.
+            </p>
+          </div>
+          <div class="card">
+            <strong>Activate Premium</strong>
+            <p>
+              Go to the <em>Premium</em> tab inside the app to start a Weekly, Monthly, or Annual
+              plan once subscriptions become available in TestFlight.
+            </p>
+          </div>
+          <div class="card">
+            <strong>Stay Updated</strong>
+            <p>
+              Enable TestFlight notifications so you receive new beta builds, release notes, and
+              known issue updates as soon as they are published.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Account & Sign-In Help</h2>
+        <ul>
+          <li>
+            Confirm you are using the same email address you registered with; StudyMap currently
+            supports sign-in with email and magic link verification.
+          </li>
+          <li>
+            Check your spam folder if you do not receive the verification email within two
+            minutes. The email subject line is “Confirm your StudyMap login”.
+          </li>
+          <li>
+            For access resets, contact us at
+            <a href="mailto:callousity@gmail.com">callousity@gmail.com</a> with the subject
+            line “Account access request”.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Subscriptions & Billing</h2>
+        <ul>
+          <li>
+            Manage your subscription at any time under
+            <strong>Settings &gt; Apple ID &gt; Subscriptions</strong> on your iOS device.
+          </li>
+          <li>
+            Cancellations take effect at the end of the current billing cycle; premium access
+            continues until that date.
+          </li>
+          <li>
+            Apple handles billing and refunds for in-app purchases. For refund requests, visit
+            <a href="https://reportaproblem.apple.com/">reportaproblem.apple.com</a>.
+          </li>
+          <li>
+            If no plans appear in the app, Apple may still be reviewing the subscription
+            products. We will notify you through TestFlight once they are approved.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Troubleshooting Steps</h2>
+        <div class="card-grid">
+          <div class="card">
+            <strong>Connection Errors</strong>
+            <p>
+              Switch to a different Wi-Fi or cellular network, disable VPN, then relaunch the app.
+              Persistent issues may indicate backend maintenance—check TestFlight notes for
+              status.
+            </p>
+          </div>
+          <div class="card">
+            <strong>Missing Data</strong>
+            <p>
+              Verify you are logged into the correct StudyMap account. Pull-to-refresh on the
+              Dashboard to sync with the server.
+            </p>
+          </div>
+          <div class="card">
+            <strong>Send Feedback</strong>
+            <p>
+              From TestFlight, tap <em>Send Beta Feedback</em> and attach screenshots or screen
+              recordings. Include device model and iOS version for faster triage.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Need More Help?</h2>
+        <p>
+          Email our support team at
+          <a href="mailto:callousity@gmail.com">callousity@gmail.com</a>. We typically respond
+          within one business day (Monday–Friday, 9:00–18:00 GMT+3). Please include:
+        </p>
+        <ul>
+          <li>Your StudyMap account email address</li>
+          <li>The device model and iOS version you are using</li>
+          <li>A short description of the issue and the steps to reproduce it</li>
+        </ul>
+        <p>
+          For urgent incidents affecting multiple users, add “URGENT” to your email subject so we
+          can prioritize your request.
+        </p>
+      </section>
+    </main>
+
+    <footer>© 2025 StudyMap. All rights reserved.</footer>
+  </body>
+</html>

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 const SUBSCRIPTION_STATUS_KEY = 'subscription_status';
+const SUBSCRIPTION_TEMP_DISABLED = process.env.EXPO_PUBLIC_APP_ENV !== 'production';
 
 // Universal RevenueCat API key from environment variables
 const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
@@ -19,8 +20,10 @@ export interface SubscriptionStatus {
  */
 export const initializeRevenueCat = async (): Promise<boolean> => {
   try {
-    console.log('🔑 Using API Key:', REVENUECAT_API_KEY);
-    console.log('🔑 Key type:', REVENUECAT_API_KEY?.substring(0, 5));
+    if (__DEV__) {
+      const preview = REVENUECAT_API_KEY ? `${REVENUECAT_API_KEY.slice(0, 6)}…` : 'undefined';
+      console.log('🔑 Using RevenueCat key (dev):', preview);
+    }
     
     if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY === 'your-api-key-here') {
       console.warn('⚠️ RevenueCat API key not configured');
@@ -49,13 +52,40 @@ export const initializeRevenueCat = async (): Promise<boolean> => {
  */
 export const getSubscriptionOfferings = async (): Promise<PurchasesOffering | null> => {
   try {
+    console.log('🔍 Fetching offerings from RevenueCat...');
     const offerings = await Purchases.getOfferings();
-    
+
+    console.log('📦 Raw offerings response:', JSON.stringify({
+      current: offerings.current?.identifier,
+      all: Object.keys(offerings.all),
+    }));
+
     if (offerings.current !== null) {
-      console.log('📦 Available offerings:', offerings.current.availablePackages.length);
+      console.log('📦 Current offering identifier:', offerings.current.identifier);
+      console.log('📦 Available packages count:', offerings.current.availablePackages.length);
+
+      // Log each package details
+      offerings.current.availablePackages.forEach((pkg, index) => {
+        console.log(`📦 Package ${index + 1}:`, {
+          identifier: pkg.identifier,
+          packageType: pkg.packageType,
+          productId: pkg.product.identifier,
+          title: pkg.product.title,
+          priceString: pkg.product.priceString,
+        });
+      });
+
       return offerings.current;
     } else {
-      console.warn('⚠️ No subscription offerings available');
+      console.warn('⚠️ No current offering found!');
+      console.warn('⚠️ All offerings:', Object.keys(offerings.all));
+
+      // Try to get 'default' offering explicitly
+      if (offerings.all['default']) {
+        console.log('✅ Found "default" offering, using that instead');
+        return offerings.all['default'];
+      }
+
       return null;
     }
   } catch (error) {
@@ -72,7 +102,15 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage): Prom
     console.log('💳 Starting purchase for package:', packageToPurchase.identifier);
     
     const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
-    
+
+    // Debug: Log customerInfo details
+    console.log('🔍 CustomerInfo after purchase:', {
+      allEntitlements: Object.keys(customerInfo.entitlements.all),
+      activeEntitlements: Object.keys(customerInfo.entitlements.active),
+      allPurchasedProductIds: customerInfo.allPurchasedProductIdentifiers,
+      activeSubscriptions: customerInfo.activeSubscriptions
+    });
+
     const isActive = customerInfo.entitlements.active['premium'] !== undefined;
     
     if (isActive) {
@@ -156,6 +194,10 @@ export const getSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
  * Check if user has premium access
  */
 export const hasPremiumAccess = async (): Promise<boolean> => {
+  if (SUBSCRIPTION_TEMP_DISABLED) {
+    console.log('🚧 Subscription check temporarily bypassed');
+    return true;
+  }
   const status = await getSubscriptionStatus();
   return status.isActive;
 };

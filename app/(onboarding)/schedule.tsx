@@ -551,28 +551,28 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 12,
   },
   iconContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 16,
   },
   mainIcon: {
-    fontSize: 64,
+    fontSize: 48,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 36,
+    marginBottom: 12,
+    lineHeight: 32,
     letterSpacing: -0.5,
   },
   description: {
-    fontSize: 16,
+    fontSize: 15,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
+    lineHeight: 22,
+    marginBottom: 20,
   },
   featuresContainer: {
     gap: 16,

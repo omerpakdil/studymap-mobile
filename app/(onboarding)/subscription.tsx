@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
+    Linking,
     Modal,
+    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
@@ -23,6 +25,8 @@ import {
 } from '../utils/subscriptionManager';
 
 const { width, height } = Dimensions.get('window');
+const TERMS_URL = 'https://studymap-site.vercel.app/terms.html' as const;
+const PRIVACY_URL = 'https://studymap-site.vercel.app/privacy.html' as const;
 
 export default function SubscriptionScreen() {
   const { colors } = useTheme();
@@ -46,7 +50,7 @@ export default function SubscriptionScreen() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Initialize RevenueCat
       const initialized = await initializeRevenueCat();
       if (!initialized) {
@@ -56,7 +60,7 @@ export default function SubscriptionScreen() {
 
       // Force cache refresh
       console.log('🔄 Forcing offerings cache refresh...');
-      
+
       // Add small delay to ensure RevenueCat is properly initialized
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -113,7 +117,7 @@ export default function SubscriptionScreen() {
 
   const handlePurchase = async () => {
     if (!selectedPackage) {
-      Alert.alert('Error', 'Please select a subscription plan.');
+      setError('Please select a subscription plan.');
       return;
     }
 
@@ -121,13 +125,10 @@ export default function SubscriptionScreen() {
     setPurchasing(true);
     setError(null);
 
-    setShowSuccessModal(true);
-
-    
-    /*
     try {
+      const { purchasePackage } = await import('../utils/subscriptionManager');
       const subscriptionStatus = await purchasePackage(selectedPackage);
-      
+
       if (subscriptionStatus.isActive) {
         console.log('🎉 Purchase successful!');
         setShowSuccessModal(true);
@@ -136,9 +137,9 @@ export default function SubscriptionScreen() {
       }
     } catch (error: any) {
       console.error('❌ Purchase failed:', error);
-      
+
       let errorMessage = 'Purchase failed. Please try again.';
-      
+
       if (error.message.includes('cancelled')) {
         errorMessage = 'Purchase was cancelled.';
       } else if (error.message.includes('pending')) {
@@ -148,12 +149,11 @@ export default function SubscriptionScreen() {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
-      Alert.alert('Purchase Failed', errorMessage);
+
+      setError(errorMessage);
     } finally {
       setPurchasing(false);
     }
-    */
   };
 
   const handleRestore = async () => {
@@ -428,20 +428,24 @@ export default function SubscriptionScreen() {
                         <Text style={styles.popularText}>MOST POPULAR</Text>
                       </View>
                     )}
-                    
-                    {savings && (
-                      <View style={[styles.savingsBadge, { backgroundColor: colors.accent[500] }]}>
-                        <Text style={styles.savingsText}>{savings}</Text>
-                      </View>
-                    )}
-                    
+
                     <View style={styles.cardContent}>
                       <Text style={[styles.planName, { color: colors.neutral[700] }]}>
                         {getPackageTitle(packageItem)}
                       </Text>
-                      <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
-                        {getPackageSubtitle(packageItem)}
-                      </Text>
+                      <View style={styles.subtitleRow}>
+                        <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
+                          {getPackageSubtitle(packageItem)}
+                        </Text>
+                        {savings && (
+                          <>
+                            <Text style={[styles.subtitleDivider, { color: colors.neutral[400] }]}> • </Text>
+                            <Text style={[styles.savingsText, { color: colors.accent[600] }]}>
+                              {savings}
+                            </Text>
+                          </>
+                        )}
+                      </View>
                       
                       <View style={styles.priceContainer}>
                         <View style={styles.priceRow}>
@@ -480,38 +484,15 @@ export default function SubscriptionScreen() {
           </View>
         )}
 
-        {/* Premium Features List */}
-        <View style={styles.featuresContainer}>
-          <Text style={[styles.featuresTitle, { color: colors.neutral[700] }]}>
-            Premium Features
-          </Text>
-          <View style={styles.featuresList}>
-            <View style={styles.featureItem}>
-              <Text style={styles.checkmark}>✓</Text>
-              <Text style={[styles.featureText, { color: colors.neutral[600] }]}>
-                Full personalized study program
-              </Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Text style={styles.checkmark}>✓</Text>
-              <Text style={[styles.featureText, { color: colors.neutral[600] }]}>
-                Advanced AI content generation
-              </Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Text style={styles.checkmark}>✓</Text>
-              <Text style={[styles.featureText, { color: colors.neutral[600] }]}>
-                Detailed analytics & progress tracking
-              </Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Text style={styles.checkmark}>✓</Text>
-              <Text style={[styles.featureText, { color: colors.neutral[600] }]}>
-                Priority customer support
-              </Text>
-            </View>
+
+        {/* Error Message */}
+        {error && offerings && (
+          <View style={[styles.errorBanner, { backgroundColor: colors.error[50], borderColor: colors.error[200] }]}>
+            <Text style={[styles.errorBannerText, { color: colors.error[700] }]}>
+              {error}
+            </Text>
           </View>
-        </View>
+        )}
 
         {/* CTA Section */}
         <View style={styles.ctaSection}>
@@ -568,8 +549,22 @@ export default function SubscriptionScreen() {
         </View>
 
         {/* Terms */}
-        <Text style={[styles.terms, { color: colors.neutral[400] }]}>
-          Subscription automatically renews. Cancel anytime in settings.
+        <Text style={[styles.terms, { color: colors.neutral[500] }]}>
+          Subscriptions are charged to your Apple ID account and renew automatically unless
+          canceled at least 24 hours before the current period ends.
+        </Text>
+        <Text style={[styles.terms, { color: colors.neutral[500] }]}>
+          Manage or disable auto-renew at any time by visiting Settings &gt; Apple ID &gt;
+          Subscriptions on your device.
+        </Text>
+        <Text style={[styles.terms, { color: colors.neutral[500] }]}>
+          <Text style={styles.termsLink} onPress={() => Linking.openURL(TERMS_URL)}>
+            Terms of Use
+          </Text>
+          {'  •  '}
+          <Text style={styles.termsLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
+            Privacy Policy
+          </Text>
         </Text>
       </SafeAreaView>
 
@@ -863,16 +858,16 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 30,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     marginTop: -15,
   },
   pricingContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 12,
   },
   singlePricingContainer: {
     flexDirection: 'column',
@@ -888,16 +883,16 @@ const styles = StyleSheet.create({
   },
   pricingCard: {
     flex: 1,
-    padding: 18,
-    borderRadius: 20,
+    padding: 12,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: 'transparent',
     position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
   singlePricingCard: {
     flex: 0,
@@ -921,6 +916,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     marginHorizontal: 16,
+    zIndex: 1,
   },
   popularText: {
     color: '#FFFFFF',
@@ -928,19 +924,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
-  savingsBadge: {
-    position: 'absolute',
-    top: -8,
-    right: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
   savingsText: {
-    color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   cardContent: {
     alignItems: 'center',
@@ -951,9 +938,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 2,
   },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   planSubtitle: {
     fontSize: 12,
-    marginBottom: 8,
+  },
+  subtitleDivider: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   priceContainer: {
     alignItems: 'center',
@@ -1025,9 +1020,21 @@ const styles = StyleSheet.create({
     marginRight: 12,
     width: 20,
   },
+  errorBanner: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   ctaSection: {
-    marginBottom: 20,
-    marginTop: 10,
+    marginBottom: 12,
+    marginTop: 8,
   },
   subscribeButton: {
     borderRadius: 16,
@@ -1039,7 +1046,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   buttonGradient: {
-    paddingVertical: 18,
+    paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1081,12 +1088,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   terms: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 14,
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 8,
     marginTop: 0,
+  },
+  termsLink: {
+    color: '#4338CA',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   // Modal Styles
   modalOverlay: {

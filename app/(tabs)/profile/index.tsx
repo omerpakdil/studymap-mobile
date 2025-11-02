@@ -30,6 +30,10 @@ import { useTheme } from '@/themes';
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
+const TERMS_URL = 'https://studymap-site.vercel.app/terms.html' as const;
+const PRIVACY_URL = 'https://studymap-site.vercel.app/privacy.html' as const;
+const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions' as const;
+
 const reminderFrequencyOptions = [
   { id: 'minimal', label: 'Minimal', frequency: 'Weekly check-ins', icon: '📅' },
   { id: 'moderate', label: 'Moderate', frequency: 'Daily reminders', icon: '⏰' },
@@ -210,6 +214,33 @@ export default function ProfileScreen() {
     setShowSupportModal(true);
   };
 
+  const handleManageSubscriptions = async () => {
+    if (isIOS) {
+      try {
+        const canOpen = await Linking.canOpenURL(MANAGE_SUBSCRIPTIONS_URL);
+        if (canOpen) {
+          await Linking.openURL(MANAGE_SUBSCRIPTIONS_URL);
+        } else {
+          Alert.alert(
+            'Manage Subscription',
+            'Subscriptions can be managed from Settings > Apple ID > Subscriptions.'
+          );
+        }
+      } catch (error) {
+        console.error('❌ Error opening subscription management:', error);
+        Alert.alert(
+          'Manage Subscription',
+          'Unable to open Apple subscription settings. Please navigate manually to Settings > Apple ID > Subscriptions.'
+        );
+      }
+    } else {
+      Alert.alert(
+        'Manage Subscription',
+        'Subscriptions are billed through Apple. Use an iOS device and go to Settings > Apple ID > Subscriptions to manage your plan.'
+      );
+    }
+  };
+
   const handleRateApp = () => {
     setShowRateModal(true);
   };
@@ -225,9 +256,21 @@ export default function ProfileScreen() {
   };
 
   const openEmail = () => {
-    const emailUrl = 'mailto:support@studymap.app?subject=StudyMap Support Request';
+    const emailUrl = 'mailto:callousity@gmail.com?subject=StudyMap Support Request';
     Linking.openURL(emailUrl).catch(() => {
-      Alert.alert('Error', 'Could not open email app. Please contact us at support@studymap.app');
+      Alert.alert('Error', 'Could not open email app. Please contact us at callousity@gmail.com');
+    });
+  };
+
+  const openTerms = () => {
+    Linking.openURL(TERMS_URL).catch(() => {
+      Alert.alert('Error', 'Could not open Terms of Use. Please visit studymap-site.vercel.app/terms.html in your browser.');
+    });
+  };
+
+  const openPrivacy = () => {
+    Linking.openURL(PRIVACY_URL).catch(() => {
+      Alert.alert('Error', 'Could not open Privacy Policy. Please visit studymap-site.vercel.app/privacy.html in your browser.');
     });
   };
 
@@ -477,7 +520,7 @@ export default function ProfileScreen() {
               {userInfo?.fullName || 'Study Buddy'}
             </Text>
             <Text style={styles.userEmail}>
-              {userInfo?.email || 'student@studymap.app'}
+              {userInfo?.email || 'callousity@gmail.com'}
             </Text>
             <Text style={styles.userExam}>
               {programMetadata.examType?.toUpperCase()} • {programMetadata.daysRemaining} days left
@@ -715,6 +758,12 @@ export default function ProfileScreen() {
         {/* Account & Support */}
         {renderSettingsSection('Account & Support', [
           {
+            icon: <Ionicons name="card-outline" size={20} color={colors.primary[600]} />,
+            title: 'Manage Subscription',
+            subtitle: 'Update or cancel your plan',
+            onPress: handleManageSubscriptions,
+          },
+          {
             icon: <Ionicons name="phone-portrait" size={20} color={colors.neutral[600]} />,
             title: 'App Version',
             subtitle: '1.0.0 (Build 1)',
@@ -741,15 +790,31 @@ export default function ProfileScreen() {
           },
         ])}
 
-        {/* Developer */}
-        {renderSettingsSection('Developer', [
-          {
-            icon: <Ionicons name="refresh" size={20} color={colors.neutral[600]} />,
-            title: 'Reset Onboarding',
-            subtitle: 'Clear all data and restart onboarding',
-            onPress: handleResetOnboarding,
-          },
-        ])}
+        {/* Developer-only tools */}
+        {process.env.EXPO_PUBLIC_APP_ENV === 'development' &&
+          renderSettingsSection('Developer', [
+            {
+              icon: <Ionicons name="refresh" size={20} color={colors.neutral[600]} />,
+              title: 'Reset Onboarding',
+              subtitle: 'Clear all data and restart onboarding',
+              onPress: handleResetOnboarding,
+            },
+          ])}
+
+        {/* Legal Links */}
+        <View style={[styles.legalLinks, { borderTopColor: colors.neutral[100] }]}>
+          <TouchableOpacity onPress={openTerms} activeOpacity={0.7}>
+            <Text style={[styles.legalLinkText, { color: colors.neutral[500] }]}>
+              Terms of Use
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.legalSeparator, { color: colors.neutral[300] }]}>•</Text>
+          <TouchableOpacity onPress={openPrivacy} activeOpacity={0.7}>
+            <Text style={[styles.legalLinkText, { color: colors.neutral[500] }]}>
+              Privacy Policy
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Member Since */}
         <View style={styles.memberSince}>
@@ -881,28 +946,7 @@ export default function ProfileScreen() {
                       Email Support
                     </Text>
                     <Text style={[styles.modalSupportDesc, { color: colors.primary[600] }]}>
-                      support@studymap.app
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.modalSupportOption, { backgroundColor: colors.secondary[50] }]}
-                onPress={() => {
-                  setShowSupportModal(false);
-                  Alert.alert('Help Center', 'Visit our help center at help.studymap.app for FAQs and guides.');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.modalSupportContent}>
-                  <Text style={styles.modalSupportIcon}>❓</Text>
-                  <View style={styles.modalSupportText}>
-                    <Text style={[styles.modalSupportTitle, { color: colors.secondary[700] }]}>
-                      Help Center
-                    </Text>
-                    <Text style={[styles.modalSupportDesc, { color: colors.secondary[600] }]}>
-                      FAQs and guides
+                      callousity@gmail.com
                     </Text>
                   </View>
                 </View>
@@ -912,7 +956,7 @@ export default function ProfileScreen() {
                 style={[styles.modalSupportOption, { backgroundColor: colors.accent[50] }]}
                 onPress={() => {
                   setShowSupportModal(false);
-                  Alert.alert('Bug Report', 'Thank you for helping us improve! Please email us at support@studymap.app with details about the issue.');
+                  Alert.alert('Bug Report', 'Thank you for helping us improve! Please email us at callousity@gmail.com with details about the issue.');
                 }}
                 activeOpacity={0.8}
               >
@@ -928,6 +972,20 @@ export default function ProfileScreen() {
                   </View>
                 </View>
               </TouchableOpacity>
+
+              <View style={[styles.modalLegalLinks, { borderTopColor: colors.neutral[100] }]}>
+                <TouchableOpacity onPress={() => { setShowSupportModal(false); openTerms(); }} activeOpacity={0.8}>
+                  <Text style={[styles.modalLegalLinkText, { color: colors.neutral[600] }]}>
+                    Terms of Use
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.modalLegalSeparator, { color: colors.neutral[400] }]}>•</Text>
+                <TouchableOpacity onPress={() => { setShowSupportModal(false); openPrivacy(); }} activeOpacity={0.8}>
+                  <Text style={[styles.modalLegalLinkText, { color: colors.neutral[600] }]}>
+                    Privacy Policy
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Modal Actions */}
@@ -1311,6 +1369,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    paddingTop: 24,
+    marginTop: 16,
+    borderTopWidth: 1,
+  },
+  legalLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  legalSeparator: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   
   // Member Since
   memberSince: {
@@ -1568,6 +1643,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 3,
     elevation: 3,
+  },
+  modalLegalLinks: {
+    marginTop: 8,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  modalLegalLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalLegalSeparator: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalSupportContent: {
     flexDirection: 'row',

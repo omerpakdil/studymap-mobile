@@ -2,14 +2,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    StatusBar,
-    StyleSheet,
-    TouchableOpacity,
-    View
+  Animated,
+  Dimensions,
+  Platform,
+  SafeAreaView,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { Text } from '@/components';
@@ -295,10 +295,21 @@ export default function WelcomeScreen() {
           <Text style={styles.ctaText}>Get Started</Text>
           <Text style={styles.ctaArrow}>→</Text>
         </TouchableOpacity>
-        
-        <Text style={[styles.disclaimer, { color: colors.neutral[500] }]}>
-          Free to start • No credit card required
-        </Text>
+
+        <View style={styles.disclaimerContainer}>
+          <View style={styles.disclaimerRow}>
+            <View style={[styles.bulletPoint, { backgroundColor: colors.primary[400] }]} />
+            <Text style={[styles.disclaimer, { color: colors.neutral[500] }]}>
+              Personalized learning
+            </Text>
+          </View>
+          <View style={styles.disclaimerRow}>
+            <View style={[styles.bulletPoint, { backgroundColor: colors.primary[400] }]} />
+            <Text style={[styles.disclaimer, { color: colors.neutral[500] }]}>
+              Track your progress
+            </Text>
+          </View>
+        </View>
       </Animated.View>
 
       {/* Background Gradient */}
@@ -325,14 +336,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: isIOS ? 40 : 40,
+    paddingTop: isIOS ? 60 : 50,
   },
   visualSection: {
-    height: 180,
-    width: 180,
+    height: 140,
+    width: 140,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
     position: 'relative',
   },
   neuralNetwork: {
@@ -349,34 +360,34 @@ const styles = StyleSheet.create({
     borderRadius: 100,
   },
   outerRing: {
-    width: 160,
-    height: 160,
-  },
-  middleRing: {
     width: 120,
     height: 120,
+  },
+  middleRing: {
+    width: 90,
+    height: 90,
     borderColor: 'rgba(139, 92, 246, 0.25)',
   },
   innerRing: {
-    width: 70,
-    height: 70,
+    width: 55,
+    height: 55,
     borderColor: 'rgba(34, 197, 94, 0.3)',
   },
   brainCenter: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowRadius: 10,
+    elevation: 10,
     zIndex: 10,
   },
   brainIcon: {
-    fontSize: 28,
+    fontSize: 24,
   },
   dataPoints: {
     position: 'absolute',
@@ -385,30 +396,30 @@ const styles = StyleSheet.create({
   },
   dataPoint: {
     position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   point1: {
-    top: 25,
-    left: 55,
+    top: 18,
+    left: 42,
   },
   point2: {
-    top: 50,
-    right: 35,
+    top: 38,
+    right: 26,
   },
   point3: {
-    bottom: 45,
-    left: 35,
+    bottom: 34,
+    left: 26,
   },
   point4: {
-    bottom: 25,
-    right: 55,
+    bottom: 18,
+    right: 42,
   },
   contentSection: {
     alignItems: 'center',
     maxWidth: width - 48,
-    marginBottom: 32,
+    marginBottom: 48,
   },
   welcomeTextContainer: {
     alignItems: 'center',
@@ -427,7 +438,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 4,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
   },
   title: {
     fontSize: 42,
@@ -439,19 +451,24 @@ const styles = StyleSheet.create({
   },
   aiGradient: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   aiText: {
     fontSize: 32,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.5,
+    lineHeight: 36,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   subtitle: {
     fontSize: 17,
@@ -509,8 +526,8 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: isIOS ? 30 : 30,
+    paddingTop: 24,
+    paddingBottom: isIOS ? 20 : 20,
     alignItems: 'center',
   },
   ctaButton: {
@@ -540,8 +557,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  disclaimerContainer: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  disclaimerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bulletPoint: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
   disclaimer: {
-    fontSize: 14,
+    fontSize: 13,
     textAlign: 'center',
     fontWeight: '400',
   },

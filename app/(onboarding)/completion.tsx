@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { generateStudyProgram, getCurrentAIProvider } from '@/app/utils/aiProviderManager';
+import { generateStudyProgram as generateStudyProgramUtil, getCurrentAIProvider } from '@/app/utils/aiProviderManager';
 import { loadCompleteOnboardingData, markOnboardingComplete } from '@/app/utils/onboardingData';
 import { saveDailyTasks, saveStudyProgram } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
@@ -75,11 +75,11 @@ export default function CompletionScreen() {
       ),
     ]).start();
 
-    // Start AI program generation after animation
-    generateAIStudyProgram();
+    // Start program generation after animation
+    generateStudyProgram();
   }, []);
 
-  const generateAIStudyProgram = async () => {
+  const generateStudyProgram = async () => {
     try {
       setIsGeneratingProgram(true);
       setGenerationError(null);
@@ -113,16 +113,18 @@ export default function CompletionScreen() {
         console.error('⚠️ Error initializing notifications during onboarding:', error);
       }
       
-      // Debug: Check which AI provider is selected
-      const currentProvider = await getCurrentAIProvider();
-      console.log('🔍 Current AI Provider during onboarding:', currentProvider);
-      console.log('Onboarding data loaded:', {
-        hasExamData: !!onboardingData.examData,
-        hasGoalsData: !!onboardingData.goalsData,
-        hasIntensity: Object.keys(onboardingData.subjectIntensity).length > 0,
-        hasSchedule: Object.keys(onboardingData.scheduleData).length > 0,
-        examDate: onboardingData.goalsData?.examDate
-      });
+      // Debug: Check which provider is selected (development only)
+      if (__DEV__) {
+        const currentProvider = await getCurrentAIProvider();
+        console.log('🔍 Current Provider during onboarding:', currentProvider);
+        console.log('Onboarding data loaded:', {
+          hasExamData: !!onboardingData.examData,
+          hasGoalsData: !!onboardingData.goalsData,
+          hasIntensity: Object.keys(onboardingData.subjectIntensity).length > 0,
+          hasSchedule: Object.keys(onboardingData.scheduleData).length > 0,
+          examDate: onboardingData.goalsData?.examDate
+        });
+      }
       
       // Progress callback for chunk generation
       const onProgressUpdate = (status: string, current: number, total: number) => {
@@ -130,24 +132,24 @@ export default function CompletionScreen() {
         setCurrentChunk(current);
         setTotalChunks(total);
         
-        // Animate progress bar
+        // Animate progress bar with smooth transition
         const progress = total > 0 ? current / total : 0;
         Animated.timing(animationValues.progress, {
           toValue: progress,
-          duration: 300,
+          duration: 800, // Increased duration for smoother animation
           useNativeDriver: false,
         }).start();
       };
       
-      // Generate AI study program with progress tracking
-      const studyProgram = await generateStudyProgram(onboardingData, onProgressUpdate);
+      // Generate study program with progress tracking
+      const studyProgram = await generateStudyProgramUtil(onboardingData, onProgressUpdate);
       
       if (studyProgram) {
         // Save the generated program
         await saveStudyProgram(studyProgram);
         await saveDailyTasks(studyProgram.dailyTasks);
         
-        console.log('AI Study Program Generated Successfully:', {
+        console.log('Study Program Generated Successfully:', {
           examType: studyProgram.examType,
           totalTasks: studyProgram.dailyTasks.length,
           weeklyHours: studyProgram.weeklyHours,
@@ -160,7 +162,7 @@ export default function CompletionScreen() {
         setGenerationError('Unable to generate study program. Please check your exam date and try again.');
       }
     } catch (error) {
-      console.error('Error generating AI study program:', error);
+      console.error('Error generating study program:', error);
       let errorMessage = 'An unexpected error occurred while generating your study program.';
       
       if (error instanceof Error) {
@@ -180,25 +182,26 @@ export default function CompletionScreen() {
   const handleGetStarted = () => {
     if (generationError) {
       // Retry generation
-      generateAIStudyProgram();
+      generateStudyProgram();
     } else {
-      // Navigate to subscription page first
-      router.replace('/(onboarding)/subscription');
+      router.replace('/(tabs)/dashboard');
     }
   };
 
   const getStatusMessage = () => {
     if (isGeneratingProgram) {
-      if (totalChunks > 0 && chunkStatus) {
+      if (totalChunks > 0 && currentChunk > 0) {
+        // Show sequential generation message
+        const weekText = currentChunk === 1 ? '1st week' : currentChunk === 2 ? '2nd week' : `${currentChunk}th week`;
         return {
           title: '🧠 Generating Your Study Plan',
-          description: chunkStatus,
+          description: `Creating ${weekText} schedule...`,
           progress: { current: currentChunk, total: totalChunks }
         };
       }
       return {
         title: '🧠 Generating Your Study Plan',
-        description: 'AI is analyzing your assessment and creating a personalized study program...',
+        description: 'Analyzing your assessment and creating a personalized study program...',
       };
     } else if (generationError) {
       return {
@@ -208,7 +211,7 @@ export default function CompletionScreen() {
     } else if (programGenerated) {
       return {
         title: '🚀 Ready to Launch',
-        description: 'Your AI-powered study plan is optimized and ready. Time to start your journey to success!',
+        description: 'Your personalized study plan is optimized and ready. Time to start your journey to success!',
       };
     } else {
       return {
@@ -304,7 +307,7 @@ export default function CompletionScreen() {
           </View>
         </View>
 
-        {/* AI Generation Status */}
+        {/* Generation Status */}
         <View style={[
           styles.statsContainer, 
           { 

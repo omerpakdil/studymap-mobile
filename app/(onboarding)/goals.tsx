@@ -202,8 +202,8 @@ export default function GoalsScreen() {
     if (day < 1 || day > 31) {
       return { isValid: false, message: 'Day must be between 1-31' };
     }
-    if (year < 2024 || year > 2030) {
-      return { isValid: false, message: 'Year must be between 2024-2030' };
+    if (year < 2025 || year > 2030) {
+      return { isValid: false, message: 'Year must be between 2025-2030' };
     }
 
     // Create date and validate
