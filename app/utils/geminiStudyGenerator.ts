@@ -105,8 +105,17 @@ const generateCompactGeminiPrompt = (onboardingData: OnboardingData): string => 
   }
 
   const examDate = parseExamDate(goalsData.examDate);
+
+  if (!examDate) {
+    throw new Error(`Invalid exam date format: "${goalsData.examDate}". Please use MM/DD/YYYY format with a future date.`);
+  }
+
   const today = new Date();
-  const daysUntilExam = Math.ceil((examDate!.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const daysUntilExam = Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysUntilExam <= 0) {
+    throw new Error('Exam date must be in the future. Please select a date after today.');
+  }
   const weeklyHours = calculateWeeklyHours(scheduleData, goalsData.studyIntensity);
   const examSubjects = getExamSubjects(examData.id);
   const studyDays = getStudyDays(scheduleData);

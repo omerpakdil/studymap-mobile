@@ -163,16 +163,24 @@ export default function CompletionScreen() {
       }
     } catch (error) {
       console.error('Error generating study program:', error);
-      let errorMessage = 'An unexpected error occurred while generating your study program.';
-      
+      let errorMessage = 'Unable to generate study program. Please check your exam date and try again.';
+
       if (error instanceof Error) {
-        if (error.message.includes('Date')) {
-          errorMessage = 'Invalid exam date format. Please check your exam date and try again.';
+        // Show the actual error message for better debugging
+        if (error.message.includes('Invalid exam date') || error.message.includes('future')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('Date')) {
+          errorMessage = 'Invalid exam date format. Please use MM/DD/YYYY format with a future date.';
         } else if (error.message.includes('proficiency')) {
           errorMessage = 'Missing assessment data. Please complete the knowledge assessment.';
+        } else if (error.message.includes('API key') || error.message.includes('GenAI')) {
+          errorMessage = 'AI service temporarily unavailable. Please try again in a moment.';
+        } else {
+          // Include error message for better debugging
+          errorMessage = error.message || errorMessage;
         }
       }
-      
+
       setGenerationError(errorMessage);
     } finally {
       setIsGeneratingProgram(false);
