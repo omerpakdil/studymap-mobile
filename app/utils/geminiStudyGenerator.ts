@@ -299,19 +299,20 @@ const callGeminiAPI = async (prompt: string, examType?: string): Promise<any> =>
     }
     
     console.log('🤖 Calling Gemini API for study program generation...');
-    
-    const model = genAI.models.generateContent({
-      model: 'gemini-2.0-flash-001',
+
+    const response = await genAI.models.generateContent({
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         temperature: 0.7,
         topP: 0.8,
         topK: 40,
-        maxOutputTokens: 8192, // Reduced for faster, more focused responses
+        maxOutputTokens: 8192,
+        thinkingConfig: {
+          thinkingBudget: 0, // Disable thinking for faster responses
+        },
       }
     });
-
-    const response = await model;
     
     if (response && response.text) {
       try {

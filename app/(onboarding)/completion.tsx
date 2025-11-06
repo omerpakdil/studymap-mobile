@@ -158,8 +158,8 @@ export default function CompletionScreen() {
         
         setProgramGenerated(true);
       } else {
-        console.warn('Failed to generate study program');
-        setGenerationError('Unable to generate study program. Please check your exam date and try again.');
+        console.warn('Failed to generate study program - studyProgram is null/undefined');
+        setGenerationError('Unable to generate study program. Please ensure:\n• Date format: MM/DD/YYYY (e.g., 12/31/2025)\n• Date is in the future\n• All onboarding steps completed');
       }
     } catch (error) {
       console.error('Error generating study program:', error);
