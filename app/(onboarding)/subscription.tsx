@@ -91,7 +91,9 @@ export default function SubscriptionScreen() {
       
       if (!availableOfferings || availableOfferings.availablePackages.length === 0) {
         console.log('⚠️ No subscription packages available');
-        setError('No subscription options available. Please try again later.');
+        console.log('⚠️ RevenueCat offering might not be set to Current');
+        console.log('⚠️ Or App Store Connect products might not be Ready to Submit');
+        setError('No subscription options available.\n\nPossible issues:\n1. RevenueCat offering not set to "Current"\n2. App Store Connect products not "Ready to Submit"\n3. Product IDs mismatch between RevenueCat and App Store\n\nCheck console logs for details.');
         return;
       }
 
@@ -330,11 +332,17 @@ export default function SubscriptionScreen() {
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Connection Error</Text>
           <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
             onPress={initializeSubscription}
           >
             <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => router.replace('/(tabs)/dashboard')}
+          >
+            <Text style={styles.skipButtonText}>Continue Without Premium</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -792,6 +800,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '500',
+  },
+  skipButton: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    marginTop: 12,
+  },
+  skipButtonText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   header: {
     paddingBottom: 20,
