@@ -5,6 +5,14 @@ import { OnboardingData } from './onboardingData';
 // API Key from environment variables with validation
 const GOOGLE_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
+// Debug: Log API key status (without revealing the actual key)
+console.log('🔑 API Key Status:', {
+  exists: !!GOOGLE_API_KEY,
+  length: GOOGLE_API_KEY?.length || 0,
+  prefix: GOOGLE_API_KEY?.substring(0, 10) || 'undefined',
+  env: process.env.EXPO_PUBLIC_APP_ENV
+});
+
 // Validate API key
 if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your-google-api-key-here') {
   console.warn('⚠️ Google API key not configured properly. Please set EXPO_PUBLIC_GOOGLE_API_KEY in your .env file');
