@@ -57,12 +57,13 @@ export default function DashboardScreen() {
   // Check subscription status on component mount
   const checkSubscriptionStatus = async () => {
     try {
-      // TEMPORARY BYPASS: Always allow access for development
-      console.log('🚧 TEMPORARY: Bypassing subscription check for development');
-      return true;
-      
-      // Original subscription check (commented out temporarily)
-      /*
+      // Development bypass - only active in __DEV__ mode
+      if (__DEV__) {
+        console.log('🚧 DEV MODE: Bypassing subscription check for development');
+        return true;
+      }
+
+      // Production: Check actual subscription status
       const hasSubscription = await hasPremiumAccess();
       if (!hasSubscription) {
         // Redirect to subscription page if no active subscription
@@ -70,10 +71,14 @@ export default function DashboardScreen() {
         return false;
       }
       return true;
-      */
     } catch (error) {
       console.error('Error checking subscription status:', error);
-      return true; // Allow access if check fails to avoid locking out users
+      // In production, deny access on error for security
+      if (!__DEV__) {
+        router.replace('/(onboarding)/subscription');
+        return false;
+      }
+      return true; // Allow access in dev mode if check fails
     }
   };
 

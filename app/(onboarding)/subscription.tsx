@@ -338,12 +338,14 @@ export default function SubscriptionScreen() {
           >
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={() => router.replace('/(tabs)/dashboard')}
-          >
-            <Text style={styles.skipButtonText}>Continue Without Premium</Text>
-          </TouchableOpacity>
+          {__DEV__ && (
+            <TouchableOpacity
+              style={styles.skipButton}
+              onPress={() => router.replace('/(tabs)/dashboard')}
+            >
+              <Text style={styles.skipButtonText}>Continue Without Premium (Dev Only)</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
