@@ -210,38 +210,53 @@ export default function CalendarScreen() {
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startDate = firstDay.getDay();
+
+    // Calculate days in month
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Get the day of week for the 1st of the month
+    // Create date at noon local time to avoid timezone offset issues
+    const firstDayDate = new Date(year, month, 1);
+    firstDayDate.setHours(12, 0, 0, 0);
+    const startDate = firstDayDate.getDay();
+
+    console.log(`📅 Calendar Debug: ${monthNames[month]} ${year}`);
+    console.log(`   First day: ${firstDayDate.toDateString()} (day of week: ${startDate})`);
+    console.log(`   Days in month: ${daysInMonth}`);
+    console.log(`   Empty cells: ${startDate}`);
 
     const days = [];
-    
+
     // Add empty cells for days before the first day of the month
     for (let i = 0; i < startDate; i++) {
       days.push(null);
     }
-    
+
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
-      days.push(new Date(year, month, day));
+      const dayDate = new Date(year, month, day);
+      dayDate.setHours(12, 0, 0, 0);
+      days.push(dayDate);
     }
-    
+
     return days;
   };
 
   const getWeekDays = (date: Date) => {
-    const startOfWeek = new Date(date);
+    // Create a new date using local time to avoid timezone issues
+    const startOfWeek = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const day = startOfWeek.getDay();
-    startOfWeek.setDate(date.getDate() - day);
-    
+
+    // Go back to Sunday (start of week)
+    const daysToSubtract = day;
+    startOfWeek.setDate(startOfWeek.getDate() - daysToSubtract);
+
     const days = [];
     for (let i = 0; i < 7; i++) {
-      const weekDay = new Date(startOfWeek);
-      weekDay.setDate(startOfWeek.getDate() + i);
+      const weekDay = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i);
       days.push(weekDay);
     }
-    
+
     return days;
   };
 
@@ -359,6 +374,22 @@ export default function CalendarScreen() {
   const renderMonthView = () => {
     const days = getDaysInMonth(selectedDate);
 
+    console.log(`📅 Rendering ${days.length} days (${days.filter(d => d === null).length} null, ${days.filter(d => d !== null).length} actual)`);
+
+    // Group days into weeks (rows of 7)
+    const weeks: (Date | null)[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
+
+    // Ensure last week has exactly 7 cells (pad with nulls if needed)
+    if (weeks.length > 0) {
+      const lastWeek = weeks[weeks.length - 1];
+      while (lastWeek.length < 7) {
+        lastWeek.push(null);
+      }
+    }
+
     return (
       <View style={styles.monthContainer}>
         {/* Day headers */}
@@ -370,75 +401,77 @@ export default function CalendarScreen() {
           ))}
         </View>
 
-        {/* Calendar grid */}
-        <View style={styles.calendarGrid}>
-          {days.map((day, index) => {
-            if (!day) {
-              return <View key={index} style={styles.emptyDay} />;
-            }
+        {/* Calendar grid - render week by week */}
+        {weeks.map((week, weekIndex) => (
+          <View key={weekIndex} style={styles.calendarWeek}>
+            {week.map((day, dayIndex) => {
+              if (!day) {
+                return <View key={dayIndex} style={styles.emptyDay} />;
+              }
 
-            const isToday = formatDate(day) === formatDate(new Date());
-            const isSelected = formatDate(day) === formatDate(selectedDate);
-            const tasks = getDateTasks(day);
-            const progress = getDateProgress(day);
+              const isToday = formatDate(day) === formatDate(new Date());
+              const isSelected = formatDate(day) === formatDate(selectedDate);
+              const tasks = getDateTasks(day);
+              const progress = getDateProgress(day);
 
-            return (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dayCell,
-                  isToday && { backgroundColor: colors.primary[50] },
-                  isSelected && { backgroundColor: colors.primary[100] },
-                  tasks.length > 0 && { borderWidth: 1, borderColor: colors.primary[200] },
-                ]}
-                onPress={() => {
-                  setSelectedDate(day);
-                  // If the day has tasks, switch to day view to show details
-                  if (tasks.length > 0) {
-                    setCurrentView('day');
-                  }
-                }}
-              >
-                <Text style={[
-                  styles.dayNumber,
-                  { color: isToday ? colors.primary[600] : colors.neutral[800] },
-                  isSelected && { fontWeight: '700' },
-                  tasks.length > 0 && { fontWeight: '600' }
-                ]}>
-                  {day.getDate()}
-                </Text>
-                
-                {tasks.length > 0 && (
-                  <View style={styles.dayIndicators}>
-                    {/* Progress indicator */}
-                    <View style={[styles.progressIndicator, { backgroundColor: colors.neutral[200] }]}>
-                      <View style={[
-                        styles.progressFill,
-                        { 
-                          backgroundColor: progress === 100 ? colors.success[500] : colors.primary[500],
-                          width: `${progress}%`
-                        }
-                      ]} />
+              return (
+                <TouchableOpacity
+                  key={dayIndex}
+                  style={[
+                    styles.dayCell,
+                    isToday && { backgroundColor: colors.primary[50] },
+                    isSelected && { backgroundColor: colors.primary[100] },
+                    tasks.length > 0 && { borderWidth: 1, borderColor: colors.primary[200] },
+                  ]}
+                  onPress={() => {
+                    setSelectedDate(day);
+                    // If the day has tasks, switch to day view to show details
+                    if (tasks.length > 0) {
+                      setCurrentView('day');
+                    }
+                  }}
+                >
+                  <Text style={[
+                    styles.dayNumber,
+                    { color: isToday ? colors.primary[600] : colors.neutral[800] },
+                    isSelected && { fontWeight: '700' },
+                    tasks.length > 0 && { fontWeight: '600' }
+                  ]}>
+                    {day.getDate()}
+                  </Text>
+
+                  {tasks.length > 0 && (
+                    <View style={styles.dayIndicators}>
+                      {/* Progress indicator */}
+                      <View style={[styles.progressIndicator, { backgroundColor: colors.neutral[200] }]}>
+                        <View style={[
+                          styles.progressFill,
+                          {
+                            backgroundColor: progress === 100 ? colors.success[500] : colors.primary[500],
+                            width: `${progress}%`
+                          }
+                        ]} />
+                      </View>
+
+                      {/* Subject dots */}
+                      <View style={styles.subjectDots}>
+                        {[...new Set(tasks.map((task: StudyTask) => task.subject))].slice(0, 3).map((subject, idx) => (
+                          <View
+                            key={idx}
+                            style={[
+                              styles.subjectDot,
+                              { backgroundColor: subjectColors[subject as keyof typeof subjectColors]?.border }
+                            ]}
+                          />
+                        ))}
+                      </View>
                     </View>
-                    
-                    {/* Subject dots */}
-                    <View style={styles.subjectDots}>
-                      {[...new Set(tasks.map((task: StudyTask) => task.subject))].slice(0, 3).map((subject, idx) => (
-                        <View
-                          key={idx}
-                          style={[
-                            styles.subjectDot,
-                            { backgroundColor: subjectColors[subject as keyof typeof subjectColors]?.border }
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
       </View>
     );
   };
@@ -705,16 +738,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     paddingVertical: 8,
   },
-  calendarGrid: {
+  calendarWeek: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    marginBottom: 4,
   },
   emptyDay: {
-    width: `${100/7}%`,
+    flex: 1,
     height: 70,
   },
   dayCell: {
-    width: `${100/7}%`,
+    flex: 1,
     height: 70,
     padding: 4,
     borderRadius: 8,

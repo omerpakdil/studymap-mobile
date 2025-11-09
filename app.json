@@ -63,6 +63,9 @@
       "eas": {
         "projectId": "84e831a9-977e-48cf-b479-41d49550fdd5"
       }
+    },
+    "android": {
+      "package": "com.studymap.mobile"
     }
   }
 }
