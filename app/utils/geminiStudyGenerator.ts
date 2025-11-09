@@ -1,5 +1,4 @@
 import { getCurriculumByExamId } from '@/app/data';
-import { GoogleGenAI } from '@google/genai';
 import { OnboardingData } from './onboardingData';
 
 // API Key from environment variables with validation
@@ -17,16 +16,6 @@ console.log('🔑 API Key Status:', {
 if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your-google-api-key-here') {
   console.warn('⚠️ Google API key not configured properly. Please set EXPO_PUBLIC_GOOGLE_API_KEY in your .env file');
   console.warn('💡 Get your API key from: https://aistudio.google.com/app/apikey');
-}
-
-// Initialize Google GenAI client with error handling
-let genAI: GoogleGenAI | null = null;
-try {
-  if (GOOGLE_API_KEY && GOOGLE_API_KEY !== 'your-google-api-key-here') {
-    genAI = new GoogleGenAI({ apiKey: GOOGLE_API_KEY });
-  }
-} catch (error) {
-  console.error('❌ Failed to initialize Google GenAI:', error);
 }
 
 // Study program data types (same as Claude implementation)
@@ -301,26 +290,49 @@ const callGeminiAPI = async (prompt: string, examType?: string): Promise<any> =>
     if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your-google-api-key-here') {
       throw new Error('Google API key not configured. Please set GOOGLE_API_KEY environment variable.');
     }
-    
-    if (!genAI) {
-      throw new Error('Google GenAI client not initialized. Please check your API key configuration.');
-    }
-    
-    console.log('🤖 Calling Gemini API for study program generation...');
 
-    const response = await genAI.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
+    console.log('🤖 Calling Gemini API for study program generation...');
+    console.log('🔑 Using API key with length:', GOOGLE_API_KEY.length);
+
+    // Use direct REST API instead of SDK for better React Native compatibility
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
+
+    const requestBody = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
         temperature: 0.7,
         topP: 0.8,
         topK: 40,
-        maxOutputTokens: 8192,
-        thinkingConfig: {
-          thinkingBudget: 0, // Disable thinking for faster responses
-        },
+        maxOutputTokens: 8192
       }
+    };
+
+    console.log('📡 Sending request to Gemini API...');
+    const fetchResponse = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
     });
+
+    if (!fetchResponse.ok) {
+      const errorText = await fetchResponse.text();
+      console.error('❌ Gemini API error response:', errorText);
+      throw new Error(`Gemini API error: ${fetchResponse.status} - ${errorText}`);
+    }
+
+    const jsonResponse = await fetchResponse.json();
+    console.log('✅ Gemini API response received');
+
+    // Extract text from response
+    const response = {
+      text: jsonResponse.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    };
     
     if (response && response.text) {
       try {
