@@ -27,6 +27,7 @@ import {
   getSubjectProgress,
   getTasksForDate
 } from '@/app/utils/studyProgramStorage';
+import { hasPremiumAccess } from '@/app/utils/subscriptionManager';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
