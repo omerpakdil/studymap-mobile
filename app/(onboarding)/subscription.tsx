@@ -181,10 +181,20 @@ export default function SubscriptionScreen() {
   const handleSuccessModalClose = async () => {
     console.log('🔄 Modal close button pressed');
     setShowSuccessModal(false);
-    
+
     // Small delay to allow modal to close
     await new Promise(resolve => setTimeout(resolve, 300));
-    
+
+    // Force refresh customer info to ensure subscription is recognized
+    console.log('🔄 Refreshing subscription status...');
+    try {
+      const Purchases = (await import('react-native-purchases')).default;
+      await Purchases.syncPurchases();
+      console.log('✅ Subscription status synced');
+    } catch (error) {
+      console.error('⚠️ Could not sync subscription:', error);
+    }
+
     console.log('🚀 Navigating to dashboard...');
     try {
       router.replace('/(tabs)/dashboard');
