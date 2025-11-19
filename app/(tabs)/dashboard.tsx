@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StudyTask } from '@/app/utils/claudeStudyGenerator';
 import NotificationService from '@/app/utils/notificationService';
+import { trackAppSession } from '@/app/utils/reviewPrompt';
 import {
   calculateDailyProgress,
   getDailyMotivationQuote,
@@ -182,6 +183,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadUserInfo();
     loadDashboardData(true); // Initial load with notification check
+    trackAppSession(); // Track app session for review prompt
   }, []);
 
   useEffect(() => {

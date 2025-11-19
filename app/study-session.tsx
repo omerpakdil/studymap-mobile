@@ -23,6 +23,7 @@ import {
 import { generateStudyContent } from '@/app/utils/aiProviderManager';
 import NotificationService from '@/app/utils/notificationService';
 import { loadExamData } from '@/app/utils/onboardingData';
+import { requestReview, trackCompletedStudySession } from '@/app/utils/reviewPrompt';
 import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
@@ -675,8 +676,15 @@ export default function StudySessionScreen() {
               
               <TouchableOpacity
                 style={[styles.completionButton, styles.primaryButton, { backgroundColor: colors.primary[500] }]}
-                onPress={() => {
+                onPress={async () => {
                   setShowCompletionModal(false);
+
+                  // Track completed study session
+                  await trackCompletedStudySession();
+
+                  // Request review if conditions are met
+                  await requestReview();
+
                   router.back();
                 }}
               >

@@ -58,7 +58,8 @@
     "react-native-worklets-core": "^1.6.2",
     "readable-stream": "^4.7.0",
     "url": "^0.11.4",
-    "util": "^0.12.5"
+    "util": "^0.12.5",
+    "expo-store-review": "~9.0.8"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
