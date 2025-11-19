@@ -190,7 +190,17 @@ export default function SubscriptionScreen() {
     try {
       const Purchases = (await import('react-native-purchases')).default;
       await Purchases.syncPurchases();
+
+      // Also refresh customer info
+      const customerInfo = await Purchases.getCustomerInfo();
       console.log('✅ Subscription status synced');
+      console.log('🔍 Active entitlements:', Object.keys(customerInfo.entitlements.active));
+
+      // Mark subscription as active in AsyncStorage
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      await AsyncStorage.setItem('subscription_status', 'active');
+      await AsyncStorage.setItem('skip_subscription_check', 'true');
+      console.log('✅ Subscription marked as active');
     } catch (error) {
       console.error('⚠️ Could not sync subscription:', error);
     }

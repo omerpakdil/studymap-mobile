@@ -63,6 +63,17 @@ export default function DashboardScreen() {
         return true;
       }
 
+      // Check if we just came from successful subscription
+      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+      const skipCheck = await AsyncStorage.getItem('skip_subscription_check');
+
+      if (skipCheck === 'true') {
+        console.log('✅ Skipping subscription check - user just subscribed');
+        // Clear the flag for next time
+        await AsyncStorage.removeItem('skip_subscription_check');
+        return true;
+      }
+
       // Production: Check actual subscription status
       const hasSubscription = await hasPremiumAccess();
       if (!hasSubscription) {
