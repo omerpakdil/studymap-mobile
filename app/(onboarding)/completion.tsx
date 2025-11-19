@@ -192,7 +192,8 @@ export default function CompletionScreen() {
       // Retry generation
       generateStudyProgram();
     } else {
-      router.replace('/(tabs)/dashboard');
+      // Navigate to subscription after successful generation
+      router.replace('/(onboarding)/subscription');
     }
   };
 
