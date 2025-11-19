@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -30,14 +31,14 @@ const examGradients: { [key: string]: string[] } = {
   'lsat': ['#06B6D4', '#0891B2']
 };
 
-// Exam icons
-const examIcons: { [key: string]: string } = {
-  'sat': '🎓',
-  'gre': '📚',
-  'toefl': '🌍',
-  'ielts': '🗣️',
-  'gmat': '💼',
-  'lsat': '⚖️'
+// Exam icons - Modern Ionicons
+const examIcons: { [key: string]: keyof typeof Ionicons.glyphMap } = {
+  'sat': 'school',              // SAT - College admissions
+  'gre': 'library',             // GRE - Graduate school
+  'toefl': 'globe',             // TOEFL - International English
+  'ielts': 'chatbubbles',       // IELTS - English communication
+  'gmat': 'briefcase',          // GMAT - Business school
+  'lsat': 'scale'               // LSAT - Law school
 };
 
 export default function ExamSelectionScreen() {
@@ -112,9 +113,9 @@ export default function ExamSelectionScreen() {
         <View style={styles.examGrid}>
           {availableExams.map((exam: any, index: number) => {
             const gradient = examGradients[exam.id] || ['#6B7280', '#4B5563'];
-            const icon = examIcons[exam.id] || '📚';
+            const icon = examIcons[exam.id] || 'book';
             const isLoading = loadingExamId === exam.id;
-            
+
             return (
               <TouchableOpacity
                 key={exam.id}
@@ -133,14 +134,16 @@ export default function ExamSelectionScreen() {
                   end={{ x: 1, y: 1 }}
                 >
                   <View style={styles.examCardContent}>
-                    <Text style={styles.examIcon}>{icon}</Text>
+                    <View style={styles.iconContainer}>
+                      <Ionicons name={icon} size={40} color="#FFFFFF" />
+                    </View>
                     <Text style={styles.examName}>{exam.name}</Text>
                     <Text style={styles.examDescription}>
                       {getExamDescription(exam.id)}
                     </Text>
                   </View>
                 </LinearGradient>
-                
+
                 {/* Loading overlay */}
                 {isLoading && (
                   <View style={styles.loadingOverlay}>
@@ -244,9 +247,18 @@ const styles = StyleSheet.create({
   examCardContent: {
     alignItems: 'center',
   },
-  examIcon: {
-    fontSize: 32,
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   examName: {
     fontSize: 18,
