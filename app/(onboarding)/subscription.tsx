@@ -3,10 +3,8 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Dimensions,
     Linking,
     Modal,
-    ScrollView,
     StatusBar,
     StyleSheet,
     Text,
@@ -24,8 +22,7 @@ import {
     restorePurchases
 } from '../utils/subscriptionManager';
 
-const { width, height } = Dimensions.get('window');
-const TERMS_URL = 'https://studymap-site.vercel.app/terms.html' as const;
+const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/' as const;
 const PRIVACY_URL = 'https://studymap-site.vercel.app/privacy.html' as const;
 
 export default function SubscriptionScreen() {
@@ -417,185 +414,180 @@ export default function SubscriptionScreen() {
       <SafeAreaView edges={['bottom']} style={[styles.content, { backgroundColor: colors.neutral[50] }]}>
         {/* Pricing Cards */}
         {offerings && offerings.availablePackages.length > 0 && (
-          <View style={[
-            styles.pricingContainer,
-            offerings.availablePackages.length === 1 && styles.singlePricingContainer,
-            offerings.availablePackages.length === 2 && styles.twoPricingContainer,
-            offerings.availablePackages.length >= 3 && styles.multiplePricingContainer,
-          ]}>
-            {offerings.availablePackages
-              .sort((a, b) => {
-                // Sort order: ANNUAL, MONTHLY, WEEKLY, LIFETIME
-                const order: { [key: string]: number } = { 'ANNUAL': 1, 'MONTHLY': 2, 'WEEKLY': 3, 'LIFETIME': 4 };
-                return (order[a.packageType] || 99) - (order[b.packageType] || 99);
-              })
-              .map((packageItem) => {
-                const isSelected = selectedPackage?.identifier === packageItem.identifier;
-                const isPopular = isPackagePopular(packageItem);
-                const monthlyEquivalent = getMonthlyEquivalent(packageItem);
-                const savings = getSavingsText(packageItem);
-                
-                return (
-                  <TouchableOpacity
-                    key={packageItem.identifier}
-                    style={[
-                      styles.pricingCard,
-                      offerings.availablePackages.length === 1 && styles.singlePricingCard,
-                      offerings.availablePackages.length === 2 && styles.twoPricingCard,
-                      offerings.availablePackages.length >= 3 && styles.multiplePricingCard,
-                      { backgroundColor: colors.neutral[0] },
-                      isSelected && { 
-                        borderColor: colors.primary[500],
-                        backgroundColor: colors.primary[50],
-                        transform: [{ scale: 1.02 }]
-                      }
-                    ]}
-                    onPress={() => setSelectedPackage(packageItem)}
-                    activeOpacity={0.8}
-                  >
-                    {isPopular && (
-                      <View style={[styles.popularBadge, { backgroundColor: colors.secondary[500] }]}>
-                        <Text style={styles.popularText}>MOST POPULAR</Text>
-                      </View>
-                    )}
+            <View style={[
+              styles.pricingContainer,
+              offerings.availablePackages.length === 1 && styles.singlePricingContainer,
+              offerings.availablePackages.length === 2 && styles.twoPricingContainer,
+              offerings.availablePackages.length >= 3 && styles.multiplePricingContainer,
+            ]}>
+              {offerings.availablePackages
+                .sort((a, b) => {
+                  // Sort order: ANNUAL, MONTHLY, WEEKLY, LIFETIME
+                  const order: { [key: string]: number } = { 'ANNUAL': 1, 'MONTHLY': 2, 'WEEKLY': 3, 'LIFETIME': 4 };
+                  return (order[a.packageType] || 99) - (order[b.packageType] || 99);
+                })
+                .map((packageItem) => {
+                  const isSelected = selectedPackage?.identifier === packageItem.identifier;
+                  const isPopular = isPackagePopular(packageItem);
+                  const monthlyEquivalent = getMonthlyEquivalent(packageItem);
+                  const savings = getSavingsText(packageItem);
 
-                    <View style={styles.cardContent}>
-                      <Text style={[styles.planName, { color: colors.neutral[700] }]}>
-                        {getPackageTitle(packageItem)}
-                      </Text>
-                      <View style={styles.subtitleRow}>
-                        <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
-                          {getPackageSubtitle(packageItem)}
+                  return (
+                    <TouchableOpacity
+                      key={packageItem.identifier}
+                      style={[
+                        styles.pricingCard,
+                        offerings.availablePackages.length === 1 && styles.singlePricingCard,
+                        offerings.availablePackages.length === 2 && styles.twoPricingCard,
+                        offerings.availablePackages.length >= 3 && styles.multiplePricingCard,
+                        { backgroundColor: colors.neutral[0] },
+                        isSelected && {
+                          borderColor: colors.primary[500],
+                          backgroundColor: colors.primary[50],
+                          transform: [{ scale: 1.02 }]
+                        }
+                      ]}
+                      onPress={() => setSelectedPackage(packageItem)}
+                      activeOpacity={0.8}
+                    >
+                      {isPopular && (
+                        <View style={[styles.popularBadge, { backgroundColor: colors.secondary[500] }]}>
+                          <Text style={styles.popularText}>MOST POPULAR</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.cardContent}>
+                        <Text style={[styles.planName, { color: colors.neutral[700] }]}>
+                          {getPackageTitle(packageItem)}
                         </Text>
-                        {savings && (
-                          <>
-                            <Text style={[styles.subtitleDivider, { color: colors.neutral[400] }]}> • </Text>
-                            <Text style={[styles.savingsText, { color: colors.accent[600] }]}>
-                              {savings}
+                        <View style={styles.subtitleRow}>
+                          <Text style={[styles.planSubtitle, { color: colors.neutral[500] }]}>
+                            {getPackageSubtitle(packageItem)}
+                          </Text>
+                          {savings && (
+                            <>
+                              <Text style={[styles.subtitleDivider, { color: colors.neutral[400] }]}> • </Text>
+                              <Text style={[styles.savingsText, { color: colors.accent[600] }]}>
+                                {savings}
+                              </Text>
+                            </>
+                          )}
+                        </View>
+
+                        <View style={styles.priceContainer}>
+                          <View style={styles.priceRow}>
+                            <Text style={[styles.price, { color: colors.primary[600] }]}>
+                              {formatPrice(packageItem)}
                             </Text>
-                          </>
+                            <Text style={[styles.period, { color: colors.neutral[500] }]}>
+                              {getPeriodText(packageItem)}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {monthlyEquivalent && (
+                          <Text style={[styles.monthlyEquivalent, { color: colors.neutral[500] }]}>
+                            {monthlyEquivalent}
+                          </Text>
+                        )}
+
+                        {isIntroEligible && packageItem.product.introPrice && (
+                          <View style={[styles.introBadge, { backgroundColor: colors.success[500] }]}>
+                            <Text style={styles.introText}>
+                              {packageItem.product.introPrice.periodNumberOfUnits} {packageItem.product.introPrice.periodUnit} FREE
+                            </Text>
+                          </View>
                         )}
                       </View>
-                      
-                      <View style={styles.priceContainer}>
-                        <View style={styles.priceRow}>
-                          <Text style={[styles.price, { color: colors.primary[600] }]}>
-                            {formatPrice(packageItem)}
-                          </Text>
-                          <Text style={[styles.period, { color: colors.neutral[500] }]}>
-                            {getPeriodText(packageItem)}
-                          </Text>
-                        </View>
-                      </View>
-                      
-                      {monthlyEquivalent && (
-                        <Text style={[styles.monthlyEquivalent, { color: colors.neutral[500] }]}>
-                          {monthlyEquivalent}
-                        </Text>
-                      )}
 
-                      {isIntroEligible && packageItem.product.introPrice && (
-                        <View style={[styles.introBadge, { backgroundColor: colors.success[500] }]}>
-                          <Text style={styles.introText}>
-                            {packageItem.product.introPrice.periodNumberOfUnits} {packageItem.product.introPrice.periodUnit} FREE
-                          </Text>
+                      {isSelected && (
+                        <View style={[styles.selectedIndicator, { backgroundColor: colors.primary[500] }]}>
+                          <Text style={styles.checkIcon}>✓</Text>
                         </View>
                       )}
-                    </View>
-                    
-                    {isSelected && (
-                      <View style={[styles.selectedIndicator, { backgroundColor: colors.primary[500] }]}>
-                        <Text style={styles.checkIcon}>✓</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-          </View>
-        )}
+                    </TouchableOpacity>
+                  );
+                })}
+            </View>
+          )}
 
 
-        {/* Error Message */}
-        {error && offerings && (
-          <View style={[styles.errorBanner, { backgroundColor: colors.error[50], borderColor: colors.error[200] }]}>
-            <Text style={[styles.errorBannerText, { color: colors.error[700] }]}>
-              {error}
-            </Text>
-          </View>
-        )}
-
-        {/* CTA Section */}
-        <View style={styles.ctaSection}>
-          <TouchableOpacity
-            style={[
-              styles.subscribeButton,
-              { backgroundColor: colors.primary[500] },
-              (purchasing || !selectedPackage) && { opacity: 0.7 }
-            ]}
-            onPress={handlePurchase}
-            disabled={purchasing || !selectedPackage}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[colors.primary[400], colors.primary[500], colors.primary[600]]}
-              style={styles.buttonGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              {purchasing ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Text style={styles.buttonText}>Start Premium</Text>
-                  {isIntroEligible && selectedPackage?.product.introPrice && (
-                    <Text style={styles.buttonSubtext}>
-                      {selectedPackage.product.introPrice.periodNumberOfUnits} {selectedPackage.product.introPrice.periodUnit} free trial
-                    </Text>
-                  )}
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.restoreButton, restoring && styles.restoreButtonLoading]} 
-            onPress={handleRestore}
-            disabled={restoring}
-            activeOpacity={restoring ? 1 : 0.7}
-          >
-            {restoring ? (
-              <View style={styles.restoreLoadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary[500]} />
-                <Text style={[styles.restoreLoadingText, { color: colors.primary[500] }]}>
-                  Restoring...
-                </Text>
-              </View>
-            ) : (
-              <Text style={[styles.restoreText, { color: colors.neutral[500] }]}>
-                Restore purchases
+          {/* Error Message */}
+          {error && offerings && (
+            <View style={[styles.errorBanner, { backgroundColor: colors.error[50], borderColor: colors.error[200] }]}>
+              <Text style={[styles.errorBannerText, { color: colors.error[700] }]}>
+                {error}
               </Text>
-            )}
-          </TouchableOpacity>
-        </View>
+            </View>
+          )}
+
+          {/* CTA Section */}
+          <View style={styles.ctaSection}>
+            <TouchableOpacity
+              style={[
+                styles.subscribeButton,
+                { backgroundColor: colors.primary[500] },
+                (purchasing || !selectedPackage) && { opacity: 0.7 }
+              ]}
+              onPress={handlePurchase}
+              disabled={purchasing || !selectedPackage}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[colors.primary[400], colors.primary[500], colors.primary[600]]}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {purchasing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Text style={styles.buttonText}>Start Premium</Text>
+                    {isIntroEligible && selectedPackage?.product.introPrice && (
+                      <Text style={styles.buttonSubtext}>
+                        {selectedPackage.product.introPrice.periodNumberOfUnits} {selectedPackage.product.introPrice.periodUnit} free trial
+                      </Text>
+                    )}
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.restoreButton, restoring && styles.restoreButtonLoading]}
+              onPress={handleRestore}
+              disabled={restoring}
+              activeOpacity={restoring ? 1 : 0.7}
+            >
+              {restoring ? (
+                <View style={styles.restoreLoadingContainer}>
+                  <ActivityIndicator size="small" color={colors.primary[500]} />
+                  <Text style={[styles.restoreLoadingText, { color: colors.primary[500] }]}>
+                    Restoring...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.restoreText, { color: colors.neutral[500] }]}>
+                  Restore purchases
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
 
         {/* Terms */}
-        <Text style={[styles.terms, { color: colors.neutral[500] }]}>
-          Subscriptions are charged to your Apple ID account and renew automatically unless
-          canceled at least 24 hours before the current period ends.
-        </Text>
-        <Text style={[styles.terms, { color: colors.neutral[500] }]}>
-          Manage or disable auto-renew at any time by visiting Settings &gt; Apple ID &gt;
-          Subscriptions on your device.
-        </Text>
-        <Text style={[styles.terms, { color: colors.neutral[500] }]}>
-          <Text style={styles.termsLink} onPress={() => Linking.openURL(TERMS_URL)}>
-            Terms of Use
+        <View style={styles.termsContainer}>
+          <Text style={[styles.terms, { color: colors.neutral[500] }]}>
+            Auto-renews unless canceled 24h before period ends.{' '}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL(TERMS_URL)}>
+              Terms
+            </Text>
+            {' • '}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
+              Privacy
+            </Text>
           </Text>
-          {'  •  '}
-          <Text style={styles.termsLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
-            Privacy Policy
-          </Text>
-        </Text>
+        </View>
       </SafeAreaView>
 
       {/* Success Modal */}
@@ -836,12 +828,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   header: {
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   headerContent: {
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 16,
   },
   premiumBadge: {
     flexDirection: 'row',
@@ -885,31 +877,33 @@ const styles = StyleSheet.create({
   },
   featureRow: {
     alignItems: 'center',
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   featureIcon: {
-    fontSize: 20,
-    marginBottom: 4,
+    fontSize: 18,
+    marginBottom: 2,
   },
   featureText: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 1,
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     marginTop: -15,
+    justifyContent: 'space-between',
   },
   pricingContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   singlePricingContainer: {
     flexDirection: 'column',
@@ -917,16 +911,16 @@ const styles = StyleSheet.create({
   },
   twoPricingContainer: {
     flexDirection: 'column',
-    gap: 16,
+    gap: 10,
   },
   multiplePricingContainer: {
     flexDirection: 'column',
-    gap: 12,
+    gap: 8,
   },
   pricingCard: {
     flex: 1,
-    padding: 12,
-    borderRadius: 16,
+    padding: 10,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: 'transparent',
     position: 'relative',
@@ -938,8 +932,7 @@ const styles = StyleSheet.create({
   },
   singlePricingCard: {
     flex: 0,
-    width: '85%',
-    maxWidth: 280,
+    width: '100%',
   },
   twoPricingCard: {
     flex: 0,
@@ -973,17 +966,17 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   planName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   subtitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   planSubtitle: {
     fontSize: 12,
@@ -994,14 +987,14 @@ const styles = StyleSheet.create({
   },
   priceContainer: {
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   price: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
   },
   period: {
@@ -1075,21 +1068,21 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   ctaSection: {
-    marginBottom: 12,
-    marginTop: 8,
+    marginBottom: 6,
+    marginTop: 0,
   },
   subscribeButton: {
-    borderRadius: 16,
-    marginBottom: 8,
+    borderRadius: 14,
+    marginBottom: 6,
     shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
   },
   buttonGradient: {
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1107,10 +1100,10 @@ const styles = StyleSheet.create({
   },
   restoreButton: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    minHeight: 44,
+    minHeight: 36,
     justifyContent: 'center',
   },
   restoreButtonLoading: {
@@ -1122,19 +1115,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   restoreLoadingText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   restoreText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
+  termsContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
   terms: {
-    fontSize: 11,
+    fontSize: 10,
     textAlign: 'center',
     lineHeight: 14,
-    paddingHorizontal: 20,
-    marginBottom: 8,
+    marginBottom: 0,
     marginTop: 0,
   },
   termsLink: {

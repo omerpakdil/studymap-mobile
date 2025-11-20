@@ -30,7 +30,7 @@ import { useTheme } from '@/themes';
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
-const TERMS_URL = 'https://studymap-site.vercel.app/terms.html' as const;
+const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/' as const;
 const PRIVACY_URL = 'https://studymap-site.vercel.app/privacy.html' as const;
 const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions' as const;
 
@@ -264,7 +264,7 @@ export default function ProfileScreen() {
 
   const openTerms = () => {
     Linking.openURL(TERMS_URL).catch(() => {
-      Alert.alert('Error', 'Could not open Terms of Use. Please visit studymap-site.vercel.app/terms.html in your browser.');
+      Alert.alert('Error', 'Could not open Terms of Use. Please visit www.apple.com/legal/internet-services/itunes/dev/stdeula in your browser.');
     });
   };
 
@@ -790,16 +790,6 @@ export default function ProfileScreen() {
           },
         ])}
 
-        {/* Developer-only tools */}
-        {process.env.EXPO_PUBLIC_APP_ENV === 'development' &&
-          renderSettingsSection('Developer', [
-            {
-              icon: <Ionicons name="refresh" size={20} color={colors.neutral[600]} />,
-              title: 'Reset Onboarding',
-              subtitle: 'Clear all data and restart onboarding',
-              onPress: handleResetOnboarding,
-            },
-          ])}
 
         {/* Legal Links */}
         <View style={[styles.legalLinks, { borderTopColor: colors.neutral[100] }]}>

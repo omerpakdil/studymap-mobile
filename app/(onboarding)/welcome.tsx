@@ -336,14 +336,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: isIOS ? 60 : 50,
+    paddingTop: isIOS ? 40 : 30,
+    paddingBottom: 20,
   },
   visualSection: {
-    height: 140,
-    width: 140,
+    height: 120,
+    width: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
     position: 'relative',
   },
   neuralNetwork: {
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
   contentSection: {
     alignItems: 'center',
     maxWidth: width - 48,
-    marginBottom: 48,
+    marginBottom: 32,
   },
   welcomeTextContainer: {
     alignItems: 'center',
