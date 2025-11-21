@@ -20,6 +20,7 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 // Exam gradients for visual appeal
 const examGradients: { [key: string]: string[] } = {
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: isTablet ? 80 : 24,
     paddingTop: 20,
     paddingBottom: 32,
   },
@@ -227,10 +228,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: isTablet ? 24 : 16,
   },
   examCard: {
-    width: (width - 64) / 2, // 2 columns with padding and gap
+    width: isTablet ? (width - 160 - 24) / 2 : (width - 64) / 2, // 2 columns on both
     borderRadius: 20,
     overflow: 'hidden',
     shadowColor: '#000',

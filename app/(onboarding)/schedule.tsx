@@ -18,6 +18,7 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 const daysOfWeek = [
   { id: 'monday', name: 'Monday', short: 'Mon' },
@@ -550,7 +551,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: isTablet ? 80 : 24,
     paddingTop: 12,
   },
   iconContainer: {
@@ -558,24 +559,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   mainIcon: {
-    fontSize: 48,
+    fontSize: isTablet ? 64 : 48,
   },
   title: {
-    fontSize: 24,
+    fontSize: isTablet ? 32 : 24,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 12,
-    lineHeight: 32,
+    lineHeight: isTablet ? 40 : 32,
     letterSpacing: -0.5,
   },
   description: {
-    fontSize: 15,
+    fontSize: isTablet ? 18 : 15,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: isTablet ? 26 : 22,
     marginBottom: 20,
   },
   featuresContainer: {
-    gap: 16,
+    gap: isTablet ? 20 : 16,
     marginBottom: 24,
   },
   featureItem: {
@@ -583,27 +584,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   featureIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: isTablet ? 56 : 44,
+    height: isTablet ? 56 : 44,
+    borderRadius: isTablet ? 28 : 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   featureEmoji: {
-    fontSize: 20,
+    fontSize: isTablet ? 26 : 20,
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '700',
     marginBottom: 2,
   },
   featureDesc: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: isTablet ? 16 : 14,
+    lineHeight: isTablet ? 24 : 20,
   },
   infoBox: {
     padding: 8,
@@ -617,50 +618,51 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dayPillsContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
     paddingVertical: 8,
   },
   dayPillsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: isTablet ? 12 : 6,
   },
   dayPill: {
-    width: (width - 32 - (6 * 6)) / 7, // Ekran genişliği - padding (32) - gaps (6*6), 7'ye bölünmüş
-    paddingVertical: 10,
-    borderRadius: 20,
+    width: isTablet ? 80 : (width - 32 - (6 * 6)) / 7, // Ekran genişliği - padding (32) - gaps (6*6), 7'ye bölünmüş
+    paddingVertical: isTablet ? 14 : 10,
+    borderRadius: isTablet ? 24 : 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 40,
+    minHeight: isTablet ? 50 : 40,
   },
   dayPillText: {
-    fontSize: 12,
+    fontSize: isTablet ? 14 : 12,
     textAlign: 'center',
     fontWeight: '600',
   },
   timeSlotsContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
   },
   selectedDayHeader: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: isTablet ? 20 : 12,
   },
   selectedDayTitle: {
-    fontSize: 18,
+    fontSize: isTablet ? 24 : 18,
     fontWeight: '800',
     marginBottom: 2,
   },
   selectedDaySubtitle: {
-    fontSize: 13,
+    fontSize: isTablet ? 16 : 13,
   },
   timeSlotsGrid: {
-    gap: 8,
+    gap: isTablet ? 12 : 8,
     marginBottom: 32,
   },
   timeSlotCard: {
-    borderRadius: 12,
+    borderRadius: isTablet ? 16 : 12,
     borderWidth: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -671,23 +673,23 @@ const styles = StyleSheet.create({
   timeSlotContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: isTablet ? 18 : 12,
     position: 'relative',
   },
   timeSlotIcon: {
-    fontSize: 20,
-    marginRight: 12,
+    fontSize: isTablet ? 28 : 20,
+    marginRight: isTablet ? 16 : 12,
   },
   timeSlotInfo: {
     flex: 1,
   },
   timeSlotLabel: {
-    fontSize: 15,
+    fontSize: isTablet ? 18 : 15,
     fontWeight: '700',
     marginBottom: 1,
   },
   timeSlotTime: {
-    fontSize: 13,
+    fontSize: isTablet ? 15 : 13,
   },
   selectedIndicator: {
     position: 'absolute',

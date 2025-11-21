@@ -19,6 +19,7 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 // Study intensity levels for subjects
 const intensityLevels = [
@@ -695,20 +696,21 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
+    justifyContent: isTablet ? 'center' : 'flex-start',
   },
   subjectHeader: {
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: isTablet ? 20 : 16,
+    padding: isTablet ? 24 : 16,
+    marginBottom: isTablet ? 24 : 16,
     alignItems: 'center',
   },
   subjectIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+    fontSize: isTablet ? 48 : 32,
+    marginBottom: isTablet ? 12 : 8,
   },
   subjectName: {
-    fontSize: 20,
+    fontSize: isTablet ? 26 : 20,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -716,10 +718,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   subjectDescription: {
-    fontSize: 13,
+    fontSize: isTablet ? 16 : 13,
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: isTablet ? 22 : 18,
     marginBottom: 12,
     paddingHorizontal: 8,
   },
@@ -743,18 +745,18 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   assessmentTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 20 : 16,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: isTablet ? 20 : 16,
     letterSpacing: -0.1,
   },
   intensityContainer: {
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: isTablet ? 20 : 12,
+    gap: isTablet ? 12 : 8,
   },
   intensityCard: {
-    borderRadius: 12,
+    borderRadius: isTablet ? 16 : 12,
     borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -765,7 +767,7 @@ const styles = StyleSheet.create({
   cardContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: isTablet ? 16 : 12,
     position: 'relative',
   },
   cardLeft: {
@@ -775,20 +777,20 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   cardIcon: {
-    fontSize: 22,
+    fontSize: isTablet ? 28 : 22,
   },
   cardRight: {
     flex: 1,
   },
   cardLabel: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     fontWeight: '700',
     marginBottom: 2,
   },
   cardDescription: {
-    fontSize: 11,
+    fontSize: isTablet ? 14 : 11,
     fontWeight: '500',
-    lineHeight: 15,
+    lineHeight: isTablet ? 18 : 15,
   },
   cardPercentage: {
     marginLeft: 8,
@@ -796,7 +798,7 @@ const styles = StyleSheet.create({
     minWidth: 32,
   },
   percentageText: {
-    fontSize: 12,
+    fontSize: isTablet ? 16 : 12,
     fontWeight: '700',
   },
   selectedIndicator: {
@@ -885,28 +887,29 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: isTablet ? 80 : 24,
     paddingTop: 16,
+    justifyContent: isTablet ? 'center' : 'flex-start',
   },
   iconContainer: {
     alignItems: 'center',
     marginBottom: 20,
   },
   mainIcon: {
-    fontSize: 56,
+    fontSize: isTablet ? 72 : 56,
   },
   title: {
-    fontSize: 26,
+    fontSize: isTablet ? 32 : 26,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 14,
-    lineHeight: 34,
+    lineHeight: isTablet ? 42 : 34,
     letterSpacing: -0.5,
   },
   description: {
-    fontSize: 15,
+    fontSize: isTablet ? 18 : 15,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: isTablet ? 26 : 22,
     marginBottom: 24,
   },
   featuresContainer: {
@@ -932,13 +935,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    fontSize: 15,
+    fontSize: isTablet ? 17 : 15,
     fontWeight: '700',
     marginBottom: 2,
   },
   featureDesc: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: isTablet ? 15 : 13,
+    lineHeight: isTablet ? 20 : 18,
   },
   infoBox: {
     padding: 12,

@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/themes';
+
+const { width } = Dimensions.get('window');
+const isTablet = width >= 768;
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -22,9 +25,9 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: Platform.OS === 'ios' ? 'rgba(255, 255, 255, 0.9)' : colors.neutral[0],
           borderTopWidth: 0,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 16,
-          paddingHorizontal: 20,
-          height: Platform.OS === 'ios' ? 88 : 76,
+          paddingBottom: Platform.OS === 'ios' ? (isTablet ? 40 : 28) : 16,
+          paddingHorizontal: isTablet ? 80 : 20,
+          height: Platform.OS === 'ios' ? (isTablet ? 100 : 88) : (isTablet ? 88 : 76),
           position: 'absolute',
           bottom: 0,
           left: 0,
@@ -38,7 +41,7 @@ export default function TabLayout() {
           borderTopRightRadius: 24,
         },
         tabBarItemStyle: {
-          paddingVertical: 6,
+          paddingVertical: isTablet ? 10 : 6,
           backgroundColor: 'transparent',
           borderRadius: 0,
           margin: 0,
@@ -55,9 +58,9 @@ export default function TabLayout() {
           }),
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: isTablet ? 13 : 10,
           fontWeight: '600',
-          marginTop: 6,
+          marginTop: isTablet ? 8 : 6,
           letterSpacing: 0.3,
         },
         tabBarIconStyle: {
@@ -166,7 +169,7 @@ function ModernTabIcon({ name, focused, color, activeColor, inactiveColor }: Mod
     <View style={styles.iconContainer}>
       <Ionicons
         name={getIconName()}
-        size={24}
+        size={isTablet ? 28 : 24}
         color={focused ? activeColor : inactiveColor}
       />
     </View>

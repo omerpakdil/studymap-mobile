@@ -109,12 +109,15 @@ START YOUR JOURNEY TODAY
 
 Download StudyMap and transform your study routine. With smart AI guidance and proven learning strategies, achieving your target score has never been easier.
 
-PREMIUM FEATURES
+PREMIUM SUBSCRIPTION (In-App Purchase Required)
+Unlock the full potential of StudyMap with our Premium subscription:
 - Unlimited AI-generated study plans
 - Advanced analytics and insights
 - Custom study schedules
 - Progress tracking across all exams
 - Priority support
+
+Subscription options available: Weekly, Monthly, and Annual plans. Payment will be charged to your Apple ID account at confirmation of purchase.
 
 WE LOVE FEEDBACK
 Have questions or suggestions? Contact us at support@studymap.app

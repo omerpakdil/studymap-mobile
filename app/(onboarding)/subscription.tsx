@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
     Linking,
     Modal,
     StatusBar,
@@ -11,6 +12,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+
+const { width } = Dimensions.get('window');
+const isTablet = width >= 768;
 import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -380,6 +384,15 @@ export default function SubscriptionScreen() {
         end={{ x: 1, y: 1 }}
       >
         <SafeAreaView edges={['top']}>
+          {/* Dev Skip Button */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={styles.devSkipButton}
+              onPress={() => router.replace('/(tabs)/dashboard')}
+            >
+              <Text style={styles.devSkipText}>Skip →</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.headerContent}>
             <View style={styles.premiumBadge}>
               <Text style={styles.premiumIcon}>👑</Text>
@@ -830,6 +843,18 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 16,
   },
+  devSkipButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    padding: 8,
+    zIndex: 10,
+  },
+  devSkipText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   headerContent: {
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -855,36 +880,36 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   title: {
-    fontSize: 28,
+    fontSize: isTablet ? 36 : 28,
     fontWeight: '800',
     color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
     marginBottom: 20,
-    lineHeight: 22,
+    lineHeight: isTablet ? 26 : 22,
   },
   quickFeatures: {
     flexDirection: 'row',
     justifyContent: 'center',
     width: '100%',
-    maxWidth: 300,
+    maxWidth: isTablet ? 400 : 300,
     alignSelf: 'center',
   },
   featureRow: {
     alignItems: 'center',
-    marginHorizontal: 10,
+    marginHorizontal: isTablet ? 16 : 10,
   },
   featureIcon: {
-    fontSize: 18,
+    fontSize: isTablet ? 24 : 18,
     marginBottom: 2,
   },
   featureText: {
-    fontSize: 11,
+    fontSize: isTablet ? 13 : 11,
     color: 'rgba(255,255,255,0.9)',
     fontWeight: '600',
     textAlign: 'center',
@@ -892,18 +917,18 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 80 : 20,
     paddingTop: 16,
     paddingBottom: 12,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     marginTop: -15,
-    justifyContent: 'space-between',
+    justifyContent: isTablet ? 'flex-start' : 'space-between',
   },
   pricingContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: isTablet ? 24 : 8,
   },
   singlePricingContainer: {
     flexDirection: 'column',
@@ -911,16 +936,16 @@ const styles = StyleSheet.create({
   },
   twoPricingContainer: {
     flexDirection: 'column',
-    gap: 10,
+    gap: isTablet ? 12 : 10,
   },
   multiplePricingContainer: {
     flexDirection: 'column',
-    gap: 8,
+    gap: isTablet ? 12 : 8,
   },
   pricingCard: {
     flex: 1,
-    padding: 10,
-    borderRadius: 14,
+    padding: isTablet ? 20 : 10,
+    borderRadius: isTablet ? 20 : 14,
     borderWidth: 2,
     borderColor: 'transparent',
     position: 'relative',
@@ -969,7 +994,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   planName: {
-    fontSize: 15,
+    fontSize: isTablet ? 20 : 15,
     fontWeight: '600',
     marginBottom: 2,
   },
@@ -994,15 +1019,15 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   price: {
-    fontSize: 20,
+    fontSize: isTablet ? 30 : 20,
     fontWeight: '800',
   },
   period: {
-    fontSize: 12,
+    fontSize: isTablet ? 15 : 12,
     marginLeft: 2,
   },
   monthlyEquivalent: {
-    fontSize: 11,
+    fontSize: isTablet ? 14 : 11,
     textAlign: 'center',
   },
   introBadge: {
@@ -1069,10 +1094,10 @@ const styles = StyleSheet.create({
   },
   ctaSection: {
     marginBottom: 6,
-    marginTop: 0,
+    marginTop: isTablet ? 16 : 0,
   },
   subscribeButton: {
-    borderRadius: 14,
+    borderRadius: isTablet ? 18 : 14,
     marginBottom: 6,
     shadowColor: '#007AFF',
     shadowOffset: { width: 0, height: 4 },
@@ -1081,14 +1106,14 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   buttonGradient: {
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingVertical: isTablet ? 18 : 12,
+    borderRadius: isTablet ? 18 : 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: isTablet ? 20 : 18,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -1119,7 +1144,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   restoreText: {
-    fontSize: 13,
+    fontSize: isTablet ? 15 : 13,
     fontWeight: '500',
   },
   termsContainer: {
@@ -1127,9 +1152,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   terms: {
-    fontSize: 10,
+    fontSize: isTablet ? 12 : 10,
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: isTablet ? 18 : 14,
     marginBottom: 0,
     marginTop: 0,
   },

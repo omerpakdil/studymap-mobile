@@ -19,6 +19,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 // Calendar view types
 type CalendarView = 'month' | 'week' | 'day';
@@ -722,7 +723,7 @@ const styles = StyleSheet.create({
   },
   calendarContent: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 40 : 20,
   },
   
   // Month View
@@ -734,9 +735,9 @@ const styles = StyleSheet.create({
   dayHeader: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: isTablet ? 14 : 12,
     fontWeight: '600',
-    paddingVertical: 8,
+    paddingVertical: isTablet ? 12 : 8,
   },
   calendarWeek: {
     flexDirection: 'row',
@@ -744,17 +745,17 @@ const styles = StyleSheet.create({
   },
   emptyDay: {
     flex: 1,
-    height: 70,
+    height: isTablet ? 90 : 70,
   },
   dayCell: {
     flex: 1,
-    height: 70,
-    padding: 4,
-    borderRadius: 8,
+    height: isTablet ? 90 : 70,
+    padding: isTablet ? 8 : 4,
+    borderRadius: isTablet ? 12 : 8,
     alignItems: 'center',
   },
   dayNumber: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     fontWeight: '600',
     marginBottom: 4,
   },
@@ -819,10 +820,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   weekTaskCard: {
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    marginBottom: 8,
+    padding: isTablet ? 16 : 12,
+    borderRadius: isTablet ? 12 : 8,
+    borderLeftWidth: isTablet ? 5 : 4,
+    marginBottom: isTablet ? 12 : 8,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -831,12 +832,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   weekTaskSubject: {
-    fontSize: 15,
+    fontSize: isTablet ? 17 : 15,
     fontWeight: '600',
     marginBottom: 2,
   },
   weekTaskTopic: {
-    fontSize: 13,
+    fontSize: isTablet ? 15 : 13,
   },
   weekTaskInfo: {
     alignItems: 'flex-end',
@@ -897,9 +898,9 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   dayTaskCard: {
-    borderRadius: 12,
-    borderLeftWidth: 6,
-    marginBottom: 12,
+    borderRadius: isTablet ? 16 : 12,
+    borderLeftWidth: isTablet ? 8 : 6,
+    marginBottom: isTablet ? 16 : 12,
     flexDirection: 'row',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -908,13 +909,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   dayTaskTime: {
-    width: 90,
-    padding: 16,
+    width: isTablet ? 110 : 90,
+    padding: isTablet ? 20 : 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayTaskTimeText: {
-    fontSize: 14,
+    fontSize: isTablet ? 16 : 14,
     fontWeight: '600',
     marginBottom: 4,
   },
@@ -932,12 +933,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   dayTaskSubject: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '700',
   },
   dayTaskTopic: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: isTablet ? 16 : 14,
+    lineHeight: isTablet ? 24 : 20,
   },
   completedBadge: {
     width: 24,

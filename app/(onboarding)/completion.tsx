@@ -20,6 +20,7 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 const achievements = [
   { id: 1, icon: '🎯', title: 'Learning Style', description: 'Personalized approach set' },
@@ -505,7 +506,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 80 : 20,
     paddingTop: isIOS ? 40 : 50,
     alignItems: 'center',
   },
@@ -513,9 +514,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   successCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: isTablet ? 80 : 60,
+    height: isTablet ? 80 : 60,
+    borderRadius: isTablet ? 40 : 30,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -525,42 +526,42 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   successIcon: {
-    fontSize: 28,
+    fontSize: isTablet ? 36 : 28,
     color: '#FFFFFF',
     fontWeight: '700',
   },
   title: {
-    fontSize: 26,
+    fontSize: isTablet ? 34 : 26,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: isTablet ? 26 : 20,
     marginBottom: 24,
     paddingHorizontal: 16,
   },
   achievementsContainer: {
     width: '100%',
-    marginBottom: 16,
+    marginBottom: isTablet ? 24 : 16,
   },
   achievementsTitle: {
-    fontSize: 15,
+    fontSize: isTablet ? 20 : 15,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: isTablet ? 16 : 10,
   },
   achievementsList: {
-    gap: 6,
+    gap: isTablet ? 10 : 6,
   },
   achievementItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 10,
+    padding: isTablet ? 16 : 10,
+    borderRadius: isTablet ? 14 : 10,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -569,27 +570,27 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   achievementIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: isTablet ? 44 : 32,
+    height: isTablet ? 44 : 32,
+    borderRadius: isTablet ? 22 : 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: isTablet ? 14 : 10,
   },
   achievementEmoji: {
-    fontSize: 14,
+    fontSize: isTablet ? 20 : 14,
   },
   achievementContent: {
     flex: 1,
   },
   achievementTitle: {
-    fontSize: 14,
+    fontSize: isTablet ? 17 : 14,
     fontWeight: '600',
     marginBottom: 1,
   },
   achievementDesc: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: isTablet ? 15 : 12,
+    lineHeight: isTablet ? 20 : 16,
   },
   checkmark: {
     width: 20,
@@ -605,8 +606,8 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     width: '100%',
-    padding: 12,
-    borderRadius: 10,
+    padding: isTablet ? 20 : 12,
+    borderRadius: isTablet ? 14 : 10,
     borderWidth: 1,
     marginBottom: 16,
   },
@@ -614,14 +615,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statsTitle: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     fontWeight: '700',
     marginBottom: 4,
     textAlign: 'center',
   },
   statsDesc: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: isTablet ? 15 : 12,
+    lineHeight: isTablet ? 20 : 16,
     textAlign: 'center',
   },
   loadingIndicator: {
@@ -663,7 +664,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   bottomSection: {
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 80 : 20,
     paddingBottom: isIOS ? 20 : 12,
     paddingTop: 8,
     alignItems: 'center',
@@ -672,9 +673,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: isTablet ? 16 : 12,
     paddingHorizontal: 24,
-    borderRadius: 10,
+    borderRadius: isTablet ? 14 : 10,
     width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -684,7 +685,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   getStartedButtonText: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '700',
     color: '#FFFFFF',
     marginRight: 6,

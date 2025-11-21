@@ -21,6 +21,7 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 export default function UserInfoScreen() {
   const { colors } = useTheme();
@@ -256,7 +257,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 80 : 20,
     paddingTop: isIOS ? 40 : 32,
   },
   // Beautiful Header
@@ -272,9 +273,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: isTablet ? 80 : 64,
+    height: isTablet ? 80 : 64,
+    borderRadius: isTablet ? 40 : 32,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   iconEmoji: {
-    fontSize: 28,
+    fontSize: isTablet ? 36 : 28,
   },
   decorativeDot: {
     position: 'absolute',
@@ -311,21 +312,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   greetingText: {
-    fontSize: 16,
+    fontSize: isTablet ? 20 : 16,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   mainHeaderTitle: {
-    fontSize: 26,
+    fontSize: isTablet ? 34 : 26,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: -0.8,
     marginVertical: 2,
   },
   headerDescription: {
-    fontSize: 15,
+    fontSize: isTablet ? 18 : 15,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: isTablet ? 26 : 22,
     paddingHorizontal: 24,
     marginTop: 4,
   },
@@ -350,17 +351,17 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: isTablet ? 10 : 8,
     letterSpacing: 0.2,
   },
   input: {
-    height: 52,
+    height: isTablet ? 60 : 52,
     borderWidth: 2,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
+    borderRadius: isTablet ? 14 : 12,
+    paddingHorizontal: isTablet ? 20 : 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '500',
   },
   errorText: {
@@ -369,26 +370,26 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   privacyNotice: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: isTablet ? 16 : 12,
+    padding: isTablet ? 20 : 16,
     marginTop: 8,
   },
   privacyContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: isTablet ? 16 : 12,
   },
   privacyIcon: {
-    fontSize: 20,
+    fontSize: isTablet ? 24 : 20,
   },
   privacyText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: isTablet ? 16 : 14,
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: isTablet ? 24 : 20,
   },
   bottomSection: {
-    paddingHorizontal: 24,
+    paddingHorizontal: isTablet ? 80 : 24,
     paddingTop: 16,
     paddingBottom: isIOS ? 20 : 20,
   },

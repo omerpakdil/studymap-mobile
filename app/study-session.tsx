@@ -28,6 +28,7 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 // Timer states
 type TimerState = 'study' | 'break' | 'longBreak' | 'paused' | 'completed';
@@ -867,7 +868,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 40 : 20,
     paddingTop: isIOS ? 8 : 16,
     paddingBottom: 16,
   },
@@ -902,38 +903,38 @@ const styles = StyleSheet.create({
   // Timer Styles
   timerContainer: {
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingVertical: isTablet ? 32 : 20,
+    paddingHorizontal: isTablet ? 40 : 20,
   },
   timerCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 6,
+    width: isTablet ? 200 : 160,
+    height: isTablet ? 200 : 160,
+    borderRadius: isTablet ? 100 : 80,
+    borderWidth: isTablet ? 8 : 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: isTablet ? 28 : 20,
   },
   timerText: {
-    fontSize: 32,
+    fontSize: isTablet ? 42 : 32,
     fontWeight: '700',
     marginBottom: 4,
   },
   timerLabel: {
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     fontWeight: '500',
   },
   timerControls: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
+    gap: isTablet ? 16 : 12,
+    marginBottom: isTablet ? 28 : 20,
     justifyContent: 'center',
   },
   timerButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    minWidth: 70,
+    paddingHorizontal: isTablet ? 28 : 20,
+    paddingVertical: isTablet ? 16 : 12,
+    borderRadius: isTablet ? 28 : 24,
+    minWidth: isTablet ? 90 : 70,
     alignItems: 'center',
   },
   timerButtonContent: {
@@ -942,13 +943,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timerButtonText: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '600',
   },
 
   // Content Styles
   contentContainer: {
     flex: 1,
+    paddingHorizontal: isTablet ? 20 : 0,
   },
   contentHeader: {
     flexDirection: 'row',
@@ -967,14 +969,14 @@ const styles = StyleSheet.create({
   // Notes Styles
   notesContainer: {
     flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
+    padding: isTablet ? 24 : 16,
+    borderRadius: isTablet ? 16 : 12,
+    marginBottom: isTablet ? 28 : 20,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: isTablet ? 22 : 18,
     fontWeight: '700',
-    marginBottom: 8,
+    marginBottom: isTablet ? 12 : 8,
   },
   sectionTitleContainer: {
     flexDirection: 'row',
@@ -982,21 +984,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   notesInput: {
-    padding: 16,
+    padding: isTablet ? 20 : 16,
     borderWidth: 1.5,
-    borderRadius: 12,
-    fontSize: 16,
-    lineHeight: 24,
+    borderRadius: isTablet ? 14 : 12,
+    fontSize: isTablet ? 18 : 16,
+    lineHeight: isTablet ? 28 : 24,
     textAlignVertical: 'top',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   completeButton: {
-    padding: 16,
-    borderRadius: 24,
+    padding: isTablet ? 20 : 16,
+    borderRadius: isTablet ? 28 : 24,
     alignItems: 'center',
   },
   completeButtonText: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '600',
     color: '#FFFFFF',
   },

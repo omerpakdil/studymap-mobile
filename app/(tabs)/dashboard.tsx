@@ -7,7 +7,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Platform,
   ScrollView,
   StatusBar,
@@ -31,7 +30,6 @@ import {
 import { hasPremiumAccess } from '@/app/utils/subscriptionManager';
 import { useTheme } from '@/themes';
 
-const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
 export default function DashboardScreen() {

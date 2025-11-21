@@ -21,7 +21,7 @@
 		13B07F961A680F5B00A75B9A /* StudyMapPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudyMapPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = StudyMapPro/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = StudyMapPro/Info.plist; sourceTree = "<group>"; };
-		18B8A8B364E91D5F59018021 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = StudyMapPro/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		18B8A8B364E91D5F59018021 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = StudyMapPro/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		46746837F86DD76034227D22 /* libPods-StudyMapPro.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-StudyMapPro.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9E6285ED5D9CF143967517CF /* Pods-StudyMapPro.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StudyMapPro.debug.xcconfig"; path = "Target Support Files/Pods-StudyMapPro/Pods-StudyMapPro.debug.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = StudyMapPro/SplashScreen.storyboard; sourceTree = "<group>"; };
@@ -111,7 +111,6 @@
 				9E6285ED5D9CF143967517CF /* Pods-StudyMapPro.debug.xcconfig */,
 				EFB092504195BD290E20CC0E /* Pods-StudyMapPro.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -353,6 +352,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = StudyMapPro/StudyMapPro.entitlements;
 				CURRENT_PROJECT_VERSION = 27;
+				DEVELOPMENT_TEAM = HJD426RPSC;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -389,6 +389,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = StudyMapPro/StudyMapPro.entitlements;
 				CURRENT_PROJECT_VERSION = 27;
+				DEVELOPMENT_TEAM = HJD426RPSC;
 				INFOPLIST_FILE = StudyMapPro/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -19,6 +19,7 @@ import { useTheme } from '@/themes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 // Exam-specific score systems
 const getTargetScores = (examId: string) => {
@@ -787,7 +788,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: isTablet ? 80 : 20,
     paddingTop: 16,
   },
   iconContainer: {
@@ -795,24 +796,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   mainIcon: {
-    fontSize: 48,
+    fontSize: isTablet ? 64 : 48,
   },
   title: {
-    fontSize: 24,
+    fontSize: isTablet ? 32 : 24,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 12,
-    lineHeight: 30,
+    lineHeight: isTablet ? 40 : 30,
     letterSpacing: -0.5,
   },
   description: {
-    fontSize: 14,
+    fontSize: isTablet ? 17 : 14,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: isTablet ? 24 : 20,
     marginBottom: 20,
   },
   featuresContainer: {
-    gap: 12,
+    gap: isTablet ? 16 : 12,
     marginBottom: 16,
   },
   featureItem: {
@@ -820,27 +821,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   featureIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: isTablet ? 48 : 36,
+    height: isTablet ? 48 : 36,
+    borderRadius: isTablet ? 24 : 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   featureEmoji: {
-    fontSize: 16,
+    fontSize: isTablet ? 22 : 16,
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 14,
+    fontSize: isTablet ? 17 : 14,
     fontWeight: '700',
     marginBottom: 1,
   },
   featureDesc: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: isTablet ? 15 : 12,
+    lineHeight: isTablet ? 20 : 16,
   },
   infoBox: {
     padding: 12,
@@ -855,22 +856,22 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
   },
   stepContainer: {
     paddingVertical: 16,
   },
   stepTitle: {
-    fontSize: 22,
+    fontSize: isTablet ? 28 : 22,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
-    lineHeight: 28,
+    lineHeight: isTablet ? 36 : 28,
   },
   stepDescription: {
-    fontSize: 14,
+    fontSize: isTablet ? 17 : 14,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: isTablet ? 24 : 20,
     marginBottom: 24,
   },
   inputContainer: {
@@ -897,10 +898,10 @@ const styles = StyleSheet.create({
     minHeight: 120,
   },
   optionsContainer: {
-    gap: 10,
+    gap: isTablet ? 14 : 10,
   },
   optionCard: {
-    borderRadius: 10,
+    borderRadius: isTablet ? 14 : 10,
     borderWidth: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -910,7 +911,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   optionContent: {
-    padding: 12,
+    padding: isTablet ? 18 : 12,
   },
   optionHeader: {
     flexDirection: 'row',
@@ -918,22 +919,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   optionIcon: {
-    fontSize: 18,
-    marginRight: 6,
+    fontSize: isTablet ? 24 : 18,
+    marginRight: isTablet ? 10 : 6,
   },
   optionLabel: {
-    fontSize: 15,
+    fontSize: isTablet ? 18 : 15,
     fontWeight: '700',
     flex: 1,
   },
   optionRange: {
-    fontSize: 13,
+    fontSize: isTablet ? 16 : 13,
     fontWeight: '600',
     marginBottom: 3,
   },
   optionDescription: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: isTablet ? 14 : 12,
+    lineHeight: isTablet ? 20 : 16,
   },
   selectedIndicator: {
     position: 'absolute',
@@ -957,7 +958,7 @@ const styles = StyleSheet.create({
     color: '#10B981',
   },
   bottomSection: {
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
     paddingBottom: isIOS ? 16 : 16,
     paddingTop: 16,
   },

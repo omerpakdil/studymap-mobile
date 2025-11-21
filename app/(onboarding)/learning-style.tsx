@@ -19,6 +19,7 @@ import { useTheme } from '@/themes';
 
 const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 // Learning style types
 const learningStyles = [
@@ -728,23 +729,24 @@ const styles = StyleSheet.create({
   },
   questionContainer: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
+    justifyContent: isTablet ? 'center' : 'flex-start',
   },
   questionHeader: {
     marginBottom: 24,
   },
   questionText: {
-    fontSize: 20,
+    fontSize: isTablet ? 26 : 20,
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 28,
+    lineHeight: isTablet ? 36 : 28,
     letterSpacing: -0.2,
   },
   optionsContainer: {
-    gap: 12,
+    gap: isTablet ? 16 : 12,
   },
   optionCard: {
-    borderRadius: 12,
+    borderRadius: isTablet ? 16 : 12,
     borderWidth: 1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -755,24 +757,24 @@ const styles = StyleSheet.create({
   optionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: isTablet ? 20 : 16,
   },
   optionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isTablet ? 52 : 40,
+    height: isTablet ? 52 : 40,
+    borderRadius: isTablet ? 26 : 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: isTablet ? 16 : 12,
   },
   optionIcon: {
-    fontSize: 20,
+    fontSize: isTablet ? 26 : 20,
   },
   optionText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: isTablet ? 18 : 14,
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: isTablet ? 26 : 20,
   },
   selectCircle: {
     width: 20,
@@ -790,55 +792,55 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
   },
   resultsHeader: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: isTablet ? 40 : 32,
   },
   resultsTitle: {
-    fontSize: 22,
+    fontSize: isTablet ? 28 : 22,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.3,
   },
   resultsSubtitle: {
-    fontSize: 14,
+    fontSize: isTablet ? 17 : 14,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: isTablet ? 24 : 20,
   },
   styleSection: {
-    marginBottom: 24,
+    marginBottom: isTablet ? 32 : 24,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 20 : 16,
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: isTablet ? 16 : 12,
   },
   primaryStyleCard: {
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: isTablet ? 20 : 16,
+    padding: isTablet ? 28 : 20,
   },
   styleCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: isTablet ? 16 : 12,
   },
   styleIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    fontSize: isTablet ? 32 : 24,
+    marginRight: isTablet ? 16 : 12,
   },
   styleName: {
-    fontSize: 18,
+    fontSize: isTablet ? 24 : 18,
     fontWeight: '800',
     color: '#FFFFFF',
     flex: 1,
   },
   styleDescription: {
-    fontSize: 14,
+    fontSize: isTablet ? 17 : 14,
     color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 20,
+    lineHeight: isTablet ? 24 : 20,
     marginBottom: 16,
   },
   characteristicsSection: {
@@ -923,7 +925,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bottomSection: {
-    paddingHorizontal: 16,
+    paddingHorizontal: isTablet ? 80 : 16,
     paddingBottom: isIOS ? 16 : 16,
     paddingTop: 16,
   },
@@ -993,24 +995,24 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   mainIcon: {
-    fontSize: 64,
+    fontSize: isTablet ? 80 : 64,
   },
   title: {
-    fontSize: 28,
+    fontSize: isTablet ? 36 : 28,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 16,
-    lineHeight: 36,
+    lineHeight: isTablet ? 44 : 36,
     letterSpacing: -0.5,
   },
   description: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: isTablet ? 28 : 24,
     marginBottom: 32,
   },
   featuresContainer: {
-    gap: 16,
+    gap: isTablet ? 20 : 16,
     marginBottom: 24,
   },
   featureItem: {
@@ -1018,27 +1020,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   featureIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: isTablet ? 56 : 44,
+    height: isTablet ? 56 : 44,
+    borderRadius: isTablet ? 28 : 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   featureEmoji: {
-    fontSize: 20,
+    fontSize: isTablet ? 26 : 20,
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
+    fontSize: isTablet ? 18 : 16,
     fontWeight: '700',
     marginBottom: 2,
   },
   featureDesc: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: isTablet ? 16 : 14,
+    lineHeight: isTablet ? 24 : 20,
   },
   infoBox: {
     padding: 16,

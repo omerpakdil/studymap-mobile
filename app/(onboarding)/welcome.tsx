@@ -17,6 +17,7 @@ import { useTheme } from '@/themes';
 
 const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 export default function WelcomeScreen() {
   const { colors } = useTheme();
@@ -335,16 +336,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: isTablet ? 80 : 24,
     paddingTop: isIOS ? 40 : 30,
     paddingBottom: 20,
   },
   visualSection: {
-    height: 120,
-    width: 120,
+    height: isTablet ? 160 : 120,
+    width: isTablet ? 160 : 120,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: isTablet ? 32 : 20,
     position: 'relative',
   },
   neuralNetwork: {
@@ -443,10 +444,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   title: {
-    fontSize: 42,
+    fontSize: isTablet ? 52 : 42,
     fontWeight: '800',
     letterSpacing: -1,
-    lineHeight: 52,
+    lineHeight: isTablet ? 62 : 52,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
@@ -463,20 +464,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   aiText: {
-    fontSize: 32,
+    fontSize: isTablet ? 40 : 32,
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.5,
-    lineHeight: 36,
+    lineHeight: isTablet ? 44 : 36,
     includeFontPadding: false,
     textAlignVertical: 'center',
   },
   subtitle: {
-    fontSize: 17,
-    lineHeight: 26,
+    fontSize: isTablet ? 20 : 17,
+    lineHeight: isTablet ? 30 : 26,
     textAlign: 'center',
     fontWeight: '400',
-    marginBottom: 32,
+    marginBottom: isTablet ? 40 : 32,
     opacity: 0.85,
     paddingHorizontal: 8,
   },
@@ -487,13 +488,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 12,
-    maxWidth: 340,
+    gap: isTablet ? 20 : 12,
+    maxWidth: isTablet ? 600 : 340,
   },
   featureCard: {
-    width: (width - 80) / 3,
-    minWidth: 100,
-    padding: 16,
+    width: isTablet ? 170 : (width - 80) / 3,
+    minWidth: isTablet ? 150 : 100,
+    padding: isTablet ? 20 : 16,
     borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
@@ -526,7 +527,7 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   bottomSection: {
-    paddingHorizontal: 24,
+    paddingHorizontal: isTablet ? 80 : 24,
     paddingTop: 24,
     paddingBottom: isIOS ? 20 : 20,
     alignItems: 'center',
@@ -536,9 +537,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: isTablet ? 22 : 18,
     paddingHorizontal: 32,
-    borderRadius: 16,
+    borderRadius: isTablet ? 20 : 16,
     marginBottom: 16,
     shadowColor: '#3B82F6',
     shadowOffset: { width: 0, height: 6 },
@@ -548,7 +549,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   ctaText: {
-    fontSize: 17,
+    fontSize: isTablet ? 20 : 17,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.5,
@@ -573,7 +574,7 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   disclaimer: {
-    fontSize: 13,
+    fontSize: isTablet ? 16 : 13,
     textAlign: 'center',
     fontWeight: '400',
   },
