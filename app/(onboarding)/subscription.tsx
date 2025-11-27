@@ -268,14 +268,15 @@ export default function SubscriptionScreen() {
 
   const getMonthlyEquivalent = (packageItem: PurchasesPackage): string | null => {
     const price = packageItem.product.price;
-    
+    const currencySymbol = packageItem.product.currencyCode === 'TRY' ? '₺' : '$';
+
     switch (packageItem.packageType) {
       case 'ANNUAL':
         const monthlyFromAnnual = price / 12;
-        return `Only $${monthlyFromAnnual.toFixed(2)}/month`;
+        return `Only ${currencySymbol}${monthlyFromAnnual.toFixed(2)}/month`;
       case 'WEEKLY':
         const monthlyFromWeekly = price * 4.33; // ~4.33 weeks per month
-        return `$${monthlyFromWeekly.toFixed(2)}/month`;
+        return `${currencySymbol}${monthlyFromWeekly.toFixed(2)}/month`;
       case 'LIFETIME':
         return 'Pay once, use forever';
       default:

@@ -26,6 +26,7 @@ import NotificationService from '@/app/utils/notificationService';
 import { clearOnboardingData, loadCompleteOnboardingData } from '@/app/utils/onboardingData';
 import { calculateWeeklyProgress, clearStudyProgramData, getProgramMetadata, getStudyStreak } from '@/app/utils/studyProgramStorage';
 import { useTheme } from '@/themes';
+import { registerUserWithReferralCode, getReferralCode, getReferralStats, getReferralTrial, getReferralTrialDaysRemaining } from '@/app/utils/referralManager';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -58,6 +59,12 @@ export default function ProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showStudyTimeModal, setShowStudyTimeModal] = useState(false);
   const [pendingStudyTime, setPendingStudyTime] = useState('09:00');
+
+  // Referral states
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referralStats, setReferralStats] = useState({ totalReferrals: 0, successfulReferrals: 0, totalDaysEarned: 0, pendingDays: 0 });
+  const [referralTrial, setReferralTrial] = useState<any>(null);
+  const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   
 
   
@@ -173,6 +180,21 @@ export default function ProfileScreen() {
       if (privacyStr) {
         setPrivacySettings(JSON.parse(privacyStr));
       }
+
+      // Load referral data - register user in Supabase if needed
+      const code = await registerUserWithReferralCode();
+      setReferralCode(code);
+
+      const stats = await getReferralStats();
+      setReferralStats(stats);
+
+      const trial = await getReferralTrial();
+      setReferralTrial(trial);
+
+      if (trial && trial.isActive) {
+        const daysLeft = await getReferralTrialDaysRemaining();
+        setTrialDaysRemaining(daysLeft);
+      }
       
       console.log('👤 Profile data loaded:', {
         examType: metadata?.examType,
@@ -272,6 +294,47 @@ export default function ProfileScreen() {
     Linking.openURL(PRIVACY_URL).catch(() => {
       Alert.alert('Error', 'Could not open Privacy Policy. Please visit studymap-site.vercel.app/privacy.html in your browser.');
     });
+  };
+
+  // Development only: Reset app data
+  const handleResetAppData = () => {
+    Alert.alert(
+      '🔄 Reset App Data',
+      'This will clear all local data and restart the app from onboarding. This is only available in development mode.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Clear all AsyncStorage data
+              await AsyncStorage.clear();
+
+              Alert.alert(
+                '✅ Reset Complete',
+                'All app data has been cleared. The app will now restart.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      // Redirect to onboarding
+                      router.replace('/(onboarding)/welcome');
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              console.error('Error resetting app data:', error);
+              Alert.alert('Error', 'Failed to reset app data. Please try again.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const performDeleteAccount = async () => {
@@ -548,6 +611,113 @@ export default function ProfileScreen() {
     </View>
   );
 
+  const handleCopyReferralCode = () => {
+    if (referralCode) {
+      // Copy to clipboard functionality would go here
+      Alert.alert('Copied!', `Your referral code "${referralCode}" has been copied to clipboard.`);
+    }
+  };
+
+  const handleShareReferralCode = () => {
+    if (referralCode) {
+      const message = `Join me on StudyMap AI! Use my code "${referralCode}" to get 7 days of premium for free! 🎓\n\nDownload: https://apps.apple.com/app/studymap`;
+      // Share functionality would use the Share API
+      Alert.alert('Share Referral Code', message);
+    }
+  };
+
+  const renderReferralSection = () => (
+    <View style={[styles.section, { paddingTop: 8 }]}>
+      <Text style={[styles.sectionTitle, { color: colors.neutral[900], paddingTop: 0 }]}>
+        Invite Friends
+      </Text>
+
+      {/* Active Trial Banner */}
+      {referralTrial && referralTrial.isActive && (
+        <View style={[styles.trialBanner, { backgroundColor: colors.success[50] }]}>
+          <View style={styles.trialBannerContent}>
+            <Text style={[styles.trialBannerIcon]}>🎁</Text>
+            <View style={styles.trialBannerText}>
+              <Text style={[styles.trialBannerTitle, { color: colors.success[700] }]}>
+                Premium Trial Active!
+              </Text>
+              <Text style={[styles.trialBannerSubtitle, { color: colors.success[600] }]}>
+                {trialDaysRemaining} {trialDaysRemaining === 1 ? 'day' : 'days'} remaining
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Referral Code Card */}
+      <LinearGradient
+        colors={[colors.primary[500], colors.primary[600]]}
+        style={styles.referralCard}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Text style={styles.referralCardTitle}>Your Referral Code</Text>
+        <View style={styles.referralCodeContainer}>
+          <Text style={styles.referralCode}>{referralCode || 'Loading...'}</Text>
+        </View>
+        <Text style={styles.referralCardSubtitle}>
+          Share this code with friends to give them 7 days of premium for free!
+        </Text>
+
+        {/* Action Buttons */}
+        <View style={styles.referralActions}>
+          <TouchableOpacity
+            style={[styles.referralActionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
+            onPress={handleCopyReferralCode}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="copy-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.referralActionText}>Copy</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.referralActionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
+            onPress={handleShareReferralCode}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.referralActionText}>Share</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* Referral Stats */}
+      <View style={styles.referralStatsContainer}>
+        <View style={[styles.referralStatCard, { backgroundColor: colors.primary[50] }]}>
+          <Text style={[styles.referralStatValue, { color: colors.primary[700] }]}>
+            {referralStats.totalReferrals}
+          </Text>
+          <Text style={[styles.referralStatLabel, { color: colors.primary[600] }]}>
+            Friends Invited
+          </Text>
+        </View>
+
+        <View style={[styles.referralStatCard, { backgroundColor: colors.success[50] }]}>
+          <Text style={[styles.referralStatValue, { color: colors.success[700] }]}>
+            {referralStats.successfulReferrals}
+          </Text>
+          <Text style={[styles.referralStatLabel, { color: colors.success[600] }]}>
+            Subscribers
+          </Text>
+        </View>
+
+        <View style={[styles.referralStatCard, { backgroundColor: colors.warning[50] }]}>
+          <Text style={[styles.referralStatValue, { color: colors.warning[700] }]}>
+            {referralStats.totalDaysEarned}
+          </Text>
+          <Text style={[styles.referralStatLabel, { color: colors.warning[600] }]}>
+            Days Earned
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
   const renderSettingsSection = (title: string, items: any[]) => (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
@@ -635,11 +805,11 @@ export default function ProfileScreen() {
         {renderUserHeader()}
 
         {/* Stats Overview */}
-        <View style={styles.section}>
+        <View style={[styles.section, { paddingBottom: 0 }]}>
           <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
             Study Stats
           </Text>
-          
+
           <View style={styles.statsContainer}>
             <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
               <Text style={[styles.statValue, { color: colors.primary[700] }]}>
@@ -670,7 +840,8 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-
+        {/* Referral Section */}
+        {renderReferralSection()}
 
         {/* Preferences Section */}
         {renderSettingsSection('Study Preferences', [
@@ -782,6 +953,13 @@ export default function ProfileScreen() {
             subtitle: 'Share your feedback',
             onPress: handleRateApp,
           },
+          // Development only: Reset app data button
+          ...(__DEV__ ? [{
+            icon: <Ionicons name="refresh-circle" size={20} color={colors.warning[600]} />,
+            title: '🔄 Reset App Data (Dev)',
+            subtitle: 'Clear all data and restart from onboarding',
+            onPress: handleResetAppData,
+          }] : []),
           {
             icon: <Ionicons name="trash" size={20} color={colors.error[600]} />,
             title: 'Delete Account',
@@ -1214,12 +1392,12 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
-  
+
   // User Header
   userHeaderCard: {
-    borderRadius: 16,
+    borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
@@ -1228,13 +1406,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   userHeaderGradient: {
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 12,
+    padding: 20,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   avatarContainer: {
     width: 60,
@@ -1312,9 +1490,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   settingsItem: {
     flexDirection: 'row',
@@ -1428,16 +1606,16 @@ const styles = StyleSheet.create({
    
    // AI Provider Section
    section: {
-     padding: 20,
+     padding: 16,
    },
   sectionSubtitle: {
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   settingsCard: {
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
   },
   providerOption: {
     flexDirection: 'row',
@@ -1817,5 +1995,111 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     margin: 4,
+  },
+
+  // Referral Section Styles
+  trialBanner: {
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+  },
+  trialBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trialBannerIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  trialBannerText: {
+    flex: 1,
+  },
+  trialBannerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  trialBannerSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  referralCard: {
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  referralCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  referralCodeContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  referralCode: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 4,
+  },
+  referralCardSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  referralActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  referralActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    gap: 8,
+  },
+  referralActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  referralStatsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  referralStatCard: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  referralStatValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  referralStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 }); 

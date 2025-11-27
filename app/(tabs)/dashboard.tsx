@@ -28,6 +28,7 @@ import {
   getTasksForDate
 } from '@/app/utils/studyProgramStorage';
 import { hasPremiumAccess } from '@/app/utils/subscriptionManager';
+import { getReferralTrial, getReferralTrialDaysRemaining } from '@/app/utils/referralManager';
 import { useTheme } from '@/themes';
 
 const isIOS = Platform.OS === 'ios';
@@ -53,7 +54,34 @@ export default function DashboardScreen() {
 
   // Task completion tracking
   const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
+
+  // Referral trial tracking
+  const [referralTrial, setReferralTrial] = useState<any>(null);
+  const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
+  const [showTrialWarning, setShowTrialWarning] = useState(false);
   
+  // Load referral trial data
+  const loadTrialData = async () => {
+    try {
+      const trial = await getReferralTrial();
+      const daysRemaining = await getReferralTrialDaysRemaining();
+
+      setReferralTrial(trial);
+      setTrialDaysRemaining(daysRemaining);
+
+      // Show warning if trial has ≤2 days remaining
+      if (trial && trial.isActive && daysRemaining <= 2) {
+        setShowTrialWarning(true);
+      } else {
+        setShowTrialWarning(false);
+      }
+
+      console.log('📊 Trial data loaded:', { daysRemaining, isActive: trial?.isActive });
+    } catch (error) {
+      console.error('❌ Error loading trial data:', error);
+    }
+  };
+
   // Check subscription status on component mount
   const checkSubscriptionStatus = async () => {
     try {
@@ -77,8 +105,33 @@ export default function DashboardScreen() {
       // Production: Check actual subscription status
       const hasSubscription = await hasPremiumAccess();
       if (!hasSubscription) {
-        // Redirect to subscription page if no active subscription
-        router.replace('/(onboarding)/subscription');
+        // Check if user has expired trial
+        const trial = await getReferralTrial();
+        const hasExpiredTrial = trial && !trial.isActive;
+
+        if (hasExpiredTrial) {
+          // Hard block: Trial expired, must subscribe
+          Alert.alert(
+            '🎓 Trial Ended',
+            'Your 7-day free trial has ended. Subscribe now to continue accessing your personalized study plan.',
+            [
+              {
+                text: 'Subscribe Now',
+                onPress: () => {
+                  router.replace('/(onboarding)/subscription');
+                }
+              }
+            ],
+            { cancelable: false }
+          );
+          // Force redirect after alert
+          setTimeout(() => {
+            router.replace('/(onboarding)/subscription');
+          }, 100);
+        } else {
+          // No trial at all, redirect immediately
+          router.replace('/(onboarding)/subscription');
+        }
         return false;
       }
       return true;
@@ -110,50 +163,51 @@ export default function DashboardScreen() {
   const loadDashboardData = async (isInitialLoad: boolean = false) => {
     try {
       setLoading(true);
-      
+
+      // Load trial data first (before subscription check)
+      await loadTrialData();
+
       // Check subscription first
       const hasValidSubscription = await checkSubscriptionStatus();
-      if (!hasValidSubscription) {
-        return; // Exit early if no subscription
-      }
-      
+      // Note: We allow users to stay even without subscription (soft paywall)
+
       // Only check/initialize notifications on first app load, not on every focus
       if (isInitialLoad) {
         // Check notification permission without reinitializing
         const hasPermission = NotificationService.hasNotificationPermission();
         setNotificationPermission(hasPermission);
-        
+
         // Only initialize if not already initialized
         if (!hasPermission) {
           const initialized = await NotificationService.initialize();
           setNotificationPermission(initialized);
         }
       }
-      
+
       // Load program metadata
       const metadata = await getProgramMetadata();
       setProgramMetadata(metadata);
-      
+
       // Load today's tasks
       const today = new Date().toISOString().split('T')[0];
       const tasks = await getTasksForDate(today);
       setTodayTasks(tasks);
-      
+
       // Load subject progress
       const progress = await getSubjectProgress();
       setSubjectProgress(progress);
-      
+
       // Load daily progress
       const dailyProg = await calculateDailyProgress(today);
       setDailyProgress(dailyProg);
-      
+
       console.log('📊 Dashboard data loaded:', {
         tasksToday: tasks.length,
         subjects: Object.keys(progress).length,
         dailyProgress: dailyProg,
         notificationPermission: isInitialLoad ? notificationPermission : 'skipped'
       });
-      
+
     } catch (error) {
       console.error('❌ Error loading dashboard data:', error);
     } finally {
@@ -279,10 +333,49 @@ export default function DashboardScreen() {
 
   // Calculate real metrics
   const completedTasks = Object.values(taskCompletions).filter(Boolean).length;
-  
+
   // Calculate daily goal minutes from today's actual tasks
   const todayGoalMinutes = todayTasks.reduce((total, task) => total + task.duration, 0);
   const progressPercentage = todayGoalMinutes > 0 ? Math.min(100, (dailyProgress.minutes / todayGoalMinutes) * 100) : 0;
+
+  // Render trial warning banner
+  const renderTrialWarningBanner = () => {
+    if (!showTrialWarning || !referralTrial || !referralTrial.isActive) {
+      return null;
+    }
+
+    const isLastDay = trialDaysRemaining === 1;
+    const bannerColor = isLastDay ? colors.error : colors.warning;
+
+    return (
+      <View style={[styles.trialWarningBanner, { backgroundColor: bannerColor[50], borderColor: bannerColor[200] }]}>
+        <View style={styles.trialWarningContent}>
+          <Ionicons
+            name={isLastDay ? "alert-circle" : "time-outline"}
+            size={24}
+            color={bannerColor[600]}
+            style={styles.trialWarningIcon}
+          />
+          <View style={styles.trialWarningText}>
+            <Text style={[styles.trialWarningTitle, { color: bannerColor[800] }]}>
+              {isLastDay ? '⏰ Last Day of Trial!' : `⏰ ${trialDaysRemaining} Days Left`}
+            </Text>
+            <Text style={[styles.trialWarningSubtitle, { color: bannerColor[700] }]}>
+              {isLastDay
+                ? 'Your free trial ends today. Subscribe to keep learning!'
+                : `Your trial ends soon. Subscribe to continue your study plan.`}
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.trialWarningButton, { backgroundColor: bannerColor[600] }]}
+          onPress={() => router.push('/(onboarding)/subscription')}
+        >
+          <Text style={styles.trialWarningButtonText}>Subscribe Now</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]} edges={['top', 'left', 'right']}>
@@ -304,6 +397,9 @@ export default function DashboardScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Trial Warning Banner */}
+      {renderTrialWarningBanner()}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Progress Overview */}
@@ -835,5 +931,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+
+  // Trial warning banner styles
+  trialWarningBanner: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trialWarningContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  trialWarningIcon: {
+    marginRight: 12,
+  },
+  trialWarningText: {
+    flex: 1,
+  },
+  trialWarningTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  trialWarningSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  trialWarningButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  trialWarningButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 }); 

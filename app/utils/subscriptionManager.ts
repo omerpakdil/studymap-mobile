@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
+import { hasActiveReferralTrial, updateReferralOnSubscription } from './referralManager';
+
 const SUBSCRIPTION_STATUS_KEY = 'subscription_status';
 const SUBSCRIPTION_TEMP_DISABLED = process.env.EXPO_PUBLIC_APP_ENV !== 'production';
 
@@ -115,14 +117,22 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage): Prom
     
     if (isActive) {
       const entitlement = customerInfo.entitlements.active['premium'];
-      
+
       // Update local storage
       await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, 'active');
-      
+
       const subscriptionType = getSubscriptionType(packageToPurchase.identifier);
-      
+
+      // Update referral status in Supabase (if user was referred)
+      try {
+        await updateReferralOnSubscription();
+      } catch (referralError) {
+        console.error('⚠️ Error updating referral status:', referralError);
+        // Don't fail the purchase if referral update fails
+      }
+
       console.log('✅ Purchase successful!');
-      
+
       return {
         isActive: true,
         type: subscriptionType,
@@ -192,14 +202,30 @@ export const getSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
 
 /**
  * Check if user has premium access
+ * Checks both subscription and referral trial status
  */
 export const hasPremiumAccess = async (): Promise<boolean> => {
   if (SUBSCRIPTION_TEMP_DISABLED) {
     console.log('🚧 Subscription check temporarily bypassed');
     return true;
   }
+
+  // 1. Check RevenueCat subscription
   const status = await getSubscriptionStatus();
-  return status.isActive;
+  if (status.isActive) {
+    console.log('✅ Has active subscription');
+    return true;
+  }
+
+  // 2. Check referral trial
+  const hasReferralTrial = await hasActiveReferralTrial();
+  if (hasReferralTrial) {
+    console.log('🎁 Has active referral trial');
+    return true;
+  }
+
+  console.log('❌ No premium access');
+  return false;
 };
 
 /**
