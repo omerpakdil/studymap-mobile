@@ -2,7 +2,7 @@
   "expo": {
     "name": "StudyMap Pro",
     "slug": "studymap-pro",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "studymapmobile",
@@ -26,6 +26,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studymap.mobile",
+      "buildNumber": "31",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
