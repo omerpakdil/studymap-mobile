@@ -26,7 +26,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studymap.mobile",
-      "buildNumber": "31",
+      "buildNumber": "32",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
