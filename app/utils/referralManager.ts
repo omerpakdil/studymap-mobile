@@ -196,7 +196,22 @@ export const applyReferralCode = async (code: string): Promise<boolean> => {
 
     const currentUserId = await getCurrentUserId();
     const now = new Date();
-    const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const extensionEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Update user's referral_extension_end_date in Supabase
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        referral_extension_end_date: extensionEndDate.toISOString(),
+        referral_used_code: code.toUpperCase(),
+      })
+      .eq('user_id', currentUserId);
+
+    if (updateError) {
+      console.error('❌ Failed to update referral extension:', updateError);
+    } else {
+      console.log('✅ Referral extension saved to Supabase');
+    }
 
     // Create referral record in Supabase
     const { error: referralError } = await supabase
@@ -207,7 +222,7 @@ export const applyReferralCode = async (code: string): Promise<boolean> => {
         referee_user_id: currentUserId,
         status: 'trial_started',
         trial_start_date: now.toISOString(),
-        trial_end_date: endDate.toISOString(),
+        trial_end_date: extensionEndDate.toISOString(),
       });
 
     if (referralError) {
@@ -221,7 +236,7 @@ export const applyReferralCode = async (code: string): Promise<boolean> => {
     const trial: ReferralTrial = {
       code: code.toUpperCase(),
       startDate: now.toISOString(),
-      endDate: endDate.toISOString(),
+      endDate: extensionEndDate.toISOString(),
       isActive: true,
       referrerId: referrerData.user_id,
     };
@@ -230,7 +245,7 @@ export const applyReferralCode = async (code: string): Promise<boolean> => {
     await AsyncStorage.setItem(USED_REFERRAL_CODE_KEY, code.toUpperCase());
 
     console.log('✅ Referral code applied successfully');
-    console.log('🎁 7-day trial activated until:', endDate.toISOString());
+    console.log('🎁 7-day extension activated until:', extensionEndDate.toISOString());
 
     return true;
   } catch (error) {
@@ -240,10 +255,30 @@ export const applyReferralCode = async (code: string): Promise<boolean> => {
 };
 
 /**
- * Check if user has an active referral trial
+ * Check if user has an active referral trial (checks Supabase extension)
  */
 export const hasActiveReferralTrial = async (): Promise<boolean> => {
   try {
+    const currentUserId = await getCurrentUserId();
+
+    // First check Supabase for referral extension
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('referral_extension_end_date')
+      .eq('user_id', currentUserId)
+      .single();
+
+    if (!userError && userData?.referral_extension_end_date) {
+      const now = new Date();
+      const extensionEnd = new Date(userData.referral_extension_end_date);
+
+      if (extensionEnd > now) {
+        console.log('✅ Active referral extension in Supabase');
+        return true;
+      }
+    }
+
+    // Fallback: Check local storage (legacy support)
     const trialStr = await AsyncStorage.getItem(REFERRAL_TRIAL_KEY);
     if (!trialStr) {
       return false;

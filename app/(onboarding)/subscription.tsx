@@ -250,11 +250,11 @@ export default function SubscriptionScreen() {
   const getPackageSubtitle = (packageItem: PurchasesPackage): string => {
     switch (packageItem.packageType) {
       case 'ANNUAL':
-        return 'Best Value';
+        return 'Most Popular';
       case 'MONTHLY':
         return 'Flexible';
       case 'WEEKLY':
-        return 'Trial';
+        return 'Short Term';
       case 'LIFETIME':
         return 'One-time Payment';
       default:
@@ -404,6 +404,9 @@ export default function SubscriptionScreen() {
             <Text style={styles.subtitle}>
               Unlock AI-powered personalized learning
             </Text>
+            <View style={styles.trialBadgeContainer}>
+              <Text style={styles.trialBadgeText}>🎁 All plans include 7-day free trial</Text>
+            </View>
             
             {/* Quick Features */}
             <View style={styles.quickFeatures}>
@@ -557,10 +560,20 @@ export default function SubscriptionScreen() {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <>
-                    <Text style={styles.buttonText}>Start Premium</Text>
-                    {isIntroEligible && selectedPackage?.product.introPrice && (
+                    <Text style={styles.buttonText}>
+                      {selectedPackage?.packageType === 'ANNUAL'
+                        ? 'Start 7-Day Free Trial'
+                        : selectedPackage?.packageType === 'MONTHLY'
+                        ? 'Start 7-Day Free Trial'
+                        : 'Start Free Trial'}
+                    </Text>
+                    {selectedPackage && (
                       <Text style={styles.buttonSubtext}>
-                        {selectedPackage.product.introPrice.periodNumberOfUnits} {selectedPackage.product.introPrice.periodUnit} free trial
+                        {selectedPackage.packageType === 'ANNUAL'
+                          ? `Then ${formatPrice(selectedPackage)}/year`
+                          : selectedPackage.packageType === 'MONTHLY'
+                          ? `Then ${formatPrice(selectedPackage)}/month`
+                          : `Then ${formatPrice(selectedPackage)}/week`}
                       </Text>
                     )}
                   </>
@@ -891,8 +904,21 @@ const styles = StyleSheet.create({
     fontSize: isTablet ? 18 : 16,
     color: 'rgba(255,255,255,0.9)',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
     lineHeight: isTablet ? 26 : 22,
+  },
+  trialBadgeContainer: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  trialBadgeText: {
+    color: '#FFFFFF',
+    fontSize: isTablet ? 14 : 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   quickFeatures: {
     flexDirection: 'row',

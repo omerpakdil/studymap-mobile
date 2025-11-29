@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/themes';
 import { applyReferralCode, validateReferralCode } from '@/app/utils/referralManager';
+import { shouldShowPaywall } from '@/app/utils/premiumUtils';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
@@ -52,14 +53,17 @@ export default function ReferralScreen() {
       // Apply code
       await applyReferralCode(referralCode.trim());
 
-      // Show success message
+      // Show success message - user now has 7 days, can go directly to dashboard
       Alert.alert(
         'Success! 🎉',
-        '7 days of premium access unlocked! You can now access all features for free.',
+        '7 days of premium unlocked! You can subscribe anytime for an additional 7-day free trial.',
         [
           {
             text: 'Start Using',
-            onPress: () => router.replace('/(tabs)/dashboard'),
+            onPress: () => {
+              // Referral code gives premium access, skip subscription
+              router.replace('/(tabs)/dashboard');
+            },
           },
         ]
       );
@@ -69,8 +73,23 @@ export default function ReferralScreen() {
     }
   };
 
-  const handleSkip = () => {
-    router.push('/(onboarding)/subscription');
+  const handleSkip = async () => {
+    try {
+      // Check if user needs to see paywall
+      const needsPaywall = await shouldShowPaywall();
+
+      if (needsPaywall) {
+        // No premium access → show subscription
+        router.push('/(onboarding)/subscription');
+      } else {
+        // Has premium access (unlikely but possible) → go to dashboard
+        router.replace('/(tabs)/dashboard');
+      }
+    } catch (error) {
+      console.error('Error checking premium access:', error);
+      // Fallback: show subscription
+      router.push('/(onboarding)/subscription');
+    }
   };
 
   return (

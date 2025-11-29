@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  AppState,
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
@@ -87,6 +88,8 @@ export default function StudySessionScreen() {
   const [isRunning, setIsRunning] = useState(false);
   const [timerState, setTimerState] = useState<TimerState>('study');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number | null>(null); // Timestamp when timer started
+  const backgroundTimeRef = useRef<number | null>(null); // Timestamp when app went to background
 
   // Duration settings
   const [focusDuration, setFocusDuration] = useState(parseInt(params?.duration || '25')); // minutes
@@ -269,17 +272,60 @@ export default function StudySessionScreen() {
     loadSessionData();
   }, []);
 
+  // Background timer tracking - keeps timer running when app is in background
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // App going to background - record timestamp
+        if (isRunning && startTimeRef.current !== null) {
+          backgroundTimeRef.current = Date.now();
+          console.log('⏱️ App backgrounded - timer paused at UI but tracking continues');
+        }
+      } else if (nextAppState === 'active') {
+        // App coming to foreground - calculate elapsed time
+        if (isRunning && startTimeRef.current !== null && backgroundTimeRef.current !== null) {
+          const timeInBackground = Math.floor((Date.now() - backgroundTimeRef.current) / 1000);
+          console.log(`⏱️ App foregrounded - ${timeInBackground}s elapsed in background`);
+
+          setTimeLeft((prev) => {
+            const newTime = Math.max(0, prev - timeInBackground);
+            if (newTime === 0) {
+              handleTimerComplete();
+            }
+            return newTime;
+          });
+
+          backgroundTimeRef.current = null;
+        }
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isRunning]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+
   const currentContent = content[currentContentIndex];
 
   // Timer functions
   const startTimer = () => {
     setIsRunning(true);
-    
+    startTimeRef.current = Date.now(); // Record start time
+
     // Schedule break reminder if this is a study session and we're just starting
     if (timerState === 'study' && timeLeft === focusDuration * 60) {
       NotificationService.startBreakReminders();
     }
-    
+
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -293,6 +339,7 @@ export default function StudySessionScreen() {
 
   const pauseTimer = () => {
     setIsRunning(false);
+    startTimeRef.current = null; // Clear start time
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }

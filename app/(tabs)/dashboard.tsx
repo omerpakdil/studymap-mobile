@@ -29,6 +29,7 @@ import {
 } from '@/app/utils/studyProgramStorage';
 import { hasPremiumAccess } from '@/app/utils/subscriptionManager';
 import { getReferralTrial, getReferralTrialDaysRemaining } from '@/app/utils/referralManager';
+import { checkPremiumAccess, getTrialStatus } from '@/app/utils/premiumUtils';
 import { useTheme } from '@/themes';
 
 const isIOS = Platform.OS === 'ios';
@@ -60,29 +61,26 @@ export default function DashboardScreen() {
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   const [showTrialWarning, setShowTrialWarning] = useState(false);
   
-  // Load referral trial data
+  // Load trial data using new hybrid system
   const loadTrialData = async () => {
     try {
-      const trial = await getReferralTrial();
-      const daysRemaining = await getReferralTrialDaysRemaining();
+      const trialStatus = await getTrialStatus();
 
-      setReferralTrial(trial);
-      setTrialDaysRemaining(daysRemaining);
+      setTrialDaysRemaining(trialStatus.daysRemaining);
+      setShowTrialWarning(trialStatus.showWarning);
 
-      // Show warning if trial has ≤2 days remaining
-      if (trial && trial.isActive && daysRemaining <= 2) {
-        setShowTrialWarning(true);
-      } else {
-        setShowTrialWarning(false);
-      }
-
-      console.log('📊 Trial data loaded:', { daysRemaining, isActive: trial?.isActive });
+      console.log('📊 Trial status loaded:', {
+        inTrial: trialStatus.inTrial,
+        type: trialStatus.trialType,
+        daysRemaining: trialStatus.daysRemaining,
+        showWarning: trialStatus.showWarning,
+      });
     } catch (error) {
       console.error('❌ Error loading trial data:', error);
     }
   };
 
-  // Check subscription status on component mount
+  // Check premium access using hybrid system
   const checkSubscriptionStatus = async () => {
     try {
       // Development bypass - only active in __DEV__ mode
@@ -92,51 +90,42 @@ export default function DashboardScreen() {
       }
 
       // Check if we just came from successful subscription
-      const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
       const skipCheck = await AsyncStorage.getItem('skip_subscription_check');
 
       if (skipCheck === 'true') {
         console.log('✅ Skipping subscription check - user just subscribed');
-        // Clear the flag for next time
         await AsyncStorage.removeItem('skip_subscription_check');
         return true;
       }
 
-      // Production: Check actual subscription status
-      const hasSubscription = await hasPremiumAccess();
-      if (!hasSubscription) {
-        // Check if user has expired trial
-        const trial = await getReferralTrial();
-        const hasExpiredTrial = trial && !trial.isActive;
+      // Check premium access (RevenueCat + Supabase hybrid)
+      const premiumStatus = await checkPremiumAccess();
 
-        if (hasExpiredTrial) {
-          // Hard block: Trial expired, must subscribe
-          Alert.alert(
-            '🎓 Trial Ended',
-            'Your 7-day free trial has ended. Subscribe now to continue accessing your personalized study plan.',
-            [
-              {
-                text: 'Subscribe Now',
-                onPress: () => {
-                  router.replace('/(onboarding)/subscription');
-                }
+      if (!premiumStatus.hasAccess) {
+        // No premium access - show paywall
+        Alert.alert(
+          '🔒 Premium Required',
+          'Subscribe to access your personalized study plan. Start with a 7-day free trial!',
+          [
+            {
+              text: 'Start Free Trial',
+              onPress: () => {
+                router.replace('/(onboarding)/subscription');
               }
-            ],
-            { cancelable: false }
-          );
-          // Force redirect after alert
-          setTimeout(() => {
-            router.replace('/(onboarding)/subscription');
-          }, 100);
-        } else {
-          // No trial at all, redirect immediately
+            }
+          ],
+          { cancelable: false }
+        );
+        // Force redirect
+        setTimeout(() => {
           router.replace('/(onboarding)/subscription');
-        }
+        }, 100);
         return false;
       }
+
       return true;
     } catch (error) {
-      console.error('Error checking subscription status:', error);
+      console.error('Error checking premium access:', error);
       // In production, deny access on error for security
       if (!__DEV__) {
         router.replace('/(onboarding)/subscription');
