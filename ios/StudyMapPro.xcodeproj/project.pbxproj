@@ -9,21 +9,21 @@
 /* Begin PBXBuildFile section */
 		054C8E91CD5B81A3A75C7218 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C70B545A97613BE1397718F6 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		210ECE32A8EEEDAF8ECFF565 /* libPods-StudyMapPro.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 36A965196B9BDABCF62ADCDB /* libPods-StudyMapPro.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		97A1B2C7BABD766EE89F507E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8837A5C89B7291C9053871DD /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
+		E0CAAC8159F74E26F37979D7 /* libPods-StudyMapPro.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 9BD77BC3149A4901C77B67D2 /* libPods-StudyMapPro.a */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		056B825C8BF48801ECD4B156 /* Pods-StudyMapPro.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StudyMapPro.debug.xcconfig"; path = "Target Support Files/Pods-StudyMapPro/Pods-StudyMapPro.debug.xcconfig"; sourceTree = "<group>"; };
+		0A26700EAB6A0257D16F5F6A /* Pods-StudyMapPro.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StudyMapPro.release.xcconfig"; path = "Target Support Files/Pods-StudyMapPro/Pods-StudyMapPro.release.xcconfig"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* StudyMapPro.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StudyMapPro.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = StudyMapPro/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = StudyMapPro/Info.plist; sourceTree = "<group>"; };
-		36A965196B9BDABCF62ADCDB /* libPods-StudyMapPro.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-StudyMapPro.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		745A146094EF04010009B152 /* Pods-StudyMapPro.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StudyMapPro.debug.xcconfig"; path = "Target Support Files/Pods-StudyMapPro/Pods-StudyMapPro.debug.xcconfig"; sourceTree = "<group>"; };
-		8837A5C89B7291C9053871DD /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = StudyMapPro/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		8F64E0802867EF2F9A17E6B5 /* Pods-StudyMapPro.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-StudyMapPro.release.xcconfig"; path = "Target Support Files/Pods-StudyMapPro/Pods-StudyMapPro.release.xcconfig"; sourceTree = "<group>"; };
+		8837A5C89B7291C9053871DD /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = StudyMapPro/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		9BD77BC3149A4901C77B67D2 /* libPods-StudyMapPro.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-StudyMapPro.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = StudyMapPro/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		C70B545A97613BE1397718F6 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-StudyMapPro/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
@@ -37,7 +37,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				210ECE32A8EEEDAF8ECFF565 /* libPods-StudyMapPro.a in Frameworks */,
+				E0CAAC8159F74E26F37979D7 /* libPods-StudyMapPro.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -62,7 +62,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				36A965196B9BDABCF62ADCDB /* libPods-StudyMapPro.a */,
+				9BD77BC3149A4901C77B67D2 /* libPods-StudyMapPro.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -81,8 +81,8 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				AFC95636694B014138D1B6CA /* Pods */,
 				E17A78B3277620A629D91F59 /* ExpoModulesProviders */,
+				885CECCD1FF01A6E7DDC41E3 /* Pods */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -97,22 +97,21 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		885CECCD1FF01A6E7DDC41E3 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				056B825C8BF48801ECD4B156 /* Pods-StudyMapPro.debug.xcconfig */,
+				0A26700EAB6A0257D16F5F6A /* Pods-StudyMapPro.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		9D188F1ABC3FFD716612A7CF /* StudyMapPro */ = {
 			isa = PBXGroup;
 			children = (
 				C70B545A97613BE1397718F6 /* ExpoModulesProvider.swift */,
 			);
 			name = StudyMapPro;
-			sourceTree = "<group>";
-		};
-		AFC95636694B014138D1B6CA /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				745A146094EF04010009B152 /* Pods-StudyMapPro.debug.xcconfig */,
-				8F64E0802867EF2F9A17E6B5 /* Pods-StudyMapPro.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -139,14 +138,14 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "StudyMapPro" */;
 			buildPhases = (
-				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
+				1FA3776CECB591A109E74F60 /* [CP] Check Pods Manifest.lock */,
 				05E765318D6989FDFC5D8A0B /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				4433E332520263A5D0A55387 /* [CP] Embed Pods Frameworks */,
+				62563D8054790E250199B613 /* [CP] Embed Pods Frameworks */,
+				AF1AA60C2DF1C4D1D80257C5 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -244,7 +243,7 @@
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-StudyMapPro/expo-configure-project.sh\"\n";
 		};
-		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
+		1FA3776CECB591A109E74F60 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,7 +265,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		4433E332520263A5D0A55387 /* [CP] Embed Pods Frameworks */ = {
+		62563D8054790E250199B613 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -288,7 +287,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-StudyMapPro/Pods-StudyMapPro-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
+		AF1AA60C2DF1C4D1D80257C5 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -347,12 +346,13 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 745A146094EF04010009B152 /* Pods-StudyMapPro.debug.xcconfig */;
+			baseConfigurationReference = 056B825C8BF48801ECD4B156 /* Pods-StudyMapPro.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = StudyMapPro/StudyMapPro.entitlements;
 				CURRENT_PROJECT_VERSION = 32;
+				DEVELOPMENT_TEAM = HJD426RPSC;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -383,12 +383,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 8F64E0802867EF2F9A17E6B5 /* Pods-StudyMapPro.release.xcconfig */;
+			baseConfigurationReference = 0A26700EAB6A0257D16F5F6A /* Pods-StudyMapPro.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = StudyMapPro/StudyMapPro.entitlements;
 				CURRENT_PROJECT_VERSION = 32;
+				DEVELOPMENT_TEAM = HJD426RPSC;
 				INFOPLIST_FILE = StudyMapPro/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (

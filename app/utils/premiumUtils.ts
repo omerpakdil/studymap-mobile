@@ -143,6 +143,11 @@ export const getTrialStatus = async (): Promise<{
  */
 export const shouldShowPaywall = async (): Promise<boolean> => {
   const status = await checkPremiumAccess();
+  console.log('🔍 shouldShowPaywall check:', {
+    hasAccess: status.hasAccess,
+    source: status.source,
+    shouldShow: !status.hasAccess,
+  });
   return !status.hasAccess;
 };
 
