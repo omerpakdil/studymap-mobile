@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "StudyMap Pro",
+    "name": "StudyMap",
     "slug": "studymap-pro",
-    "version": "1.0.3",
+    "version": "2.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "studymapmobile",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "metro": {
       "resolver": {
         "assetExts": [
@@ -26,9 +26,22 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studymap.mobile",
-      "buildNumber": "32",
+      "buildNumber": "33",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleLocalizations": [
+          "en",
+          "tr",
+          "de",
+          "fr",
+          "ar",
+          "ja",
+          "ko",
+          "pt-BR",
+          "zh-Hans",
+          "id",
+          "hi"
+        ]
       }
     },
     "web": {
@@ -44,14 +57,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#0A1513"
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#4F46E5",
+          "color": "#0F9D8C",
           "mode": "production"
         }
       ]
@@ -66,7 +79,11 @@
       }
     },
     "android": {
-      "package": "com.studymap.mobile"
+      "package": "com.studymap.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0A1513"
+      }
     }
   }
 }

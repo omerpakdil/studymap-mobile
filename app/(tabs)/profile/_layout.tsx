@@ -7,19 +7,24 @@ export default function ProfileLayout() {
         headerShown: false,
       }}
     >
-      <Stack.Screen 
-        name="index" 
-        options={{ 
-          headerShown: false 
-        }} 
-      />
-      <Stack.Screen 
-        name="edit" 
-        options={{ 
+      <Stack.Screen
+        name="index"
+        options={{
           headerShown: false,
-          presentation: 'modal',
-        }} 
+        }}
+      />
+      <Stack.Screen
+        name="edit"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="focus"
+        options={{
+          headerShown: false,
+        }}
       />
     </Stack>
   );
-} 
+}

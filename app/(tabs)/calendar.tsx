@@ -1,642 +1,777 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useState } from 'react';
-import {
-    Dimensions,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-
-import { StudyTask } from '@/app/utils/claudeStudyGenerator';
-import { loadDailyTasks } from '@/app/utils/studyProgramStorage';
-import { useTheme } from '@/themes';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
+import { getLocalizedTaskTitle } from '@/app/i18n/taskContent';
+import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
+import { getProgramMetadata, loadDailyTasks } from '@/app/utils/studyProgramStorage';
+import { StudyTask } from '@/app/utils/studyTypes';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 const isTablet = width >= 768;
 
-// Calendar view types
 type CalendarView = 'month' | 'week' | 'day';
+type CalendarData = { [key: string]: StudyTask[] };
 
-// Calendar data type
-type CalendarData = {
-  [key: string]: StudyTask[];
+// ─── Design Tokens (match Dashboard) ─────────────────────────────────────────
+const C = {
+  bg0: '#F6FCFB',
+  bg1: '#F0FAF8',
+  bg2: '#E8F6F2',
+  ink: '#0F172A',
+  sub: 'rgba(51,65,85,0.76)',
+  muted: 'rgba(100,116,139,0.76)',
+  card: '#FFFFFF',
+  cardBorder: 'rgba(15,157,140,0.14)',
+  track: 'rgba(148,163,184,0.20)',
+  teal: '#0F9D8C',
+  tealDk: '#0B7A6E',
+  tealLt: 'rgba(45,212,191,0.12)',
 };
 
-const subjectColors = {
-  Math: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
-  Mathematics: { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
-  Verbal: { bg: '#F0FDF4', border: '#10B981', text: '#047857' },
-  English: { bg: '#F0FDF4', border: '#10B981', text: '#047857' },
-  Writing: { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E' },
-  Science: { bg: '#F3E8FF', border: '#8B5CF6', text: '#6D28D9' },
-  Physics: { bg: '#F3E8FF', border: '#8B5CF6', text: '#6D28D9' },
-  Chemistry: { bg: '#FDF2F8', border: '#EC4899', text: '#BE185D' },
-  Biology: { bg: '#ECFDF5', border: '#059669', text: '#065F46' },
-  History: { bg: '#FEF7ED', border: '#D97706', text: '#92400E' },
-  Default: { bg: '#F1F5F9', border: '#64748B', text: '#475569' },
+const getSubjectColor = (subject: string) => {
+  const bucket = subject.length % 3;
+  const variants = [
+    { bg: 'rgba(15,157,140,0.08)', border: '#0F9D8C', text: '#0B7A6E', dot: '#0F9D8C' },
+    { bg: 'rgba(15,157,140,0.12)', border: 'rgba(15,157,140,0.75)', text: '#0B7A6E', dot: 'rgba(15,157,140,0.82)' },
+    { bg: 'rgba(15,157,140,0.06)', border: 'rgba(15,157,140,0.62)', text: '#0B7A6E', dot: 'rgba(15,157,140,0.74)' },
+  ] as const;
+  return variants[bucket];
 };
 
-const monthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
+const DAY_SHORT_EN = ['S','M','T','W','T','F','S'];
 
-const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-
-// Convert time slot to time of day period
-const getTimeOfDay = (timeSlot: string): string => {
-  if (!timeSlot) return 'Morning';
-
-  // First check if it's already a named time slot
-  const timeSlotMap: Record<string, string> = {
-    'early_morning': 'Early Morning',
-    'morning': 'Morning',
-    'afternoon': 'Afternoon',
-    'evening': 'Evening',
-    'night': 'Night',
+const getTimeBucket = (timeSlot: string): string => {
+  const map: Record<string, string> = {
+    early_morning: 'early_morning', morning: 'morning',
+    afternoon: 'afternoon', evening: 'evening', night: 'night',
   };
-
-  // If it matches a known time slot, return the label
-  if (timeSlotMap[timeSlot.toLowerCase()]) {
-    return timeSlotMap[timeSlot.toLowerCase()];
-  }
-
-  // Otherwise, try to extract hour from timeSlot (e.g., "09:00-10:00" -> 9)
-  const hourMatch = timeSlot.match(/^(\d{1,2})/);
-  if (!hourMatch) return 'Morning';
-
-  const hour = parseInt(hourMatch[1], 10);
-
-  if (hour >= 6 && hour < 9) return 'Early Morning';
-  if (hour >= 9 && hour < 12) return 'Morning';
-  if (hour >= 12 && hour < 17) return 'Afternoon';
-  if (hour >= 17 && hour < 21) return 'Evening';
-  return 'Night';
+  if (map[timeSlot?.toLowerCase()]) return map[timeSlot.toLowerCase()];
+  const h = parseInt(timeSlot?.match(/^(\d{1,2})/)?.[1] || '9');
+  if (h < 9) return 'early_morning';
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  if (h < 21) return 'evening';
+  return 'night';
 };
 
-// Time slot formatting utility
-const formatTimeSlot = (timeSlot: string, compact: boolean = false) => {
-  const timeSlotMap: Record<string, { label: string; time: string; shortLabel: string }> = {
-    'early_morning': { label: 'Early Morning', time: '6:00 - 9:00 AM', shortLabel: 'Early Morning' },
-    'morning': { label: 'Morning', time: '9:00 AM - 12:00 PM', shortLabel: 'Morning' },
-    'afternoon': { label: 'Afternoon', time: '12:00 - 5:00 PM', shortLabel: 'Afternoon' },
-    'evening': { label: 'Evening', time: '5:00 - 9:00 PM', shortLabel: 'Evening' },
-    'night': { label: 'Night', time: '9:00 PM - 12:00 AM', shortLabel: 'Night' },
+const getTimeIcon = (bucket: string): string => {
+  const map: Record<string,string> = {
+    early_morning: 'partly-sunny-outline',
+    morning: 'sunny-outline',
+    afternoon: 'sunny',
+    evening: 'moon-outline',
+    night: 'moon',
   };
-  
-  const slot = timeSlotMap[timeSlot];
-  if (slot) {
-    if (compact) {
-      return slot.shortLabel;
-    }
-    return `${slot.label}\n${slot.time}`;
-  }
-  
-  return timeSlot || 'No time set';
+  return map[bucket] || 'time-outline';
 };
 
+const getTypeVisual = (type: string) => {
+  const t = type.toLowerCase();
+  if (t === 'study') {
+    return { badge: 'solid', accentWidth: 4, play: 'solid' } as const;
+  }
+  if (t === 'review') {
+    return { badge: 'outline', accentWidth: 3, play: 'outline' } as const;
+  }
+  if (t === 'quiz') {
+    return { badge: 'dashed', accentWidth: 2, play: 'outline' } as const;
+  }
+  return { badge: 'soft', accentWidth: 3, play: 'solid' } as const; // practice/default
+};
+
+// ─── Animated Task Card ───────────────────────────────────────────────────────
+function AnimatedTaskCard({ task, isCompleted, onPress, index, subjectLabel, appLang }: {
+  task: StudyTask; isCompleted: boolean; onPress: () => void; index: number; subjectLabel: string;
+  appLang: ReturnType<typeof resolveAppLanguage>;
+}) {
+  const translateX = useRef(new Animated.Value(30)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const sc = getSubjectColor(task.subject);
+  const timeBucket = getTimeBucket(task.timeSlot || '');
+  const timeLabel = t(`tabs.calendar.time.${timeBucket}`, { lang: appLang, fallback: timeBucket });
+  const tv = getTypeVisual(task.type);
+  const typeLabel = t(`tabs.calendar.task_type.${task.type.toLowerCase()}`, {
+    lang: appLang,
+    fallback: task.type,
+  });
+  const taskTitle = getLocalizedTaskTitle(task, appLang);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(translateX, { toValue: 0, useNativeDriver: true, tension: 90, friction: 10, delay: index * 60 }),
+      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true, delay: index * 60 }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ translateX }], opacity }}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.78}
+        style={[styles.taskCard, isCompleted && styles.taskCardDone]}
+      >
+        {/* Color accent bar */}
+        <View
+          style={[
+            styles.taskAccentBar,
+            {
+              width: tv.accentWidth,
+              backgroundColor: tv.badge === 'dashed' ? 'rgba(15,157,140,0.45)' : C.teal,
+            },
+          ]}
+        />
+
+        <View style={styles.taskInner}>
+          <View style={styles.taskTop}>
+            {/* Subject + type badge */}
+            <View style={styles.taskTitleRow}>
+              <View style={[styles.taskSubjectDot, { backgroundColor: sc.dot }]} />
+              <Text style={[styles.taskSubject, isCompleted && styles.strikeText]}>{subjectLabel}</Text>
+              <View
+                style={[
+                  styles.typeBadge,
+                  tv.badge === 'solid' && styles.typeBadgeSolid,
+                  tv.badge === 'outline' && styles.typeBadgeOutline,
+                  tv.badge === 'dashed' && styles.typeBadgeDashed,
+                  tv.badge === 'soft' && styles.typeBadgeSoft,
+                ]}
+              >
+                <View style={[styles.typeBadgeKeyPill, tv.badge === 'solid' ? styles.typeBadgeKeyPillSolid : styles.typeBadgeKeyPillSoft]}>
+                  <Text style={[styles.typeBadgeKeyText, tv.badge === 'solid' ? styles.typeBadgeKeyTextSolid : styles.typeBadgeKeyTextTeal]}>
+                    {typeLabel.slice(0, 1).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={[styles.typeBadgeText, tv.badge === 'solid' ? styles.typeBadgeTextSolid : styles.typeBadgeTextTeal]}>
+                  {typeLabel}
+                </Text>
+              </View>
+            </View>
+
+            {/* Completed / Play */}
+            <View style={styles.taskActionWrap}>
+              {isCompleted ? (
+                <View style={styles.doneChip}>
+                  <Ionicons name="checkmark-circle" size={14} color={C.teal} />
+                  <Text style={styles.doneChipText}>{t('tabs.calendar.done', { lang: appLang, fallback: 'Done' })}</Text>
+                </View>
+              ) : (
+                <View style={[styles.playChip, tv.play === 'outline' ? styles.playChipOutline : styles.playChipSolid]}>
+                  <Ionicons name="play" size={11} color={tv.play === 'outline' ? C.teal : '#fff'} />
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Title */}
+          <Text style={[styles.taskTitle, isCompleted && styles.strikeText]} numberOfLines={1}>
+            {taskTitle}
+          </Text>
+
+          {/* Meta row */}
+          <View style={styles.taskMeta}>
+            <View style={styles.taskMetaItem}>
+              <Ionicons name={getTimeIcon(timeBucket) as any} size={12} color={C.muted} />
+              <Text style={styles.taskMetaText}>{timeLabel}</Text>
+            </View>
+            <View style={styles.taskMetaDivider} />
+            <View style={styles.taskMetaItem}>
+              <Ionicons name="timer-outline" size={12} color={C.muted} />
+              <Text style={styles.taskMetaText}>{task.duration}m</Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ─── Month Day Cell ───────────────────────────────────────────────────────────
+function DayCell({ day, isToday, isSelected, tasks, completions, onPress }: {
+  day: Date; isToday: boolean; isSelected: boolean;
+  tasks: StudyTask[]; completions: Record<string,boolean>; onPress: () => void;
+}) {
+  const completed = tasks.filter(t => completions[t.id] || t.completed).length;
+  const progress = tasks.length > 0 ? (completed / tasks.length) * 100 : 0;
+  const allDone = tasks.length > 0 && progress === 100;
+  const uniqueSubjects = [...new Set(tasks.map(t => t.subject))].slice(0, 3);
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={styles.dayCellWrapper}>
+      <View style={[
+        styles.dayCell,
+        isSelected && styles.dayCellSelected,
+        isToday && !isSelected && styles.dayCellToday,
+        tasks.length > 0 && !isSelected && { borderWidth: 1, borderColor: C.cardBorder },
+      ]}>
+        <Text style={[
+          styles.dayCellNum,
+          isToday && styles.dayCellNumToday,
+          isSelected && styles.dayCellNumSelected,
+        ]}>
+          {day.getDate()}
+        </Text>
+
+        {tasks.length > 0 && (
+          <View style={styles.dayCellIndicators}>
+            {/* Mini progress bar */}
+            <View style={styles.dayMiniTrack}>
+              <View style={[
+                styles.dayMiniFill,
+                {
+                  width: `${progress}%` as any,
+                  backgroundColor: C.teal,
+                }
+              ]} />
+            </View>
+            {/* Subject dots */}
+            <View style={styles.daySubjectDots}>
+              {uniqueSubjects.map((s, i) => (
+                <View key={i} style={[styles.daySubjectDot, { backgroundColor: getSubjectColor(s).dot }]} />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {allDone && (
+          <Ionicons name="checkmark-circle" size={10} color={C.teal} style={{ marginTop: 1 }} />
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Empty State ──────────────────────────────────────────────────────────────
+function EmptyDay({ title, message }: { title: string; message: string }) {
+  return (
+    <View style={styles.emptyWrap}>
+      <LinearGradient colors={[C.tealLt, 'rgba(45,212,191,0.04)']} style={styles.emptyBox}>
+        <View style={styles.emptyIconRing}>
+          <Ionicons name="calendar-outline" size={28} color={C.teal} />
+        </View>
+        <Text style={styles.emptyTitle}>{title}</Text>
+        <Text style={styles.emptyText}>{message}</Text>
+      </LinearGradient>
+    </View>
+  );
+}
+
+// ─── Main Calendar Screen ─────────────────────────────────────────────────────
 export default function CalendarScreen() {
-  const { colors } = useTheme();
   const router = useRouter();
+  const appLang = resolveAppLanguage();
+  const appLocale = getLocaleTagForLanguage(appLang);
+  const dayShort = [
+    t('tabs.calendar.day_short.sun', { lang: appLang, fallback: DAY_SHORT_EN[0] }),
+    t('tabs.calendar.day_short.mon', { lang: appLang, fallback: DAY_SHORT_EN[1] }),
+    t('tabs.calendar.day_short.tue', { lang: appLang, fallback: DAY_SHORT_EN[2] }),
+    t('tabs.calendar.day_short.wed', { lang: appLang, fallback: DAY_SHORT_EN[3] }),
+    t('tabs.calendar.day_short.thu', { lang: appLang, fallback: DAY_SHORT_EN[4] }),
+    t('tabs.calendar.day_short.fri', { lang: appLang, fallback: DAY_SHORT_EN[5] }),
+    t('tabs.calendar.day_short.sat', { lang: appLang, fallback: DAY_SHORT_EN[6] }),
+  ];
+  const [programMetadata, setProgramMetadata] = useState<any>(null);
+  const subjectLabel = (subject: string) =>
+    getLocalizedSubjectName(subject, appLang, subject, { examCode: programMetadata?.examType });
   const [currentView, setCurrentView] = useState<CalendarView>('month');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState<CalendarData>({});
   const [loading, setLoading] = useState(true);
   const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
 
-  // Load calendar data from Claude-generated tasks
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerSlide = useRef(new Animated.Value(-8)).current;
+  const viewAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(headerSlide, { toValue: 0, useNativeDriver: true, tension: 80 }),
+    ]).start();
+  }, []);
+
+  const formatDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   const loadCalendarData = async () => {
     try {
       setLoading(true);
-      const allTasks = await loadDailyTasks();
-      
-      // Group tasks by date
+      const [allTasks, metadata] = await Promise.all([loadDailyTasks(), getProgramMetadata()]);
       const tasksByDate: CalendarData = {};
       allTasks.forEach((task: StudyTask) => {
-        if (!tasksByDate[task.date]) {
-          tasksByDate[task.date] = [];
-        }
+        if (!tasksByDate[task.date]) tasksByDate[task.date] = [];
         tasksByDate[task.date].push(task);
       });
-      
+      setProgramMetadata(metadata);
       setCalendarData(tasksByDate);
-      console.log('📅 Calendar data loaded:', {
-        totalDays: Object.keys(tasksByDate).length,
-        totalTasks: allTasks.length
-      });
-      
-      // Debug: Log first few tasks with their dates
-      const firstFewTasks = allTasks.slice(0, 5);
-      console.log('🔍 Debug: First few tasks:', firstFewTasks.map(task => ({
-        id: task.id,
-        date: task.date,
-        subject: task.subject,
-        title: task.title
-      })));
-      
-      // Debug: Log task dates
-      const taskDates = Object.keys(tasksByDate);
-      console.log('🔍 Debug: Task dates:', taskDates.slice(0, 10));
-      
-    } catch (error) {
-      console.error('❌ Error loading calendar data:', error);
+    } catch (e) {
+      console.error(t('tabs.calendar.load_error_log', { lang: appLang, fallback: 'Calendar load error:' }), e);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load task completion status from AsyncStorage
   const loadTaskCompletions = async () => {
     try {
       const completions: Record<string, boolean> = {};
-      
-      // Get all tasks from calendar data
       const allTasks = Object.values(calendarData).flat();
-      
       for (const task of allTasks) {
-        const key = `session_completed_${task.id}`;
-        const status = await AsyncStorage.getItem(key);
-        completions[task.id] = status === 'true' || task.completed;
+        const val = await AsyncStorage.getItem(`session_completed_${task.id}`);
+        completions[task.id] = val === 'true' || task.completed;
       }
-      
       setTaskCompletions(completions);
-      console.log('📋 Task completions loaded:', Object.keys(completions).length);
-    } catch (error) {
-      console.log('Error loading task completions:', error);
-    }
+    } catch {}
   };
 
-  useEffect(() => {
-    loadCalendarData();
-  }, []);
+  useEffect(() => { loadCalendarData(); }, []);
+  useEffect(() => { if (Object.keys(calendarData).length > 0) loadTaskCompletions(); }, [calendarData]);
+  useFocusEffect(useCallback(() => { loadCalendarData(); }, []));
 
-  useEffect(() => {
-    if (Object.keys(calendarData).length > 0) {
-      loadTaskCompletions();
-    }
-  }, [calendarData]);
+  const getDateTasks = (date: Date) => calendarData[formatDate(date)] || [];
 
-  useFocusEffect(
-    useCallback(() => {
-      loadCalendarData();
-    }, [])
-  );
-
-  // Reload completions when screen focuses (after returning from study session)
-  useFocusEffect(
-    useCallback(() => {
-      if (Object.keys(calendarData).length > 0) {
-        loadTaskCompletions();
+  const getMonthStats = () => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    let totalTasks = 0, completedTasks = 0, studyDays = 0;
+    Object.entries(calendarData).forEach(([dateStr, tasks]) => {
+      const d = new Date(dateStr);
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        if (tasks.length > 0) studyDays++;
+        totalTasks += tasks.length;
+        completedTasks += tasks.filter(t => taskCompletions[t.id] || t.completed).length;
       }
-    }, [])
-  );
+    });
+    return { totalTasks, completedTasks, studyDays };
+  };
 
-  // Helper functions
-  const formatDate = (date: Date) => {
-    // Use local date to avoid timezone issues
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const navigateDate = (dir: 'prev' | 'next') => {
+    const d = new Date(selectedDate);
+    const delta = dir === 'next' ? 1 : -1;
+    if (currentView === 'month') d.setMonth(d.getMonth() + delta);
+    else if (currentView === 'week') d.setDate(d.getDate() + delta * 7);
+    else d.setDate(d.getDate() + delta);
+    setSelectedDate(d);
+  };
+
+  const switchView = (next: CalendarView) => {
+    if (next === currentView) return;
+    Animated.timing(viewAnim, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
+      setCurrentView(next);
+      viewAnim.setValue(0);
+      Animated.spring(viewAnim, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 250 }).start();
+    });
   };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-
-    // Calculate days in month
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    // Get the day of week for the 1st of the month
-    // Create date at noon local time to avoid timezone offset issues
-    const firstDayDate = new Date(year, month, 1);
-    firstDayDate.setHours(12, 0, 0, 0);
-    const startDate = firstDayDate.getDay();
-
-    console.log(`📅 Calendar Debug: ${monthNames[month]} ${year}`);
-    console.log(`   First day: ${firstDayDate.toDateString()} (day of week: ${startDate})`);
-    console.log(`   Days in month: ${daysInMonth}`);
-    console.log(`   Empty cells: ${startDate}`);
-
-    const days = [];
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startDate; i++) {
-      days.push(null);
+    const firstDay = new Date(year, month, 1);
+    firstDay.setHours(12);
+    const startDow = firstDay.getDay();
+    const days: (Date | null)[] = [];
+    for (let i = 0; i < startDow; i++) days.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const day = new Date(year, month, d);
+      day.setHours(12);
+      days.push(day);
     }
-
-    // Add days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dayDate = new Date(year, month, day);
-      dayDate.setHours(12, 0, 0, 0);
-      days.push(dayDate);
-    }
-
+    while (days.length % 7 !== 0) days.push(null);
     return days;
   };
 
   const getWeekDays = (date: Date) => {
-    // Create a new date using local time to avoid timezone issues
-    const startOfWeek = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const day = startOfWeek.getDay();
-
-    // Go back to Sunday (start of week)
-    const daysToSubtract = day;
-    startOfWeek.setDate(startOfWeek.getDate() - daysToSubtract);
-
-    const days = [];
-    for (let i = 0; i < 7; i++) {
-      const weekDay = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i);
-      days.push(weekDay);
-    }
-
-    return days;
-  };
-
-  const navigateDate = (direction: 'prev' | 'next') => {
-    const newDate = new Date(selectedDate);
-    
-    if (currentView === 'month') {
-      newDate.setMonth(selectedDate.getMonth() + (direction === 'next' ? 1 : -1));
-    } else if (currentView === 'week') {
-      newDate.setDate(selectedDate.getDate() + (direction === 'next' ? 7 : -7));
-    } else {
-      newDate.setDate(selectedDate.getDate() + (direction === 'next' ? 1 : -1));
-    }
-    
-    setSelectedDate(newDate);
-  };
-
-  const getDateTasks = (date: Date) => {
-    const dateString = formatDate(date);
-    const tasks = calendarData[dateString] || [];
-    
-    // Debug: Log when tasks are found
-    if (tasks.length > 0) {
-      console.log(`🔍 Debug: Found ${tasks.length} tasks for ${dateString} (${date.toDateString()})`);
-    }
-    
-    return tasks;
-  };
-
-  const getDateProgress = (date: Date) => {
-    const tasks = getDateTasks(date);
-    if (tasks.length === 0) return 0;
-    const completed = tasks.filter((task: StudyTask) => 
-      taskCompletions[task.id] || task.completed
-    ).length;
-    return (completed / tasks.length) * 100;
-  };
-
-  const getSubjectColor = (subject: string) => {
-    return subjectColors[subject as keyof typeof subjectColors] || subjectColors.Default;
-  };
-
-  const handleStartStudySession = (task: StudyTask) => {
-    router.push({
-      pathname: '/study-session' as any,
-      params: {
-        taskId: task.id,
-        subject: task.subject,
-        type: task.type,
-        duration: task.duration.toString(),
-        title: task.title,
-      },
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    start.setDate(start.getDate() - start.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
     });
   };
 
-  const renderViewToggle = () => (
-    <View style={[styles.viewToggle, { backgroundColor: colors.neutral[100] }]}>
-      {(['month', 'week', 'day'] as CalendarView[]).map((view) => (
-        <TouchableOpacity
-          key={view}
-          style={[
-            styles.viewToggleButton,
-            currentView === view && { backgroundColor: colors.primary[500] }
-          ]}
-          onPress={() => setCurrentView(view)}
-        >
-          <Text style={[
-            styles.viewToggleText,
-            { color: currentView === view ? '#FFFFFF' : colors.neutral[600] }
-          ]}>
-            {view.charAt(0).toUpperCase() + view.slice(1)}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+  // ── Hero Header ──────────────────────────────────────────────────────────────
+  const renderHeroHeader = () => {
+    const { totalTasks, completedTasks, studyDays } = getMonthStats();
+    const pct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  const renderHeader = () => {
-    let headerText = '';
-    
+    let title = '';
     if (currentView === 'month') {
-      headerText = `${monthNames[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+      title = new Intl.DateTimeFormat(appLocale, { month: 'long', year: 'numeric' }).format(selectedDate);
     } else if (currentView === 'week') {
-      const weekDays = getWeekDays(selectedDate);
-      const startDay = weekDays[0];
-      const endDay = weekDays[6];
-      headerText = `${startDay.getDate()} - ${endDay.getDate()} ${monthNames[selectedDate.getMonth()]}`;
+      const wk = getWeekDays(selectedDate);
+      const startLabel = new Intl.DateTimeFormat(appLocale, { day: 'numeric', month: 'short' }).format(wk[0]);
+      const endLabel = new Intl.DateTimeFormat(appLocale, { day: 'numeric', month: 'short' }).format(wk[6]);
+      title = `${startLabel} – ${endLabel}`;
     } else {
-      headerText = `${selectedDate.getDate()} ${monthNames[selectedDate.getMonth()]} ${selectedDate.getFullYear()}`;
+      title = new Intl.DateTimeFormat(appLocale, { day: 'numeric', month: 'long' }).format(selectedDate);
     }
 
     return (
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.navButton, { backgroundColor: colors.neutral[100] }]}
-          onPress={() => navigateDate('prev')}
-        >
-          <Text style={[styles.navButtonText, { color: colors.neutral[700] }]}>←</Text>
-        </TouchableOpacity>
-        
-        <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-          {headerText}
-        </Text>
-        
-        <TouchableOpacity
-          style={[styles.navButton, { backgroundColor: colors.neutral[100] }]}
-          onPress={() => navigateDate('next')}
-        >
-          <Text style={[styles.navButtonText, { color: colors.neutral[700] }]}>→</Text>
-        </TouchableOpacity>
-      </View>
+      <Animated.View style={{ opacity: headerOpacity, transform: [{ translateY: headerSlide }] }}>
+        <View style={styles.heroCard}>
+          <LinearGradient
+            colors={['#0F766E', '#0F9D8C', '#2DD4BF']}
+            style={styles.heroGradient}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          >
+            <View style={styles.heroBlob1} />
+            <View style={styles.heroBlob2} />
+
+            {/* Navigation row */}
+            <View style={styles.heroNavRow}>
+              <TouchableOpacity onPress={() => navigateDate('prev')} style={styles.heroNavBtn}>
+                <Ionicons name="chevron-back" size={18} color="rgba(255,255,255,0.9)" />
+              </TouchableOpacity>
+              <View style={styles.heroTitleBlock}>
+                <Text style={styles.heroKicker}>{t('tabs.calendar.kicker', { lang: appLang, fallback: 'Study Calendar' })}</Text>
+                <Text style={styles.heroTitle}>{title}</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigateDate('next')} style={styles.heroNavBtn}>
+                <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.9)" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Stats row (only month view) */}
+            {currentView === 'month' && (
+              <View style={styles.heroStatsRow}>
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatVal}>{studyDays}</Text>
+                  <Text style={styles.heroStatLbl}>{t('tabs.calendar.study_days', { lang: appLang, fallback: 'Study Days' })}</Text>
+                </View>
+                <View style={styles.heroStatDivider} />
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatVal}>{completedTasks}/{totalTasks}</Text>
+                  <Text style={styles.heroStatLbl}>{t('tabs.calendar.tasks_done', { lang: appLang, fallback: 'Tasks Done' })}</Text>
+                </View>
+                <View style={styles.heroStatDivider} />
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatVal}>{pct}%</Text>
+                  <Text style={styles.heroStatLbl}>{t('tabs.calendar.completion', { lang: appLang, fallback: 'Completion' })}</Text>
+                </View>
+
+                {/* Progress bar */}
+                <View style={styles.heroProgressWrap}>
+                  <View style={styles.heroProgressTrack}>
+                    <Animated.View style={[styles.heroProgressFill, { width: `${pct}%` as any }]} />
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Day stats */}
+            {currentView === 'day' && (() => {
+              const dayTasks = getDateTasks(selectedDate);
+              const done = dayTasks.filter(t => taskCompletions[t.id] || t.completed).length;
+              const mins = dayTasks.reduce((s, t) => s + t.duration, 0);
+              return (
+                <View style={styles.heroStatsRow}>
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatVal}>{dayTasks.length}</Text>
+                    <Text style={styles.heroStatLbl}>{t('tabs.calendar.sessions', { lang: appLang, fallback: 'Sessions' })}</Text>
+                  </View>
+                  <View style={styles.heroStatDivider} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatVal}>{done}</Text>
+                    <Text style={styles.heroStatLbl}>{t('tabs.calendar.completed', { lang: appLang, fallback: 'Completed' })}</Text>
+                  </View>
+                  <View style={styles.heroStatDivider} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatVal}>{mins}m</Text>
+                    <Text style={styles.heroStatLbl}>{t('tabs.calendar.total', { lang: appLang, fallback: 'Total' })}</Text>
+                  </View>
+                </View>
+              );
+            })()}
+          </LinearGradient>
+        </View>
+
+        {/* View toggle pills */}
+        <View style={styles.viewToggleWrap}>
+          {(['month', 'week', 'day'] as CalendarView[]).map((v) => (
+            <TouchableOpacity
+              key={v}
+              onPress={() => switchView(v)}
+              style={[styles.viewToggleBtn, currentView === v && styles.viewToggleBtnActive]}
+              activeOpacity={0.78}
+            >
+              <Ionicons
+                name={v === 'month' ? 'calendar' : v === 'week' ? 'list' : 'today'}
+                size={13}
+                color={currentView === v ? C.teal : C.muted}
+              />
+              <Text style={[styles.viewToggleText, currentView === v && styles.viewToggleTextActive]}>
+                {t(`tabs.calendar.view.${v}`, { lang: appLang, fallback: v.charAt(0).toUpperCase() + v.slice(1) })}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Animated.View>
     );
   };
 
+  // ── Month View ───────────────────────────────────────────────────────────────
   const renderMonthView = () => {
     const days = getDaysInMonth(selectedDate);
-
-    console.log(`📅 Rendering ${days.length} days (${days.filter(d => d === null).length} null, ${days.filter(d => d !== null).length} actual)`);
-
-    // Group days into weeks (rows of 7)
     const weeks: (Date | null)[][] = [];
-    for (let i = 0; i < days.length; i += 7) {
-      weeks.push(days.slice(i, i + 7));
-    }
-
-    // Ensure last week has exactly 7 cells (pad with nulls if needed)
-    if (weeks.length > 0) {
-      const lastWeek = weeks[weeks.length - 1];
-      while (lastWeek.length < 7) {
-        lastWeek.push(null);
-      }
-    }
+    for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
 
     return (
-      <View style={styles.monthContainer}>
-        {/* Day headers */}
-        <View style={styles.dayHeaders}>
-          {dayNames.map((dayName) => (
-            <Text key={dayName} style={[styles.dayHeader, { color: colors.neutral[500] }]}>
-              {dayName}
-            </Text>
+      <View style={styles.monthWrap}>
+        {/* Day name headers */}
+        <View style={styles.monthDayHeaders}>
+          {dayShort.map((d, i) => (
+            <Text key={i} style={styles.monthDayHeaderText}>{d}</Text>
           ))}
         </View>
 
-        {/* Calendar grid - render week by week */}
-        {weeks.map((week, weekIndex) => (
-          <View key={weekIndex} style={styles.calendarWeek}>
-            {week.map((day, dayIndex) => {
-              if (!day) {
-                return <View key={dayIndex} style={styles.emptyDay} />;
-              }
-
+        {/* Grid */}
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.monthWeekRow}>
+            {week.map((day, di) => {
+              if (!day) return <View key={di} style={styles.monthEmptyCell} />;
               const isToday = formatDate(day) === formatDate(new Date());
               const isSelected = formatDate(day) === formatDate(selectedDate);
               const tasks = getDateTasks(day);
-              const progress = getDateProgress(day);
-
               return (
-                <TouchableOpacity
-                  key={dayIndex}
-                  style={[
-                    styles.dayCell,
-                    isToday && { backgroundColor: colors.primary[50] },
-                    isSelected && { backgroundColor: colors.primary[100] },
-                    tasks.length > 0 && { borderWidth: 1, borderColor: colors.primary[200] },
-                  ]}
-                  onPress={() => {
-                    setSelectedDate(day);
-                    // If the day has tasks, switch to day view to show details
-                    if (tasks.length > 0) {
-                      setCurrentView('day');
-                    }
-                  }}
-                >
-                  <Text style={[
-                    styles.dayNumber,
-                    { color: isToday ? colors.primary[600] : colors.neutral[800] },
-                    isSelected && { fontWeight: '700' },
-                    tasks.length > 0 && { fontWeight: '600' }
-                  ]}>
-                    {day.getDate()}
-                  </Text>
-
-                  {tasks.length > 0 && (
-                    <View style={styles.dayIndicators}>
-                      {/* Progress indicator */}
-                      <View style={[styles.progressIndicator, { backgroundColor: colors.neutral[200] }]}>
-                        <View style={[
-                          styles.progressFill,
-                          {
-                            backgroundColor: progress === 100 ? colors.success[500] : colors.primary[500],
-                            width: `${progress}%`
-                          }
-                        ]} />
-                      </View>
-
-                      {/* Subject dots */}
-                      <View style={styles.subjectDots}>
-                        {[...new Set(tasks.map((task: StudyTask) => task.subject))].slice(0, 3).map((subject, idx) => (
-                          <View
-                            key={idx}
-                            style={[
-                              styles.subjectDot,
-                              { backgroundColor: subjectColors[subject as keyof typeof subjectColors]?.border }
-                            ]}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </TouchableOpacity>
+                <DayCell
+                  key={di}
+                  day={day}
+                  isToday={isToday}
+                  isSelected={isSelected}
+                  tasks={tasks}
+                  completions={taskCompletions}
+                    onPress={() => {
+                      setSelectedDate(day);
+                      if (tasks.length > 0) switchView('day');
+                    }}
+                />
               );
             })}
           </View>
         ))}
+
+        {/* Selected day peek */}
+        {(() => {
+          const tasks = getDateTasks(selectedDate);
+          if (tasks.length === 0) return null;
+          return (
+            <View style={styles.monthPeekCard}>
+              <View style={styles.monthPeekHeader}>
+                <View style={styles.monthPeekLeft}>
+                  <View style={styles.monthPeekDot} />
+                  <Text style={styles.monthPeekDate}>
+                    {new Intl.DateTimeFormat(appLocale, { weekday: 'short', day: 'numeric', month: 'long' }).format(selectedDate)}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => switchView('day')} style={styles.monthPeekLink}>
+                  <Text style={styles.monthPeekLinkText}>{t('tabs.calendar.see_all', { lang: appLang, fallback: 'See all' })}</Text>
+                  <Ionicons name="chevron-forward" size={12} color={C.teal} />
+                </TouchableOpacity>
+              </View>
+              {tasks.slice(0, 2).map((task, i) => {
+                const sc = getSubjectColor(task.subject);
+                const done = taskCompletions[task.id] || task.completed;
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    onPress={() => router.push({ pathname: '/study-session' as any, params: { taskId: task.id, subject: task.subject, type: task.type, duration: task.duration.toString(), title: task.title, examCode: programMetadata?.examType } })}
+                    style={[styles.peekTask, { backgroundColor: sc.bg, borderLeftColor: C.teal }]}
+                    activeOpacity={0.78}
+                  >
+                    <Text style={[styles.peekTaskSubject, { color: C.tealDk }, done && styles.strikeText]}>{subjectLabel(task.subject)}</Text>
+                    <Text style={[styles.peekTaskDuration, { color: C.tealDk }]}>{task.duration}m</Text>
+                    {done && <Ionicons name="checkmark-circle" size={14} color={C.teal} />}
+                  </TouchableOpacity>
+                );
+              })}
+              {tasks.length > 2 && (
+                <Text style={styles.monthPeekMore}>
+                  {t('tabs.calendar.more_sessions', {
+                    lang: appLang,
+                    params: { count: tasks.length - 2 },
+                    fallback: `+${tasks.length - 2} more sessions`,
+                  })}
+                </Text>
+              )}
+            </View>
+          );
+        })()}
       </View>
     );
   };
 
+  // ── Week View ────────────────────────────────────────────────────────────────
   const renderWeekView = () => {
     const weekDays = getWeekDays(selectedDate);
+    const todayStr = formatDate(new Date());
 
     return (
-      <View style={styles.weekContainer}>
-        <View style={styles.weekHeader}>
-          {weekDays.map((day, index) => {
-            const isToday = formatDate(day) === formatDate(new Date());
-            const isSelected = formatDate(day) === formatDate(selectedDate);
-            
+      <View style={styles.weekWrap}>
+        {/* Day selector strip */}
+        <View style={styles.weekStrip}>
+          {weekDays.map((day, i) => {
+            const isToday = formatDate(day) === todayStr;
+            const isSel = formatDate(day) === formatDate(selectedDate);
+            const tasks = getDateTasks(day);
+            const hasTasks = tasks.length > 0;
+
             return (
               <TouchableOpacity
-                key={index}
-                style={[
-                  styles.weekDayHeader,
-                  isSelected && { backgroundColor: colors.primary[500] }
-                ]}
+                key={i}
                 onPress={() => setSelectedDate(day)}
+                activeOpacity={0.78}
+                style={styles.weekStripDay}
               >
-                <Text style={[
-                  styles.weekDayName,
-                  { color: isSelected ? '#FFFFFF' : colors.neutral[500] }
-                ]}>
-                  {dayNames[day.getDay()]}
+                <Text style={[styles.weekStripDayName, isSel && { color: C.teal }]}>
+                  {dayShort[day.getDay()]}
                 </Text>
-                <Text style={[
-                  styles.weekDayNumber,
-                  { color: isToday ? colors.primary[600] : isSelected ? '#FFFFFF' : colors.neutral[800] },
-                  isToday && !isSelected && { fontWeight: '700' }
+                <View style={[
+                  styles.weekStripDayNum,
+                  isSel && styles.weekStripDayNumActive,
+                  isToday && !isSel && styles.weekStripDayNumToday,
                 ]}>
-                  {day.getDate()}
-                </Text>
+                  <Text style={[
+                    styles.weekStripDayNumText,
+                    isSel && { color: '#fff' },
+                    isToday && !isSel && { color: C.teal },
+                  ]}>
+                    {day.getDate()}
+                  </Text>
+                </View>
+                {hasTasks && (
+                  <View style={[styles.weekStripDot, { backgroundColor: C.teal }]} />
+                )}
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <ScrollView 
-          style={styles.weekTasksContainer}
-          contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 100 : 88 }}
+        {/* Tasks for selected day */}
+        <ScrollView
+          style={styles.weekTaskScroll}
+          contentContainerStyle={{ paddingBottom: isIOS ? 110 : 92, paddingTop: 12 }}
+          showsVerticalScrollIndicator={false}
+          nestedScrollEnabled
         >
-          <View style={styles.weekDayTasks}>
-            <Text style={[styles.weekDayTitle, { color: colors.neutral[800] }]}>
-              {dayNames[selectedDate.getDay()]}, {selectedDate.getDate()}
+          <View style={styles.weekDayLabel}>
+            <Ionicons name="calendar-outline" size={14} color={C.teal} />
+            <Text style={styles.weekDayLabelText}>
+              {new Intl.DateTimeFormat(appLocale, { weekday: 'short', day: 'numeric', month: 'long' }).format(selectedDate)}
             </Text>
-            
-            {(() => {
-              const tasks = getDateTasks(selectedDate);
-              
-              return tasks.length === 0 ? (
-                <View style={styles.weekEmptyDay}>
-                  <Text style={[styles.weekEmptyText, { color: colors.neutral[500] }]}>
-                    📅 No study sessions planned for this day
-                  </Text>
-                </View>
-              ) : (
-                tasks.map((task: StudyTask, taskIndex: number) => (
-                  <TouchableOpacity
-                    key={taskIndex}
-                    style={[
-                      styles.weekTaskCard,
-                      {
-                        backgroundColor: subjectColors[task.subject as keyof typeof subjectColors]?.bg,
-                        borderLeftColor: subjectColors[task.subject as keyof typeof subjectColors]?.border,
-                      }
-                    ]}
-                    onPress={() => handleStartStudySession(task)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.weekTaskContent}>
-                      <Text style={[
-                        styles.weekTaskSubject,
-                        { color: subjectColors[task.subject as keyof typeof subjectColors]?.text }
-                      ]}>
-                        {task.subject}
-                      </Text>
-                      <Text style={[styles.weekTaskTopic, { color: colors.neutral[600] }]}>
-                        {task.title || `${task.type[0].toUpperCase() + task.type.slice(1)} Session`}
-                      </Text>
-                    </View>
-                    <View style={styles.weekTaskInfo}>
-                      <Text style={[styles.weekTaskTime, { color: colors.neutral[500] }]}>
-                        {getTimeOfDay(task.timeSlot || '')}
-                      </Text>
-                      <Text style={[styles.weekTaskDuration, { color: colors.neutral[500] }]}>
-                        {task.duration}m
-                      </Text>
-                      {(taskCompletions[task.id] || task.completed) && (
-                        <View style={[styles.weekCompletedBadge, { backgroundColor: colors.success[500] }]}>
-                          <Text style={styles.weekCompletedIcon}>✓</Text>
-                        </View>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))
-              );
-            })()}
           </View>
+
+          {(() => {
+            const tasks = getDateTasks(selectedDate);
+            if (tasks.length === 0) {
+              return (
+                <EmptyDay
+                  title={t('tabs.calendar.rest_day', { lang: appLang, fallback: 'Rest Day' })}
+                  message={t('tabs.calendar.empty_week', { lang: appLang, fallback: 'No sessions for this day. Take it easy or catch up on review.' })}
+                />
+              );
+            }
+            return tasks.map((task, i) => (
+              <AnimatedTaskCard
+                key={task.id}
+                task={task}
+                subjectLabel={subjectLabel(task.subject)}
+                isCompleted={taskCompletions[task.id] || task.completed}
+                onPress={() => router.push({ pathname: '/study-session' as any, params: { taskId: task.id, subject: task.subject, type: task.type, duration: task.duration.toString(), title: task.title, examCode: programMetadata?.examType } })}
+                appLang={appLang}
+                index={i}
+              />
+            ));
+          })()}
         </ScrollView>
       </View>
     );
   };
 
+  // ── Day View ─────────────────────────────────────────────────────────────────
   const renderDayView = () => {
     const tasks = getDateTasks(selectedDate);
+    const completedCount = tasks.filter(t => taskCompletions[t.id] || t.completed).length;
+    const totalMins = tasks.reduce((s, t) => s + t.duration, 0);
+    const pct = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
 
     return (
-      <ScrollView 
-        style={styles.dayContainer}
-        contentContainerStyle={{ paddingBottom: Platform.OS === 'ios' ? 100 : 88 }}
+      <ScrollView
+        style={styles.dayScroll}
+        contentContainerStyle={{ paddingBottom: isIOS ? 110 : 92, paddingTop: 4 }}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
       >
-        {tasks.length === 0 ? (
-          <View style={styles.emptyDayContainer}>
-            <Text style={[styles.emptyDayText, { color: colors.neutral[500] }]}>
-              📅 No study sessions planned for this day
-            </Text>
+        {tasks.length > 0 && (
+          <View style={styles.dayProgressCard}>
+            <View style={styles.dayProgressRow}>
+              <View>
+                <Text style={styles.dayProgressLabel}>{t('tabs.calendar.todays_goal', { lang: appLang, fallback: "Today's Goal" })}</Text>
+                <Text style={styles.dayProgressSub}>
+                  {t('tabs.calendar.day_progress', {
+                    lang: appLang,
+                    params: { completed: completedCount, total: tasks.length, minutes: totalMins },
+                    fallback: `${completedCount} of ${tasks.length} complete · ${totalMins}m total`,
+                  })}
+                </Text>
+              </View>
+              <View style={[styles.dayProgressBadge, { backgroundColor: pct === 100 ? 'rgba(45,212,191,0.16)' : C.tealLt }]}>
+                {pct === 100 ? (
+                  <>
+                    <Ionicons name="checkmark-done-circle" size={13} color={C.teal} />
+                    <Text style={[styles.dayProgressBadgeText, { color: C.tealDk }]}>{t('tabs.calendar.done_bang', { lang: appLang, fallback: 'Done!' })}</Text>
+                  </>
+                ) : (
+                  <Text style={[styles.dayProgressBadgeText, { color: C.teal }]}>{pct}%</Text>
+                )}
+              </View>
+            </View>
+            <View style={styles.dayProgressTrack}>
+              <View style={[styles.dayProgressFill, {
+                width: `${pct}%` as any,
+                backgroundColor: C.teal,
+              }]} />
+            </View>
           </View>
+        )}
+
+        {tasks.length === 0 ? (
+          <EmptyDay
+            title={t('tabs.calendar.rest_day', { lang: appLang, fallback: 'Rest Day' })}
+            message={t('tabs.calendar.empty_day', { lang: appLang, fallback: "No study sessions planned. Great time to rest or browse tomorrow's plan." })}
+          />
         ) : (
-          <View style={styles.dayTasksList}>
-            {tasks.map((task: StudyTask, index: number) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.dayTaskCard,
-                  {
-                    backgroundColor: colors.neutral[0],
-                    borderLeftColor: subjectColors[task.subject as keyof typeof subjectColors]?.border,
-                  }
-                ]}
-                onPress={() => handleStartStudySession(task)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.dayTaskTime}>
-                  <Text style={[styles.dayTaskTimeText, { color: colors.neutral[600] }]}>
-                    {getTimeOfDay(task.timeSlot || '')}
-                  </Text>
-                  <Text style={[styles.dayTaskDuration, { color: colors.neutral[500] }]}>
-                    {task.duration} min
-                  </Text>
-                </View>
-                
-                <View style={styles.dayTaskContent}>
-                  <View style={styles.dayTaskHeader}>
-                    <Text style={[
-                      styles.dayTaskSubject,
-                      { color: subjectColors[task.subject as keyof typeof subjectColors]?.text }
-                    ]}>
-                      {task.subject}
-                    </Text>
-                    {(taskCompletions[task.id] || task.completed) && (
-                      <View style={[styles.completedBadge, { backgroundColor: colors.success[500] }]}>
-                        <Text style={styles.completedBadgeText}>✓</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={[styles.dayTaskTopic, { color: colors.neutral[600] }]}>
-                    {task.title || `${task.type[0].toUpperCase() + task.type.slice(1)} Session`}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+          <View style={{ gap: 10 }}>
+            {tasks.map((task, i) => (
+              <AnimatedTaskCard
+                key={task.id}
+                task={task}
+                subjectLabel={subjectLabel(task.subject)}
+                isCompleted={taskCompletions[task.id] || task.completed}
+                onPress={() => router.push({ pathname: '/study-session' as any, params: { taskId: task.id, subject: task.subject, type: task.type, duration: task.duration.toString(), title: task.title, examCode: programMetadata?.examType } })}
+                appLang={appLang}
+                index={i}
+              />
             ))}
           </View>
         )}
@@ -644,312 +779,250 @@ export default function CalendarScreen() {
     );
   };
 
+  // ─── Loading ─────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <View style={styles.loadWrap}>
+        <LinearGradient colors={[C.bg0, C.bg1, C.bg2]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[C.tealDk, C.teal]} style={styles.loadBall} start={{ x:0,y:0 }} end={{ x:1,y:1 }}>
+          <Ionicons name="calendar" size={28} color="#fff" />
+        </LinearGradient>
+        <Text style={styles.loadTitle}>{t('tabs.calendar.loading_title', { lang: appLang, fallback: 'Building your calendar...' })}</Text>
+        <Text style={styles.loadSub}>{t('tabs.calendar.loading_subtitle', { lang: appLang, fallback: 'Organizing your schedule' })}</Text>
+      </View>
+    );
+  }
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
-      
-      {/* Top Bar */}
-      <View style={styles.topBar}>
-        <Text style={[styles.screenTitle, { color: colors.neutral[900] }]}>
-          Study Calendar
-        </Text>
-        {renderViewToggle()}
-      </View>
+    <SafeAreaView style={styles.container} edges={['top','left','right']}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <LinearGradient colors={[C.bg0, C.bg1, C.bg2]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+      <View style={styles.bgOrbA} />
+      <View style={styles.bgOrbB} />
 
-      {/* Navigation Header */}
-      {renderHeader()}
+      <ScrollView
+        style={styles.rootScroll}
+        contentContainerStyle={styles.rootScrollContent}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+      >
+        {renderHeroHeader()}
 
-      {/* Calendar Content */}
-      <View style={styles.calendarContent}>
-        {currentView === 'month' && renderMonthView()}
-        {currentView === 'week' && renderWeekView()}
-        {currentView === 'day' && renderDayView()}
-      </View>
+        <Animated.View style={{
+          opacity: viewAnim,
+          transform: [{ translateY: viewAnim.interpolate({ inputRange: [0,1], outputRange: [10,0] }) }],
+        }}>
+          {currentView === 'month' && renderMonthView()}
+          {currentView === 'week' && renderWeekView()}
+          {currentView === 'day' && renderDayView()}
+        </Animated.View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const CELL_SIZE = (width - 40 - 32) / 7; // padding 20 each side + 2 per cell
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: isIOS ? 8 : 16,
-    paddingBottom: 16,
-  },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    borderRadius: 8,
-    padding: 2,
-  },
-  viewToggleButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  viewToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  navButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  navButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  calendarContent: {
-    flex: 1,
-    paddingHorizontal: isTablet ? 40 : 20,
-  },
-  
-  // Month View
-  monthContainer: {},
-  dayHeaders: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  dayHeader: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: isTablet ? 14 : 12,
-    fontWeight: '600',
-    paddingVertical: isTablet ? 12 : 8,
-  },
-  calendarWeek: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  emptyDay: {
-    flex: 1,
-    height: isTablet ? 90 : 70,
-  },
-  dayCell: {
-    flex: 1,
-    height: isTablet ? 90 : 70,
-    padding: isTablet ? 8 : 4,
-    borderRadius: isTablet ? 12 : 8,
-    alignItems: 'center',
-  },
-  dayNumber: {
-    fontSize: isTablet ? 18 : 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  dayIndicators: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  progressIndicator: {
-    width: 20,
-    height: 3,
-    borderRadius: 1.5,
-    marginBottom: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 3,
-    borderRadius: 1.5,
-  },
-  subjectDots: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  subjectDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-  },
+  container: { flex: 1, backgroundColor: C.bg0 },
+  bgOrbA: { position: 'absolute', width: 260, height: 260, borderRadius: 130, top: -80, right: -100, backgroundColor: 'rgba(45,212,191,0.14)' },
+  bgOrbB: { position: 'absolute', width: 220, height: 220, borderRadius: 110, bottom: 120, left: -110, backgroundColor: 'rgba(52,211,153,0.10)' },
 
-  // Week View
-  weekContainer: {
-    flex: 1,
-  },
-  weekHeader: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  weekDayHeader: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginHorizontal: 2,
-  },
-  weekDayName: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  weekDayNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  weekTasksContainer: {
-    flex: 1,
-  },
-  weekDayTasks: {
-    marginBottom: 20,
-  },
-  weekDayTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  weekTaskCard: {
-    padding: isTablet ? 16 : 12,
-    borderRadius: isTablet ? 12 : 8,
-    borderLeftWidth: isTablet ? 5 : 4,
-    marginBottom: isTablet ? 12 : 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  weekTaskContent: {
-    flex: 1,
-  },
-  weekTaskSubject: {
-    fontSize: isTablet ? 17 : 15,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  weekTaskTopic: {
-    fontSize: isTablet ? 15 : 13,
-  },
-  weekTaskInfo: {
-    alignItems: 'flex-end',
-  },
-  weekTaskTime: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  weekTaskDuration: {
-    fontSize: 11,
-  },
-  weekTaskCompleted: {
-    fontSize: 16,
-    color: '#10B981',
-    marginTop: 4,
-  },
-  weekCompletedBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  weekCompletedIcon: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  weekEmptyDay: {
-    padding: 16,
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  weekEmptyText: {
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
+  loadWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadBall: { width: 78, height: 78, borderRadius: 39, justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: C.teal, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8 },
+  loadTitle: { fontSize: 20, fontWeight: '700', color: C.ink, marginBottom: 5 },
+  loadSub: { fontSize: 14, color: C.sub },
 
-  // Day View
-  dayContainer: {
-    flex: 1,
+  rootScroll: { flex: 1 },
+  rootScrollContent: { paddingHorizontal: 20, paddingTop: isIOS ? 6 : 14, paddingBottom: isIOS ? 120 : 100 },
+
+  // ── Hero ──
+  heroCard: {
+    borderRadius: 22, overflow: 'hidden', marginBottom: 14,
+    shadowColor: '#0F9D8C', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 18, elevation: 12,
   },
-  emptyDayContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
+  heroGradient: { padding: 20, paddingTop: 18 },
+  heroBlob1: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)', top: -40, right: -30 },
+  heroBlob2: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 60 },
+  heroNavRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  heroNavBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  emptyDayText: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  dayTasksList: {
-    paddingTop: 8,
-  },
-  dayTaskCard: {
-    borderRadius: isTablet ? 16 : 12,
-    borderLeftWidth: isTablet ? 8 : 6,
-    marginBottom: isTablet ? 16 : 12,
+  heroTitleBlock: { flex: 1, alignItems: 'center' },
+  heroKicker: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.75)', letterSpacing: 1.1, textTransform: 'uppercase', marginBottom: 3 },
+  heroTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  heroStatsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  heroStat: { flex: 1, alignItems: 'center' },
+  heroStatVal: { fontSize: 18, fontWeight: '800', color: '#fff' },
+  heroStatLbl: { fontSize: 10, fontWeight: '500', color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  heroStatDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.25)' },
+  heroProgressWrap: { width: '100%', marginTop: 12 },
+  heroProgressTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+  heroProgressFill: { height: 4, borderRadius: 2, backgroundColor: '#fff' },
+
+  // ── View Toggle ──
+  viewToggleWrap: {
     flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  dayTaskTime: {
-    width: isTablet ? 110 : 90,
-    padding: isTablet ? 20 : 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayTaskTimeText: {
-    fontSize: isTablet ? 16 : 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  dayTaskDuration: {
-    fontSize: 11,
-  },
-  dayTaskContent: {
-    flex: 1,
-    padding: 16,
-  },
-  dayTaskHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  dayTaskSubject: {
-    fontSize: isTablet ? 18 : 16,
-    fontWeight: '700',
-  },
-  dayTaskTopic: {
-    fontSize: isTablet ? 16 : 14,
-    lineHeight: isTablet ? 24 : 20,
-  },
-  completedBadge: {
-    width: 24,
-    height: 24,
+    backgroundColor: C.card,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 4,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
   },
-  completedBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  viewToggleBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 8, borderRadius: 9,
   },
-}); 
+  viewToggleBtnActive: {
+    backgroundColor: C.tealLt,
+    shadowColor: C.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.12, shadowRadius: 3, elevation: 1,
+  },
+  viewToggleText: { fontSize: 12, fontWeight: '600', color: C.muted },
+  viewToggleTextActive: { color: C.teal },
+
+  // ── Month View ──
+  monthWrap: { gap: 4 },
+  monthDayHeaders: { flexDirection: 'row', marginBottom: 6 },
+  monthDayHeaderText: {
+    flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700',
+    color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  monthWeekRow: { flexDirection: 'row', marginBottom: 2 },
+  monthEmptyCell: { flex: 1, height: CELL_SIZE + 4 },
+
+  dayCellWrapper: { flex: 1 },
+  dayCell: {
+    margin: 1, borderRadius: 10, padding: 4,
+    height: CELL_SIZE + 4, alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  dayCellToday: { backgroundColor: 'rgba(15,157,140,0.08)' },
+  dayCellSelected: { backgroundColor: C.teal },
+  dayCellNum: { fontSize: 13, fontWeight: '600', color: C.ink, marginBottom: 2 },
+  dayCellNumToday: { color: C.teal, fontWeight: '800' },
+  dayCellNumSelected: { color: '#fff', fontWeight: '800' },
+  dayCellIndicators: { alignItems: 'center', width: '100%' },
+  dayMiniTrack: { width: 18, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(148,163,184,0.3)', overflow: 'hidden', marginBottom: 2 },
+  dayMiniFill: { height: 3, borderRadius: 1.5 },
+  daySubjectDots: { flexDirection: 'row', gap: 2, justifyContent: 'center' },
+  daySubjectDot: { width: 4, height: 4, borderRadius: 2 },
+
+  // ── Month peek card ──
+  monthPeekCard: {
+    marginTop: 12, backgroundColor: C.card, borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: C.cardBorder,
+    shadowColor: C.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+  },
+  monthPeekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  monthPeekLeft: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  monthPeekDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.teal },
+  monthPeekDate: { fontSize: 13, fontWeight: '700', color: C.ink },
+  monthPeekLink: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  monthPeekLinkText: { fontSize: 12, fontWeight: '600', color: C.teal },
+  peekTask: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    padding: 10, borderRadius: 10, borderLeftWidth: 3, marginBottom: 6,
+  },
+  peekTaskSubject: { flex: 1, fontSize: 13, fontWeight: '600' },
+  peekTaskDuration: { fontSize: 12, fontWeight: '500' },
+  monthPeekMore: { fontSize: 12, color: C.muted, textAlign: 'center', paddingTop: 4 },
+
+  // ── Week View ──
+  weekWrap: { flex: 1 },
+  weekStrip: {
+    flexDirection: 'row',
+    backgroundColor: C.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    padding: 8,
+    marginBottom: 14,
+    shadowColor: C.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1,
+  },
+  weekStripDay: { flex: 1, alignItems: 'center', gap: 4 },
+  weekStripDayName: { fontSize: 10, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  weekStripDayNum: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  weekStripDayNumActive: { backgroundColor: C.teal },
+  weekStripDayNumToday: { backgroundColor: C.tealLt },
+  weekStripDayNumText: { fontSize: 14, fontWeight: '700', color: C.ink },
+  weekStripDot: { width: 5, height: 5, borderRadius: 3 },
+
+  weekTaskScroll: { flex: 1 },
+  weekDayLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  weekDayLabelText: { fontSize: 14, fontWeight: '700', color: C.ink },
+
+  // ── Day View ──
+  dayScroll: { flex: 1 },
+  dayProgressCard: {
+    backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder,
+    padding: 14, marginBottom: 14,
+    shadowColor: C.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2,
+  },
+  dayProgressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  dayProgressLabel: { fontSize: 14, fontWeight: '700', color: C.ink },
+  dayProgressSub: { fontSize: 12, color: C.sub, marginTop: 2 },
+  dayProgressBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  dayProgressBadgeText: { fontSize: 12, fontWeight: '700' },
+  dayProgressTrack: { height: 7, borderRadius: 4, backgroundColor: C.track, overflow: 'hidden' },
+  dayProgressFill: { height: 7, borderRadius: 4 },
+
+  // ── Task Card ──
+  taskCard: {
+    flexDirection: 'row', alignItems: 'stretch',
+    backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder,
+    overflow: 'hidden',
+    shadowColor: C.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
+    marginBottom: 2,
+  },
+  taskCardDone: { opacity: 0.6 },
+  taskAccentBar: { width: 4, alignSelf: 'stretch' },
+  taskInner: { flex: 1, padding: 12, paddingLeft: 12 },
+  taskTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 },
+  taskTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1, minWidth: 0, paddingRight: 8 },
+  taskActionWrap: { marginLeft: 8, paddingLeft: 2 },
+  taskSubjectDot: { width: 7, height: 7, borderRadius: 4 },
+  taskSubject: { fontSize: 14, fontWeight: '700', color: C.ink, flex: 1 },
+  typeBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
+  typeBadgeSolid: { backgroundColor: C.teal, borderColor: C.teal },
+  typeBadgeOutline: { backgroundColor: '#FFFFFF', borderColor: 'rgba(15,157,140,0.35)' },
+  typeBadgeDashed: { backgroundColor: '#FFFFFF', borderColor: 'rgba(15,157,140,0.45)', borderStyle: 'dashed' },
+  typeBadgeSoft: { backgroundColor: C.tealLt, borderColor: 'rgba(15,157,140,0.20)' },
+  typeBadgeKeyPill: { minWidth: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 2 },
+  typeBadgeKeyPillSolid: { backgroundColor: 'rgba(255,255,255,0.20)' },
+  typeBadgeKeyPillSoft: { backgroundColor: 'rgba(15,157,140,0.14)' },
+  typeBadgeKeyText: { fontSize: 8, fontWeight: '800', letterSpacing: 0.3 },
+  typeBadgeKeyTextSolid: { color: '#FFFFFF' },
+  typeBadgeKeyTextTeal: { color: C.tealDk },
+  typeBadgeText: { fontSize: 10, fontWeight: '600', textTransform: 'capitalize' },
+  typeBadgeTextSolid: { color: '#FFFFFF' },
+  typeBadgeTextTeal: { color: C.tealDk },
+  taskTitle: { fontSize: 12, color: C.sub, marginBottom: 7 },
+  taskMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  taskMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  taskMetaText: { fontSize: 11, color: C.muted, fontWeight: '500' },
+  taskMetaDivider: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.track },
+  doneChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(45,212,191,0.14)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  doneChipText: { fontSize: 11, fontWeight: '700', color: C.tealDk },
+  playChip: { width: 28, height: 28, borderRadius: 9, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  playChipSolid: { backgroundColor: C.teal, borderColor: C.teal },
+  playChipOutline: { backgroundColor: '#FFFFFF', borderColor: 'rgba(15,157,140,0.35)' },
+  strikeText: { textDecorationLine: 'line-through', color: C.muted },
+
+  // ── Empty ──
+  emptyWrap: { paddingTop: 12 },
+  emptyBox: {
+    borderRadius: 18, padding: 30, alignItems: 'center',
+    borderWidth: 1, borderColor: C.cardBorder,
+  },
+  emptyIconRing: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: 'rgba(15,157,140,0.10)', borderWidth: 1, borderColor: C.cardBorder,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 14,
+  },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: C.ink, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: C.sub, textAlign: 'center', lineHeight: 19 },
+});

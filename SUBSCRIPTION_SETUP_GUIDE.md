@@ -86,7 +86,7 @@ RevenueCat'te: `com.studymap.premium.monthly` ← Aynı!
 
 ## 1️⃣ Apple App Store Connect Ayarları
 
-> ✅ **Mevcut Durum:** "StudyMap Pro Subscriptions" group'unda **2 subscription var** (Monthly + Annual)
+> ✅ **Mevcut Durum:** mevcut subscription group'unda **2 subscription var** (Monthly + Annual)
 > 🆕 **Yapman Gereken:** Weekly subscription ekle
 
 ### A. Mevcut Subscription'ları Kontrol Et
@@ -94,7 +94,7 @@ RevenueCat'te: `com.studymap.premium.monthly` ← Aynı!
 #### Adım 1: Subscription Group'a Git
 1. App Store Connect → Uygulamana git
 2. **"Subscriptions"** tab'ına tıkla (soldaki menüden)
-3. **"StudyMap Pro Subscriptions"** grubuna tıkla
+3. Mevcut subscription grubuna tıkla
 
 #### Adım 2: Mevcut Product ID'leri Not Et
 İçindeki 2 subscription'a tıkla ve şunları not et:
@@ -117,7 +117,7 @@ Price: _____________
 
 #### Adım 3: Weekly Subscription Ekle (YENİ)
 
-1. "StudyMap Pro Subscriptions" grup sayfasındayken
+1. Mevcut subscription group sayfasındayken
 2. **"+"** butonuna tıkla (grup içine yeni subscription eklemek için)
 3. Bilgileri doldur:
 
@@ -127,7 +127,7 @@ Product ID: com.studymap.mobile.premium.weekly
 (veya mevcut pattern'e uygun: studymap_pro_weekly)
 
 Reference Name: StudyMap Premium Weekly
-Subscription Group: StudyMap Pro Subscriptions (otomatik seçili)
+Subscription Group: mevcut subscription group (otomatik seçili)
 Subscription Duration: 1 Week
 ```
 
@@ -244,7 +244,7 @@ Platform: iOS
 
 3. Her product için **"Save"**
 
-> 🔍 **Hatırlatma:** Apple Store Connect → Subscriptions → StudyMap Pro Subscriptions → Her subscription'a tıkla → "Product ID" alanını kopyala → RevenueCat'e yapıştır
+> 🔍 **Hatırlatma:** Apple Store Connect → Subscriptions → mevcut subscription group → her subscription'a tıkla → "Product ID" alanını kopyala → RevenueCat'e yapıştır
 >
 > ⚠️ **SADECE 2 PRODUCT!** Weekly yok, Lifetime kullanmıyoruz!
 
@@ -501,7 +501,7 @@ eas build --platform ios --profile production
 ## 8️⃣ Checklist
 
 ### 🍎 Apple Store Connect (ÖNCE):
-- [ ] "StudyMap Pro Subscriptions" subscription group'u kontrol edildi ✅
+- [ ] Mevcut subscription group kontrol edildi ✅
 - [ ] Monthly subscription Product ID'si not edildi: `_____________`
 - [ ] Annual subscription Product ID'si not edildi: `_____________`
 - [ ] Her iki subscription için:

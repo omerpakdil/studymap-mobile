@@ -1,19 +1,20 @@
 {
   "name": "studymap-pro",
   "main": "expo-router/entry",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "validate:exams": "node ./scripts/validate-exam-coverage.js",
+    "validate:i18n": "node ./scripts/validate-i18n-keys.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "^6.1.2",
     "@expo/vector-icons": "^15.0.2",
-    "@google/genai": "^1.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "5.0.1",
     "@react-navigation/bottom-tabs": "^7.3.10",
@@ -48,6 +49,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.4",
+    "react-native-country-flag": "^2.0.2",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-get-random-values": "^1.11.0",
     "react-native-purchases": "^8.11.7",
@@ -60,7 +62,9 @@
     "react-native-worklets-core": "^1.6.2",
     "readable-stream": "^4.7.0",
     "url": "^0.11.4",
-    "util": "^0.12.5"
+    "util": "^0.12.5",
+    "@react-native-community/datetimepicker": "8.4.4",
+    "expo-localization": "~17.0.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

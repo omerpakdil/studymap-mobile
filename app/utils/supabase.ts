@@ -20,7 +20,8 @@ export interface DatabaseUser {
   id: string;
   user_id: string;
   referral_code: string;
-  referred_by?: string;
+  referral_extension_end_date?: string;
+  referral_used_code?: string;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +36,7 @@ export interface DatabaseReferral {
   trial_end_date?: string;
   subscribed_at?: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface DatabaseReferralStats {
@@ -43,6 +45,72 @@ export interface DatabaseReferralStats {
   total_referrals: number;
   successful_referrals: number;
   total_days_earned: number;
+}
+
+export interface DatabasePushToken {
+  id: string;
+  user_id: string;
+  expo_push_token: string;
+  platform: 'ios' | 'android' | 'web';
+  locale?: string;
+  timezone?: string;
+  is_active: boolean;
+  last_seen_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseNotificationPreferences {
+  id: string;
+  user_id: string;
+  study_reminders: boolean;
+  plan_summaries: boolean;
+  progress_nudges: boolean;
+  premium_updates: boolean;
+  referral_updates: boolean;
+  break_reminders: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  preferred_study_time: string;
+  upcoming_lead_minutes: number;
+  recovery_delay_minutes: number;
+  daily_wrap_time: string;
+  weekly_plan_day: number;
+  weekly_plan_time: string;
+  locale?: string;
+  timezone?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseNotificationEvent {
+  id: string;
+  user_id: string;
+  notification_type: string;
+  notification_channel: 'local' | 'remote';
+  notification_status: 'planned' | 'sent' | 'delivered' | 'opened' | 'failed' | 'cancelled';
+  title?: string;
+  body?: string;
+  payload: Record<string, unknown>;
+  scheduled_for?: string;
+  delivered_at?: string;
+  opened_at?: string;
+  created_at: string;
+}
+
+export interface DatabaseNotificationState {
+  id: string;
+  user_id: string;
+  locale?: string;
+  timezone?: string;
+  study_streak: number;
+  completed_tasks: number;
+  plan_updated_at?: string;
+  last_opened_at?: string;
+  last_study_session_at?: string;
+  next_exam_date?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Database helper functions

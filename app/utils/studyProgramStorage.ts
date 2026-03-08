@@ -1,5 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { StudyProgram, StudyTask } from './claudeStudyGenerator';
+import { getLocalDateKey, getStartOfLocalWeek } from './localDate';
+import { syncRemoteNotificationState } from './remoteNotificationService';
+import { devLog, devWarn, reportError } from './logger';
+import { loadSubjectFocusOverrides } from './subjectFocusManager';
+import { StudyProgram, StudyTask } from './studyTypes';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -13,9 +17,9 @@ const STORAGE_KEYS = {
 export const saveStudyProgram = async (program: StudyProgram): Promise<void> => {
   try {
     await AsyncStorage.setItem(STORAGE_KEYS.STUDY_PROGRAM, JSON.stringify(program));
-    console.log('✅ Study program saved successfully');
+    devLog('✅ Study program saved successfully');
   } catch (error) {
-    console.error('❌ Error saving study program:', error);
+    reportError('❌ Error saving study program:', error);
     throw error;
   }
 };
@@ -26,12 +30,12 @@ export const loadStudyProgram = async (): Promise<StudyProgram | null> => {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.STUDY_PROGRAM);
     if (data) {
       const program = JSON.parse(data);
-      console.log('✅ Study program loaded successfully');
+      devLog('✅ Study program loaded successfully');
       return program;
     }
     return null;
   } catch (error) {
-    console.error('❌ Error loading study program:', error);
+    reportError('❌ Error loading study program:', error);
     return null;
   }
 };
@@ -42,14 +46,14 @@ export const saveDailyTasks = async (tasks: StudyTask[]): Promise<void> => {
     // Debug: Check completed status of tasks being saved
     const completedTasks = tasks.filter(task => task.completed === true);
     if (completedTasks.length > 0) {
-      console.log('⚠️ WARNING: Saving tasks with completed=true:', completedTasks.map(t => ({ id: t.id, subject: t.subject, completed: t.completed })));
+      devLog('⚠️ WARNING: Saving tasks with completed=true:', completedTasks.map(t => ({ id: t.id, subject: t.subject, completed: t.completed })));
     }
-    console.log(`🔍 Debug: Saving ${tasks.length} tasks, ${completedTasks.length} already completed`);
+    devLog(`🔍 Debug: Saving ${tasks.length} tasks, ${completedTasks.length} already completed`);
     
     await AsyncStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(tasks));
-    console.log(`✅ ${tasks.length} daily tasks saved successfully`);
+    devLog(`✅ ${tasks.length} daily tasks saved successfully`);
   } catch (error) {
-    console.error('❌ Error saving daily tasks:', error);
+    reportError('❌ Error saving daily tasks:', error);
     throw error;
   }
 };
@@ -62,14 +66,14 @@ export const loadDailyTasks = async (): Promise<StudyTask[]> => {
       const tasks = JSON.parse(data);
       const completedTasks = tasks.filter((task: StudyTask) => task.completed === true);
       if (completedTasks.length > 0) {
-        console.log('⚠️ WARNING: Loaded tasks with completed=true:', completedTasks.map((t: StudyTask) => ({ id: t.id, subject: t.subject, completed: t.completed })));
+        devLog('⚠️ WARNING: Loaded tasks with completed=true:', completedTasks.map((t: StudyTask) => ({ id: t.id, subject: t.subject, completed: t.completed })));
       }
-      console.log(`🔍 Debug: Loaded ${tasks.length} tasks, ${completedTasks.length} already completed`);
+      devLog(`🔍 Debug: Loaded ${tasks.length} tasks, ${completedTasks.length} already completed`);
       return tasks;
     }
     return [];
   } catch (error) {
-    console.error('❌ Error loading daily tasks:', error);
+    reportError('❌ Error loading daily tasks:', error);
     return [];
   }
 };
@@ -80,7 +84,7 @@ export const getTasksForDate = async (date: string): Promise<StudyTask[]> => {
     const allTasks = await loadDailyTasks();
     return allTasks.filter(task => task.date === date);
   } catch (error) {
-    console.error('❌ Error getting tasks for date:', error);
+    reportError('❌ Error getting tasks for date:', error);
     return [];
   }
 };
@@ -90,17 +94,16 @@ export const getWeeklyTasks = async (): Promise<StudyTask[]> => {
   try {
     const allTasks = await loadDailyTasks();
     const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
+    const startOfWeek = getStartOfLocalWeek(today);
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
     
-    const startDateString = startOfWeek.toISOString().split('T')[0];
-    const endDateString = endOfWeek.toISOString().split('T')[0];
+    const startDateString = getLocalDateKey(startOfWeek);
+    const endDateString = getLocalDateKey(endOfWeek);
     
     return allTasks.filter(task => task.date >= startDateString && task.date <= endDateString);
   } catch (error) {
-    console.error('❌ Error getting weekly tasks:', error);
+    reportError('❌ Error getting weekly tasks:', error);
     return [];
   }
 };
@@ -122,10 +125,19 @@ export const markTaskComplete = async (taskId: string, duration?: number): Promi
       task.id === taskId ? { ...task, completed: true, progress: 100 } : task
     );
     await saveDailyTasks(updatedTasks);
+
+    const metadata = await getProgramMetadata();
+    void syncRemoteNotificationState({
+      studyStreak: metadata?.currentStreak ?? 0,
+      completedTasks: metadata?.completedTasks ?? 0,
+      lastStudySessionAt: new Date().toISOString(),
+      lastOpenedAt: new Date().toISOString(),
+      nextExamDate: metadata?.examDate ?? null,
+    });
     
-    console.log(`✅ Task ${taskId} marked as completed`);
+    devLog(`✅ Task ${taskId} marked as completed`);
   } catch (error) {
-    console.error('❌ Error marking task complete:', error);
+    reportError('❌ Error marking task complete:', error);
     throw error;
   }
 };
@@ -138,9 +150,9 @@ export const updateTaskProgress = async (taskId: string, progress: number): Prom
       task.id === taskId ? { ...task, progress: Math.min(100, Math.max(0, progress)) } : task
     );
     await saveDailyTasks(updatedTasks);
-    console.log(`✅ Task ${taskId} progress updated to ${progress}%`);
+    devLog(`✅ Task ${taskId} progress updated to ${progress}%`);
   } catch (error) {
-    console.error('❌ Error updating task progress:', error);
+    reportError('❌ Error updating task progress:', error);
     throw error;
   }
 };
@@ -151,8 +163,23 @@ export const getTaskCompletions = async (): Promise<Record<string, { completedAt
     const data = await AsyncStorage.getItem(STORAGE_KEYS.TASK_COMPLETIONS);
     return data ? JSON.parse(data) : {};
   } catch (error) {
-    console.error('❌ Error getting task completions:', error);
+    reportError('❌ Error getting task completions:', error);
     return {};
+  }
+};
+
+export const getLatestStudyActivityAt = async (): Promise<string | null> => {
+  try {
+    const completions = await getTaskCompletions();
+    const timestamps = Object.values(completions)
+      .map(entry => entry.completedAt)
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a));
+
+    return timestamps[0] ?? null;
+  } catch (error) {
+    reportError('❌ Error getting latest study activity:', error);
+    return null;
   }
 };
 
@@ -179,7 +206,7 @@ export const calculateDailyProgress = async (date: string): Promise<{ completed:
       return sum + (completion?.duration || task.duration);
     }, 0);
     
-    console.log('📊 Daily progress debug for', date, ':', {
+    devLog('📊 Daily progress debug for', date, ':', {
       totalDailyTasks: tasks.length,
       completedDailyTasks: completedTasks.length,
       totalMinutes
@@ -191,7 +218,7 @@ export const calculateDailyProgress = async (date: string): Promise<{ completed:
       minutes: totalMinutes,
     };
   } catch (error) {
-    console.error('❌ Error calculating daily progress:', error);
+    reportError('❌ Error calculating daily progress:', error);
     return { completed: 0, total: 0, minutes: 0 };
   }
 };
@@ -219,7 +246,7 @@ export const calculateWeeklyProgress = async (): Promise<{ completed: number; to
       return sum + (completion?.duration || task.duration);
     }, 0) / 60; // Convert to hours
     
-    console.log('📊 Weekly progress debug:', {
+    devLog('📊 Weekly progress debug:', {
       totalWeeklyTasks: tasks.length,
       completedWeeklyTasks: completedTasks.length,
       totalHours: Math.round(totalHours * 10) / 10
@@ -231,7 +258,7 @@ export const calculateWeeklyProgress = async (): Promise<{ completed: number; to
       hours: Math.round(totalHours * 10) / 10, // Round to 1 decimal
     };
   } catch (error) {
-    console.error('❌ Error calculating weekly progress:', error);
+    reportError('❌ Error calculating weekly progress:', error);
     return { completed: 0, total: 0, hours: 0 };
   }
 };
@@ -277,7 +304,7 @@ export const getSubjectProgress = async (): Promise<Record<string, { completed: 
     
     return progress;
   } catch (error) {
-    console.error('❌ Error calculating subject progress:', error);
+    reportError('❌ Error calculating subject progress:', error);
     return {};
   }
 };
@@ -290,7 +317,7 @@ export const getStudyStreak = async (): Promise<number> => {
     let currentDate = new Date();
     
     while (true) {
-      const dateString = currentDate.toISOString().split('T')[0];
+      const dateString = getLocalDateKey(currentDate);
       const dayTasks = await getTasksForDate(dateString);
       
       // Check for session-based completions for this day
@@ -318,7 +345,7 @@ export const getStudyStreak = async (): Promise<number> => {
     
     return streak;
   } catch (error) {
-    console.error('❌ Error calculating study streak:', error);
+    reportError('❌ Error calculating study streak:', error);
     return 0;
   }
 };
@@ -329,7 +356,7 @@ export const isProgramGenerated = async (): Promise<boolean> => {
     const program = await loadStudyProgram();
     return !!program;
   } catch (error) {
-    console.error('❌ Error checking program status:', error);
+    reportError('❌ Error checking program status:', error);
     return false;
   }
 };
@@ -380,7 +407,7 @@ export const getProgramMetadata = async (): Promise<{
       }
       
     } catch (error) {
-      console.warn('Error parsing exam date:', program.examDate);
+      devWarn('Error parsing exam date:', program.examDate);
       daysRemaining = 0;
     }
     
@@ -390,7 +417,7 @@ export const getProgramMetadata = async (): Promise<{
     ).length;
     const currentStreak = await getStudyStreak();
     
-    console.log('📊 Task completion debug:', {
+    devLog('📊 Task completion debug:', {
       totalTasks,
       completedFromStorage: program.dailyTasks.filter(task => completions[task.id]).length,
       completedFromTaskStatus: program.dailyTasks.filter(task => task.completed).length,
@@ -410,7 +437,7 @@ export const getProgramMetadata = async (): Promise<{
       currentStreak,
     };
   } catch (error) {
-    console.error('❌ Error getting program metadata:', error);
+    reportError('❌ Error getting program metadata:', error);
     return null;
   }
 };
@@ -427,13 +454,323 @@ export const clearStudyProgramData = async (): Promise<void> => {
     
     if (sessionKeys.length > 0) {
       await AsyncStorage.multiRemove(sessionKeys);
-      console.log(`🗑️ Cleared ${sessionKeys.length} session completion keys`);
+      devLog(`🗑️ Cleared ${sessionKeys.length} session completion keys`);
     }
     
-    console.log('✅ Study program data cleared completely');
+    devLog('✅ Study program data cleared completely');
   } catch (error) {
-    console.error('❌ Error clearing study program data:', error);
+    reportError('❌ Error clearing study program data:', error);
     throw error;
+  }
+};
+
+// Rebalance overdue incomplete tasks into upcoming days with per-day capacity limits.
+export const rebalanceUpcomingTasks = async (options?: {
+  fromDate?: string;
+  maxTasksPerDay?: number;
+}): Promise<{ moved: number; skipped: number }> => {
+  try {
+    const allTasks = await loadDailyTasks();
+    if (allTasks.length === 0) {
+      return { moved: 0, skipped: 0 };
+    }
+
+    const completions = await getTaskCompletions();
+    const today = options?.fromDate || getLocalDateKey();
+    const maxTasksPerDay = options?.maxTasksPerDay ?? 4;
+
+    const isCompleted = (task: StudyTask) => Boolean(completions[task.id] || task.completed);
+
+    const overdue = allTasks
+      .filter((task) => task.date < today && !isCompleted(task))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (overdue.length === 0) {
+      return { moved: 0, skipped: 0 };
+    }
+
+    const futureTasks = allTasks.filter((task) => task.date >= today);
+    const targetDates = [...new Set(futureTasks.map((task) => task.date))].sort();
+
+    if (targetDates.length === 0) {
+      return { moved: 0, skipped: overdue.length };
+    }
+
+    const countByDate: Record<string, number> = {};
+    allTasks.forEach((task) => {
+      countByDate[task.date] = (countByDate[task.date] || 0) + 1;
+    });
+
+    const updatedById: Record<string, StudyTask> = {};
+    allTasks.forEach((task) => {
+      updatedById[task.id] = task;
+    });
+
+    let moved = 0;
+    let skipped = 0;
+
+    overdue.forEach((task) => {
+      const targetDate = targetDates.find((date) => (countByDate[date] || 0) < maxTasksPerDay);
+
+      if (!targetDate) {
+        skipped += 1;
+        return;
+      }
+
+      const existingDayTasks = allTasks.filter((t) => t.date === targetDate);
+      const fallbackTime = existingDayTasks[0]?.timeSlot || 'morning';
+
+      updatedById[task.id] = {
+        ...task,
+        date: targetDate,
+        timeSlot: fallbackTime,
+        priority: 'high',
+      };
+
+      countByDate[targetDate] = (countByDate[targetDate] || 0) + 1;
+      moved += 1;
+    });
+
+    if (moved === 0) {
+      return { moved, skipped };
+    }
+
+    const updatedTasks = allTasks.map((task) => updatedById[task.id]);
+    await saveDailyTasks(updatedTasks);
+
+    const program = await loadStudyProgram();
+    if (program) {
+      const updatedProgram: StudyProgram = {
+        ...program,
+        dailyTasks: updatedTasks,
+        lastUpdated: new Date().toISOString(),
+      };
+      await saveStudyProgram(updatedProgram);
+    }
+
+    devLog('🔄 Rebalanced overdue tasks:', { moved, skipped, maxTasksPerDay });
+    return { moved, skipped };
+  } catch (error) {
+    reportError('❌ Error rebalancing tasks:', error);
+    return { moved: 0, skipped: 0 };
+  }
+};
+
+const getDatePlusDays = (dateString: string, days: number): string => {
+  const date = new Date(dateString);
+  date.setDate(date.getDate() + days);
+  return getLocalDateKey(date);
+};
+
+const toTaskTitle = (subject: string, oldTitle: string): string => {
+  const dotIndex = oldTitle.indexOf(' · ');
+  if (dotIndex > -1) {
+    return `${subject}${oldTitle.substring(dotIndex)}`;
+  }
+
+  const colonIndex = oldTitle.indexOf(':');
+  if (colonIndex > -1) {
+    return `${subject}${oldTitle.substring(colonIndex)}`;
+  }
+  return `${subject} · Study`;
+};
+
+const buildWeeklySchedule = (tasks: StudyTask[]): Record<string, StudyTask[]> => {
+  const schedule: Record<string, StudyTask[]> = {};
+  if (tasks.length === 0) return schedule;
+
+  const ordered = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+  const firstDay = new Date(ordered[0].date);
+
+  ordered.forEach((task) => {
+    const current = new Date(task.date);
+    const dayDiff = Math.floor((current.getTime() - firstDay.getTime()) / (1000 * 60 * 60 * 24));
+    const weekNumber = Math.floor(dayDiff / 7) + 1;
+    const key = `week_${weekNumber}`;
+
+    if (!schedule[key]) schedule[key] = [];
+    schedule[key].push(task);
+  });
+
+  return schedule;
+};
+
+const buildSubjectBreakdownFromTasks = (
+  tasks: StudyTask[],
+  existing?: StudyProgram['subjectBreakdown']
+): StudyProgram['subjectBreakdown'] => {
+  const breakdown: StudyProgram['subjectBreakdown'] = {};
+  const sorted = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+
+  if (sorted.length === 0) return breakdown;
+
+  const firstDate = new Date(sorted[0].date);
+  const lastDate = new Date(sorted[sorted.length - 1].date);
+  const totalDays = Math.max(
+    1,
+    Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24))
+  );
+  const totalWeeks = Math.max(1, totalDays / 7);
+
+  const bySubject: Record<string, StudyTask[]> = {};
+  sorted.forEach((task) => {
+    if (!bySubject[task.subject]) bySubject[task.subject] = [];
+    bySubject[task.subject].push(task);
+  });
+
+  Object.keys(bySubject).forEach((subject) => {
+    const subjectTasks = bySubject[subject];
+    const totalMinutes = subjectTasks.reduce((sum, task) => sum + task.duration, 0);
+    const totalHours = Math.round(totalMinutes / 60);
+    const previous = existing?.[subject];
+
+    breakdown[subject] = {
+      totalHours,
+      weeklyHours: Math.max(1, Math.round(totalHours / totalWeeks)),
+      intensityLevel: previous?.intensityLevel ?? 1,
+      priority: previous?.priority ?? 2,
+      currentProgress: previous?.currentProgress ?? 0,
+    };
+  });
+
+  return breakdown;
+};
+
+// Adapt future subject focus based on recent completion performance.
+export const adaptSubjectFocusFromPerformance = async (options?: {
+  fromDate?: string;
+  lookbackDays?: number;
+  futureWindowDays?: number;
+  minHistoryTasks?: number;
+  maxSwaps?: number;
+}): Promise<{ adapted: number; weakSubjects: string[] }> => {
+  try {
+    const today = options?.fromDate || getLocalDateKey();
+    const lookbackDays = options?.lookbackDays ?? 21;
+    const futureWindowDays = options?.futureWindowDays ?? 21;
+    const minHistoryTasks = options?.minHistoryTasks ?? 8;
+    const maxSwaps = options?.maxSwaps ?? 8;
+
+    const allTasks = await loadDailyTasks();
+    if (allTasks.length === 0) return { adapted: 0, weakSubjects: [] };
+
+    const historyStart = getDatePlusDays(today, -lookbackDays);
+    const historyTasks = allTasks.filter((task) => task.date >= historyStart && task.date < today);
+    if (historyTasks.length < minHistoryTasks) {
+      return { adapted: 0, weakSubjects: [] };
+    }
+
+    const completions = await getTaskCompletions();
+    const sessionStatuses = await Promise.all(
+      historyTasks.map((task) => AsyncStorage.getItem(`session_completed_${task.id}`))
+    );
+    const sessionSet = new Set<string>();
+    sessionStatuses.forEach((value, index) => {
+      if (value === 'true') sessionSet.add(historyTasks[index].id);
+    });
+
+    const bySubject: Record<string, { total: number; completed: number }> = {};
+    historyTasks.forEach((task) => {
+      if (!bySubject[task.subject]) bySubject[task.subject] = { total: 0, completed: 0 };
+      bySubject[task.subject].total += 1;
+      if (completions[task.id] || task.completed || sessionSet.has(task.id)) {
+        bySubject[task.subject].completed += 1;
+      }
+    });
+
+    const rates = Object.entries(bySubject)
+      .filter(([, stats]) => stats.total >= 2)
+      .map(([subject, stats]) => ({
+        subject,
+        rate: stats.completed / Math.max(1, stats.total),
+      }));
+
+    if (rates.length < 2) return { adapted: 0, weakSubjects: [] };
+
+    const sortedRates = [...rates].sort((a, b) => a.rate - b.rate);
+    const median = sortedRates[Math.floor(sortedRates.length / 2)].rate;
+    const weakSubjectsFromPerformance = sortedRates
+      .filter((item) => item.rate < Math.min(0.65, median - 0.08))
+      .map((item) => item.subject);
+    const strongSubjectsFromPerformance = rates
+      .filter((item) => item.rate > Math.max(0.7, median + 0.08))
+      .map((item) => item.subject);
+
+    const manualOverrides = await loadSubjectFocusOverrides();
+    const weakSubjectsFromManual = Object.keys(manualOverrides).filter(
+      (subject) => (manualOverrides[subject] || 0) >= 10
+    );
+    const strongSubjectsFromManual = Object.keys(manualOverrides).filter(
+      (subject) => (manualOverrides[subject] || 0) <= -10
+    );
+
+    const weakSubjects = [...new Set([...weakSubjectsFromPerformance, ...weakSubjectsFromManual])];
+    const strongSubjects = [
+      ...new Set([...strongSubjectsFromPerformance, ...strongSubjectsFromManual]),
+    ].filter((subject) => !weakSubjects.includes(subject));
+
+    if (weakSubjects.length === 0 || strongSubjects.length === 0) {
+      return { adapted: 0, weakSubjects };
+    }
+
+    const futureEnd = getDatePlusDays(today, futureWindowDays);
+    const futureTasks = allTasks
+      .filter((task) => task.date >= today && task.date <= futureEnd && !task.completed)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (futureTasks.length === 0) {
+      return { adapted: 0, weakSubjects };
+    }
+
+    const updatedById: Record<string, StudyTask> = {};
+    allTasks.forEach((task) => {
+      updatedById[task.id] = task;
+    });
+
+    let adapted = 0;
+    let weakIndex = 0;
+
+    for (const task of futureTasks) {
+      if (adapted >= maxSwaps) break;
+      if (!strongSubjects.includes(task.subject)) continue;
+
+      const targetSubject = weakSubjects[weakIndex % weakSubjects.length];
+      weakIndex += 1;
+      if (!targetSubject || targetSubject === task.subject) continue;
+
+      updatedById[task.id] = {
+        ...task,
+        subject: targetSubject,
+        title: toTaskTitle(targetSubject, task.title),
+        priority: 'high',
+      };
+      adapted += 1;
+    }
+
+    if (adapted === 0) {
+      return { adapted: 0, weakSubjects };
+    }
+
+    const updatedTasks = allTasks.map((task) => updatedById[task.id]);
+    await saveDailyTasks(updatedTasks);
+
+    const program = await loadStudyProgram();
+    if (program) {
+      const updatedProgram: StudyProgram = {
+        ...program,
+        dailyTasks: updatedTasks,
+        weeklySchedule: buildWeeklySchedule(updatedTasks),
+        subjectBreakdown: buildSubjectBreakdownFromTasks(updatedTasks, program.subjectBreakdown),
+        lastUpdated: new Date().toISOString(),
+      };
+      await saveStudyProgram(updatedProgram);
+    }
+
+    devLog('🧠 Adaptive subject focus applied:', { adapted, weakSubjects });
+    return { adapted, weakSubjects };
+  } catch (error) {
+    reportError('❌ Error adapting subject focus:', error);
+    return { adapted: 0, weakSubjects: [] };
   }
 };
 
@@ -732,7 +1069,7 @@ export const getUserAchievements = async (): Promise<Achievement[]> => {
 
     return achievements;
   } catch (error) {
-    console.error('❌ Error getting user achievements:', error);
+    reportError('❌ Error getting user achievements:', error);
     return ACHIEVEMENTS.map(achievement => ({
       ...achievement,
       progress: 0,
@@ -761,7 +1098,7 @@ const checkAndUnlockAchievements = async (
 
   if (newlyUnlocked.length > 0) {
     await AsyncStorage.setItem('user_achievements', JSON.stringify(updatedAchievements));
-    console.log('🎉 New achievements unlocked:', newlyUnlocked.map(a => a.title));
+    devLog('🎉 New achievements unlocked:', newlyUnlocked.map(a => a.title));
   }
 };
 
@@ -790,7 +1127,7 @@ export const markWeeklyGoalCompleted = async () => {
     const current = await getWeeklyGoalsCompleted();
     await AsyncStorage.setItem('weekly_goals_completed', (current + 1).toString());
   } catch (error) {
-    console.error('Error marking weekly goal completed:', error);
+    reportError('Error marking weekly goal completed:', error);
   }
 };
 
@@ -800,7 +1137,7 @@ export const markDailyGoalCompleted = async () => {
     const current = await getDailyGoalsCompleted();
     await AsyncStorage.setItem('daily_goals_completed', (current + 1).toString());
   } catch (error) {
-    console.error('Error marking daily goal completed:', error);
+    reportError('Error marking daily goal completed:', error);
   }
 };
 
@@ -815,10 +1152,10 @@ export const checkDailyGoalCompletion = async (date: string) => {
     if (dailyProgress.total > 0 && dailyProgress.completed >= dailyProgress.total && !alreadyMarked) {
       await AsyncStorage.setItem(dailyGoalKey, 'true');
       await markDailyGoalCompleted();
-      console.log('🎯 Daily goal completed for', date);
+      devLog('🎯 Daily goal completed for', date);
     }
   } catch (error) {
-    console.error('Error checking daily goal completion:', error);
+    reportError('Error checking daily goal completion:', error);
   }
 };
 
@@ -826,7 +1163,7 @@ export const checkDailyGoalCompletion = async (date: string) => {
 export const checkWeeklyGoalCompletion = async () => {
   try {
     const weeklyProgress = await calculateWeeklyProgress();
-    const weekStart = getWeekStart(new Date()).toISOString().split('T')[0];
+    const weekStart = getLocalDateKey(getWeekStart(new Date()));
     const weeklyGoalKey = `weekly_goal_${weekStart}`;
     const alreadyMarked = await AsyncStorage.getItem(weeklyGoalKey);
     
@@ -835,10 +1172,10 @@ export const checkWeeklyGoalCompletion = async () => {
     if (weeklyProgress.hours >= weeklyTarget && !alreadyMarked) {
       await AsyncStorage.setItem(weeklyGoalKey, 'true');
       await markWeeklyGoalCompleted();
-      console.log('🏆 Weekly goal completed for week of', weekStart);
+      devLog('🏆 Weekly goal completed for week of', weekStart);
     }
   } catch (error) {
-    console.error('Error checking weekly goal completion:', error);
+    reportError('Error checking weekly goal completion:', error);
   }
 };
 
@@ -847,21 +1184,21 @@ export const autoGenerateWeeklyReport = async (): Promise<WeeklyReport | null> =
   try {
     // Check if we already have a report for current week
     const now = new Date();
-    const weekStart = getWeekStart(now).toISOString().split('T')[0];
+    const weekStart = getLocalDateKey(getWeekStart(now));
     const existingReport = await loadWeeklyReport(weekStart);
     
     if (existingReport) {
-      console.log('📊 Weekly report already exists for', weekStart);
+      devLog('📊 Weekly report already exists for', weekStart);
       return existingReport;
     }
     
     // Generate new report
-    console.log('📊 Auto-generating weekly report for', weekStart);
+    devLog('📊 Auto-generating weekly report for', weekStart);
     const newReport = await generateWeeklyReport();
     
     return newReport;
   } catch (error) {
-    console.error('❌ Error auto-generating weekly report:', error);
+    reportError('❌ Error auto-generating weekly report:', error);
     return null;
   }
 };
@@ -924,10 +1261,10 @@ export const generateWeeklyReport = async (weekStartDate?: Date): Promise<Weekly
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
     
-    const weekStartStr = weekStart.toISOString().split('T')[0];
-    const weekEndStr = weekEnd.toISOString().split('T')[0];
+    const weekStartStr = getLocalDateKey(weekStart);
+    const weekEndStr = getLocalDateKey(weekEnd);
     
-    console.log('📊 Generating weekly report for', weekStartStr, 'to', weekEndStr);
+    devLog('📊 Generating weekly report for', weekStartStr, 'to', weekEndStr);
     
     // Get week number
     const startOfYear = new Date(weekStart.getFullYear(), 0, 1);
@@ -946,7 +1283,7 @@ export const generateWeeklyReport = async (weekStartDate?: Date): Promise<Weekly
     for (let i = 0; i < 7; i++) {
       const currentDate = new Date(weekStart);
       currentDate.setDate(currentDate.getDate() + i);
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = getLocalDateKey(currentDate);
       
       const dailyProgress = await calculateDailyProgress(dateStr);
       dailyBreakdown[dateStr] = {
@@ -1050,7 +1387,7 @@ export const generateWeeklyReport = async (weekStartDate?: Date): Promise<Weekly
     // Save the report
     await saveWeeklyReport(report);
     
-    console.log('✅ Weekly report generated:', {
+    devLog('✅ Weekly report generated:', {
       completionRate: `${completionRate}%`,
       hoursStudied: `${hoursStudied}h`,
       newBadges: newBadges.length,
@@ -1061,7 +1398,7 @@ export const generateWeeklyReport = async (weekStartDate?: Date): Promise<Weekly
     return report;
     
   } catch (error) {
-    console.error('❌ Error generating weekly report:', error);
+    reportError('❌ Error generating weekly report:', error);
     throw error;
   }
 };
@@ -1087,7 +1424,7 @@ export const saveWeeklyReport = async (report: WeeklyReport): Promise<void> => {
     }
     
   } catch (error) {
-    console.error('❌ Error saving weekly report:', error);
+    reportError('❌ Error saving weekly report:', error);
   }
 };
 
@@ -1098,7 +1435,7 @@ export const loadWeeklyReport = async (weekStart: string): Promise<WeeklyReport 
     const reportData = await AsyncStorage.getItem(reportKey);
     return reportData ? JSON.parse(reportData) : null;
   } catch (error) {
-    console.error('❌ Error loading weekly report:', error);
+    reportError('❌ Error loading weekly report:', error);
     return null;
   }
 };
@@ -1120,7 +1457,7 @@ export const getLatestWeeklyReport = async (): Promise<WeeklyReport | null> => {
     return await loadWeeklyReport(latestWeekStart);
     
   } catch (error) {
-    console.error('❌ Error getting latest weekly report:', error);
+    reportError('❌ Error getting latest weekly report:', error);
     return null;
   }
 };

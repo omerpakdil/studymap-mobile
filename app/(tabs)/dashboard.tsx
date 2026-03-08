@@ -1,13 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect as useFocusEffectNavigation } from '@react-navigation/native';
+import * as Device from 'expo-device';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Animated,
+  Linking,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -17,251 +22,414 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { StudyTask } from '@/app/utils/claudeStudyGenerator';
+import { useAppAlert } from '@/app/components/ui/AppAlert';
+import { resolveAppLanguage, t } from '@/app/i18n';
+import { getLocalizedExamName } from '@/app/i18n/examNames';
+import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
+import { getLocalDateKey } from '@/app/utils/localDate';
 import NotificationService from '@/app/utils/notificationService';
+import { checkPremiumAccess, getTrialStatus } from '@/app/utils/premiumUtils';
+import { syncRemoteNotificationState } from '@/app/utils/remoteNotificationService';
 import { trackAppSession } from '@/app/utils/reviewPrompt';
+import { setCachedPremiumStatus } from '@/app/utils/subscriptionManager';
 import {
+  adaptSubjectFocusFromPerformance,
   calculateDailyProgress,
-  getDailyMotivationQuote,
+  getLatestStudyActivityAt,
   getProgramMetadata,
   getSubjectProgress,
-  getTasksForDate
+  getTasksForDate,
+  rebalanceUpcomingTasks,
 } from '@/app/utils/studyProgramStorage';
-import { hasPremiumAccess } from '@/app/utils/subscriptionManager';
-import { getReferralTrial, getReferralTrialDaysRemaining } from '@/app/utils/referralManager';
-import { checkPremiumAccess, getTrialStatus } from '@/app/utils/premiumUtils';
-import { useTheme } from '@/themes';
+import { StudyTask } from '@/app/utils/studyTypes';
 
 const isIOS = Platform.OS === 'ios';
+const PREMIUM_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
+const PREMIUM_REFRESH_KEY = 'last_premium_refresh_at';
+const DASH = {
+  bg0: '#F6FCFB',
+  bg1: '#F0FAF8',
+  bg2: '#E8F6F2',
+  ink: '#0F172A',
+  sub: 'rgba(51,65,85,0.76)',
+  muted: 'rgba(100,116,139,0.76)',
+  card: '#FFFFFF',
+  cardBorder: 'rgba(15,157,140,0.14)',
+  track: 'rgba(148,163,184,0.20)',
+  teal: '#0F9D8C',
+  tealDk: '#0B7A6E',
+  green: '#16A34A',
+  amber: '#D97706',
+  rose: '#E11D48',
+};
 
+// ─── Circular Progress Ring ──────────────────────────────────────────────────
+function CircularProgress({
+  percentage,
+  size = 110,
+  strokeWidth = 10,
+  color,
+  bgColor,
+  children,
+}: {
+  percentage: number;
+  size?: number;
+  strokeWidth?: number;
+  color: string;
+  bgColor: string;
+  children?: React.ReactNode;
+}) {
+  const clamp = Math.min(100, Math.max(0, percentage));
+  const angle = (clamp / 100) * 360;
+
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      {/* BG track */}
+      <View
+        style={{
+          position: 'absolute',
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: strokeWidth,
+          borderColor: bgColor,
+        }}
+      />
+      {/* Arc overlay */}
+      <View
+        style={{
+          position: 'absolute',
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: strokeWidth,
+          borderColor: 'transparent',
+          borderTopColor: color,
+          borderRightColor: angle >= 90 ? color : 'transparent',
+          borderBottomColor: angle >= 180 ? color : 'transparent',
+          borderLeftColor: angle >= 270 ? color : 'transparent',
+          transform: [{ rotate: '-90deg' }],
+        }}
+      />
+      <View style={{ alignItems: 'center', justifyContent: 'center' }}>{children}</View>
+    </View>
+  );
+}
+
+// ─── Subject Progress Bar ────────────────────────────────────────────────────
+function SubjectBar({
+  subject, progress, completed, total, index, delay = 0,
+}: {
+  subject: string; progress: number;
+  completed: number; total: number; index: number; delay?: number;
+}) {
+  const widthAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      Animated.timing(widthAnim, { toValue: progress, duration: 700, useNativeDriver: false }).start();
+    }, delay);
+    return () => clearTimeout(t);
+  }, [progress]);
+
+  const animWidth = widthAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] });
+  const trend = progress >= 75 ? 'trending-up' : progress >= 40 ? 'remove' : 'trending-down';
+
+  return (
+    <View style={styles.subjectRow}>
+      <View style={styles.subjectRowHeader}>
+        <View style={styles.subjectRowLeft}>
+          <View style={styles.subjectDot}>
+            <Text style={styles.subjectDotTxt}>{index + 1}</Text>
+          </View>
+          <Text style={styles.subjectName}>{subject}</Text>
+        </View>
+        <View style={styles.subjectRowRight}>
+          <Ionicons name={trend as any} size={13} color={DASH.teal} />
+          <Text style={styles.subjectPct}>{progress}%</Text>
+          <Text style={styles.subjectMeta}>{completed}/{total}</Text>
+        </View>
+      </View>
+      <View style={styles.subjectTrack}>
+        <Animated.View style={[styles.subjectFill, { width: animWidth }]} />
+      </View>
+    </View>
+  );
+}
+
+// ─── Task Card ───────────────────────────────────────────────────────────────
+function TaskCard({
+  task, isCompleted, onPress, typeColor, typeIcon, typeLabel, index, subjectLabel, doneLabel,
+}: {
+  task: StudyTask; isCompleted: boolean; onPress: () => void;
+  typeColor: string; typeIcon: string; typeLabel: string; index: number; subjectLabel: string; doneLabel: string;
+}) {
+  const translateY = useRef(new Animated.Value(18)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 9 }),
+        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    }, index * 75);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ translateY }], opacity }}>
+      <TouchableOpacity
+        style={[styles.taskCard, isCompleted && styles.taskCardDone]}
+        onPress={onPress}
+        activeOpacity={0.78}
+      >
+        <View style={[styles.taskAccent, { backgroundColor: isCompleted ? DASH.teal : typeColor }]} />
+
+        <View style={[
+          styles.taskCircle,
+          isCompleted
+            ? { backgroundColor: DASH.teal, borderColor: DASH.teal }
+            : { backgroundColor: typeColor + '15', borderColor: typeColor + '80' },
+        ]}>
+          {isCompleted && <Ionicons name="checkmark" size={13} color="#fff" />}
+        </View>
+
+        <View style={styles.taskBody}>
+          <Text style={[styles.taskSubject, isCompleted && styles.taskSubjectDone]}>
+            {subjectLabel}
+          </Text>
+          <View style={styles.taskMeta}>
+            <View style={[styles.taskBadge, { backgroundColor: typeColor + '18' }]}>
+              <Ionicons name={typeIcon as any} size={11} color={typeColor} />
+              <Text style={[styles.taskBadgeText, { color: typeColor }]}>{typeLabel}</Text>
+            </View>
+            <Text style={styles.taskDuration}>{task.duration}m</Text>
+          </View>
+        </View>
+
+            {isCompleted ? (
+              <View style={styles.doneTag}>
+                <Ionicons name="checkmark-circle" size={13} color={DASH.teal} />
+                <Text style={styles.doneTagText}>{doneLabel}</Text>
+              </View>
+            ) : (
+              <View style={[styles.playBtn, { backgroundColor: typeColor }]}>
+                <Ionicons name="play" size={13} color="#fff" />
+              </View>
+            )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ─── Main Dashboard ──────────────────────────────────────────────────────────
 export default function DashboardScreen() {
-  const { colors } = useTheme();
+  const { showAlert } = useAppAlert();
   const router = useRouter();
-  const [greeting] = useState(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  });
-  const [userName, setUserName] = useState<string>('');
+  const appLang = resolveAppLanguage();
 
-  // Real data states
+  const [greeting] = useState(() => {
+    const h = new Date().getHours();
+    if (h < 12) return t('tabs.dashboard.greeting_morning', { lang: appLang, fallback: 'Good morning' });
+    if (h < 18) return t('tabs.dashboard.greeting_afternoon', { lang: appLang, fallback: 'Good afternoon' });
+    return t('tabs.dashboard.greeting_evening', { lang: appLang, fallback: 'Good evening' });
+  });
+
+  const [userName, setUserName] = useState('');
   const [programMetadata, setProgramMetadata] = useState<any>(null);
   const [todayTasks, setTodayTasks] = useState<StudyTask[]>([]);
   const [subjectProgress, setSubjectProgress] = useState<any>({});
   const [dailyProgress, setDailyProgress] = useState({ completed: 0, total: 0, minutes: 0 });
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState(false);
-
-  // Task completion tracking
   const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
-
-  // Referral trial tracking
-  const [referralTrial, setReferralTrial] = useState<any>(null);
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   const [showTrialWarning, setShowTrialWarning] = useState(false);
-  
-  // Load trial data using new hybrid system
+  const [activeTab, setActiveTab] = useState<'tasks' | 'subjects'>('tasks');
+  const [showAllTasks, setShowAllTasks] = useState(false);
+  const [metricSheet, setMetricSheet] = useState<{ visible: boolean; title: string; value: string; lines: string[] }>({
+    visible: false,
+    title: '',
+    value: '',
+    lines: [],
+  });
+
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(-10)).current;
+  const tabAnim = useRef(new Animated.Value(1)).current;
+  const premiumRefreshInFlight = useRef(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(headerOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(headerTranslateY, { toValue: 0, useNativeDriver: true, tension: 80 }),
+    ]).start();
+  }, []);
+
   const loadTrialData = async () => {
     try {
-      const trialStatus = await getTrialStatus();
-
-      setTrialDaysRemaining(trialStatus.daysRemaining);
-      setShowTrialWarning(trialStatus.showWarning);
-
-      console.log('📊 Trial status loaded:', {
-        inTrial: trialStatus.inTrial,
-        type: trialStatus.trialType,
-        daysRemaining: trialStatus.daysRemaining,
-        showWarning: trialStatus.showWarning,
-      });
-    } catch (error) {
-      console.error('❌ Error loading trial data:', error);
-    }
+      const s = await getTrialStatus();
+      setTrialDaysRemaining(s.daysRemaining);
+      setShowTrialWarning(s.showWarning);
+    } catch {}
   };
 
-  // Check premium access using hybrid system
   const checkSubscriptionStatus = async () => {
     try {
-      // Development bypass - only active in __DEV__ mode
-      if (__DEV__) {
-        console.log('🚧 DEV MODE: Bypassing subscription check for development');
-        return true;
-      }
-
-      // Check if we just came from successful subscription
-      const skipCheck = await AsyncStorage.getItem('skip_subscription_check');
-
-      if (skipCheck === 'true') {
-        console.log('✅ Skipping subscription check - user just subscribed');
-        await AsyncStorage.removeItem('skip_subscription_check');
-        return true;
-      }
-
-      // Check premium access (RevenueCat + Supabase hybrid)
-      const premiumStatus = await checkPremiumAccess();
-
-      if (!premiumStatus.hasAccess) {
-        // No premium access - show paywall
-        Alert.alert(
-          '🔒 Premium Required',
-          'Subscribe to access your personalized study plan. Start with a 7-day free trial!',
-          [
-            {
-              text: 'Start Free Trial',
-              onPress: () => {
-                router.replace('/(onboarding)/subscription');
-              }
-            }
-          ],
+      if (__DEV__) return true;
+      const ps = await checkPremiumAccess();
+      if (!ps.hasAccess) {
+        showAlert(
+          t('tabs.dashboard.premium_required_title', { lang: appLang, fallback: 'Premium Required' }),
+          t('tabs.dashboard.premium_required_body', { lang: appLang, fallback: 'Subscribe to access your personalized study plan. Start with a 7-day free trial!' }),
+          [{ text: t('tabs.dashboard.start_free_trial', { lang: appLang, fallback: 'Start Free Trial' }), onPress: () => router.replace('/(onboarding-v2)/subscription') }],
           { cancelable: false }
         );
-        // Force redirect
-        setTimeout(() => {
-          router.replace('/(onboarding)/subscription');
-        }, 100);
+        setTimeout(() => router.replace('/(onboarding-v2)/subscription'), 100);
         return false;
       }
-
       return true;
-    } catch (error) {
-      console.error('Error checking premium access:', error);
-      // In production, deny access on error for security
-      if (!__DEV__) {
-        router.replace('/(onboarding)/subscription');
-        return false;
-      }
-      return true; // Allow access in dev mode if check fails
+    } catch {
+      if (!__DEV__) { router.replace('/(onboarding-v2)/subscription'); return false; }
+      return true;
     }
   };
 
-  // Load user info
+  const refreshPremiumAccessInBackground = useCallback(async () => {
+    if (__DEV__ || premiumRefreshInFlight.current) return;
+
+    try {
+      const lastRefresh = await AsyncStorage.getItem(PREMIUM_REFRESH_KEY);
+      const now = Date.now();
+      if (lastRefresh && now - Number(lastRefresh) < PREMIUM_REFRESH_INTERVAL_MS) {
+        return;
+      }
+
+      premiumRefreshInFlight.current = true;
+      await AsyncStorage.setItem(PREMIUM_REFRESH_KEY, String(now));
+
+      const premiumStatus = await checkPremiumAccess();
+      await setCachedPremiumStatus(premiumStatus.hasAccess ? 'active' : 'inactive');
+
+      if (!premiumStatus.hasAccess) {
+        router.replace('/(onboarding-v2)/subscription');
+      }
+    } catch {
+      // Intentionally silent: dashboard should stay usable if refresh fails.
+    } finally {
+      premiumRefreshInFlight.current = false;
+    }
+  }, [router]);
+
   const loadUserInfo = async () => {
     try {
-      const userInfoStr = await AsyncStorage.getItem('user_info');
-      if (userInfoStr) {
-        const userInfo = JSON.parse(userInfoStr);
-        setUserName(userInfo.firstName || '');
-      }
-    } catch (error) {
-      console.error('Error loading user info:', error);
-    }
+      const str = await AsyncStorage.getItem('user_info');
+      if (str) setUserName(JSON.parse(str).firstName || '');
+    } catch {}
   };
 
-  // Load real data from Claude-generated program
-  const loadDashboardData = async (isInitialLoad: boolean = false) => {
+  const loadDashboardData = async (isInitialLoad = false) => {
     try {
       setLoading(true);
-
-      // Load trial data first (before subscription check)
+      const today = getLocalDateKey();
       await loadTrialData();
+      await checkSubscriptionStatus();
 
-      // Check subscription first
-      const hasValidSubscription = await checkSubscriptionStatus();
-      // Note: We allow users to stay even without subscription (soft paywall)
-
-      // Only check/initialize notifications on first app load, not on every focus
       if (isInitialLoad) {
-        // Check notification permission without reinitializing
-        const hasPermission = NotificationService.hasNotificationPermission();
-        setNotificationPermission(hasPermission);
-
-        // Only initialize if not already initialized
-        if (!hasPermission) {
-          const initialized = await NotificationService.initialize();
-          setNotificationPermission(initialized);
+        const permissionSettings = await Notifications.getPermissionsAsync();
+        setNotificationPermission(permissionSettings.granted);
+        if (permissionSettings.granted) {
+          setNotificationPermission(await NotificationService.initialize());
         }
       }
 
-      // Load program metadata
-      const metadata = await getProgramMetadata();
+      const lastRebalance = await AsyncStorage.getItem('last_rebalance_date');
+      if (lastRebalance !== today) {
+        await rebalanceUpcomingTasks({ fromDate: today, maxTasksPerDay: 5 });
+        await AsyncStorage.setItem('last_rebalance_date', today);
+      }
+
+      const yr = new Date().getFullYear();
+      const isoWeekKey = `${yr}-W${Math.ceil(
+        ((Date.now() - new Date(yr, 0, 1).getTime()) / 86400000 + new Date(yr, 0, 1).getDay() + 1) / 7
+      )}`;
+      const lastWeek = await AsyncStorage.getItem('last_focus_adapt_week');
+      if (lastWeek !== isoWeekKey) {
+        await adaptSubjectFocusFromPerformance({ fromDate: today, lookbackDays: 21, futureWindowDays: 21, maxSwaps: 10 });
+        await AsyncStorage.setItem('last_focus_adapt_week', isoWeekKey);
+      }
+
+      const [metadata, tasks, progress, dailyProg] = await Promise.all([
+        getProgramMetadata(), getTasksForDate(today), getSubjectProgress(), calculateDailyProgress(today),
+      ]);
       setProgramMetadata(metadata);
-
-      // Load today's tasks
-      const today = new Date().toISOString().split('T')[0];
-      const tasks = await getTasksForDate(today);
       setTodayTasks(tasks);
-
-      // Load subject progress
-      const progress = await getSubjectProgress();
       setSubjectProgress(progress);
-
-      // Load daily progress
-      const dailyProg = await calculateDailyProgress(today);
       setDailyProgress(dailyProg);
-
-      console.log('📊 Dashboard data loaded:', {
-        tasksToday: tasks.length,
-        subjects: Object.keys(progress).length,
-        dailyProgress: dailyProg,
-        notificationPermission: isInitialLoad ? notificationPermission : 'skipped'
-      });
-
-    } catch (error) {
-      console.error('❌ Error loading dashboard data:', error);
+      if (metadata) {
+        const lastStudySessionAt = await getLatestStudyActivityAt();
+        void syncRemoteNotificationState({
+          studyStreak: metadata.currentStreak,
+          completedTasks: metadata.completedTasks,
+          planUpdatedAt: new Date().toISOString(),
+          lastOpenedAt: new Date().toISOString(),
+          lastStudySessionAt,
+          nextExamDate: metadata.examDate || null,
+        });
+      }
+    } catch (e) {
+      console.error('❌ Dashboard load error:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load task completion status
   const loadTaskCompletions = async () => {
     try {
       const completions: Record<string, boolean> = {};
-      
       for (const task of todayTasks) {
-        const key = `session_completed_${task.id}`;
-        const status = await AsyncStorage.getItem(key);
-        completions[task.id] = status === 'true' || task.completed;
+        const val = await AsyncStorage.getItem(`session_completed_${task.id}`);
+        completions[task.id] = val === 'true' || task.completed;
       }
-      
       setTaskCompletions(completions);
-    } catch (error) {
-      console.log('Error loading task completions:', error);
-    }
+    } catch {}
   };
 
+  useEffect(() => { loadUserInfo(); loadDashboardData(true); trackAppSession(); }, []);
+  useEffect(() => { if (todayTasks.length > 0) loadTaskCompletions(); }, [todayTasks]);
+  useEffect(() => { setShowAllTasks(false); }, [todayTasks]);
+  useFocusEffectNavigation(useCallback(() => {
+    loadDashboardData(false);
+    void refreshPremiumAccessInBackground();
+  }, [refreshPremiumAccessInBackground]));
   useEffect(() => {
-    loadUserInfo();
-    loadDashboardData(true); // Initial load with notification check
-    trackAppSession(); // Track app session for review prompt
-  }, []);
+    const timer = setTimeout(() => {
+      void refreshPremiumAccessInBackground();
+    }, 1500);
 
-  useEffect(() => {
-    if (todayTasks.length > 0) {
-      loadTaskCompletions();
-    }
-  }, [todayTasks]);
+    return () => clearTimeout(timer);
+  }, [refreshPremiumAccessInBackground]);
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'up': return '📈';
-      case 'down': return '📉';
-      default: return '➖';
-    }
+  const getTypeIcon = (type: string) => {
+    const map: Record<string,string> = { practice:'create-outline', study:'book-outline', review:'refresh-outline', quiz:'bulb-outline' };
+    return map[type] || 'document-text-outline';
+  };
+  const getTypeColor = (type: string) => {
+    const map: Record<string,string> = { practice:DASH.teal, study:DASH.teal, review:DASH.teal, quiz:DASH.teal };
+    return map[type] || DASH.teal;
+  };
+  const getTypeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      practice: t('tabs.dashboard.task_type_practice', { lang: appLang, fallback: 'Practice' }),
+      study: t('tabs.dashboard.task_type_study', { lang: appLang, fallback: 'Study' }),
+      review: t('tabs.dashboard.task_type_review', { lang: appLang, fallback: 'Review' }),
+      quiz: t('tabs.dashboard.task_type_quiz', { lang: appLang, fallback: 'Quiz' }),
+    };
+    return map[type] || type;
   };
 
-  const getTaskTypeIcon = (type: string) => {
-    switch (type) {
-      case 'practice': return 'create-outline';
-      case 'study': return 'book-outline';
-      case 'review': return 'refresh-outline';
-      case 'quiz': return 'bulb-outline';
-      default: return 'document-text-outline';
-    }
-  };
-
-  const getTaskTypeColor = (type: string) => {
-    switch (type) {
-      case 'practice': return colors.warning[600];
-      case 'study': return colors.primary[600];
-      case 'review': return colors.success[600];
-      case 'quiz': return colors.secondary[600];
-      default: return colors.neutral[600];
-    }
-  };
-
-  const handleStartStudySession = (task: StudyTask) => {
+  const handleStartSession = (task: StudyTask) => {
     router.push({
       pathname: '/study-session' as any,
       params: {
@@ -270,701 +438,702 @@ export default function DashboardScreen() {
         type: task.type,
         duration: task.duration.toString(),
         title: task.title,
+        examCode: programMetadata?.examType,
       },
     });
   };
 
-  const handleNotificationPress = () => {
-    if (!notificationPermission) {
-      Alert.alert(
-        'Notifications Disabled',
-        'Enable notifications in your device settings to receive study reminders and motivational quotes.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open Settings', onPress: () => {
-            // On real devices, this would open device settings
-            Alert.alert('Info', 'Please go to Settings > StudyMap > Notifications to enable.');
-          }}
-        ]
+  const handleNotificationPress = useCallback(async () => {
+    if (!Device.isDevice) {
+      showAlert(
+        t('tabs.dashboard.notifications_simulator_title', { lang: appLang, fallback: 'Simulator limitation' }),
+        t('tabs.dashboard.notifications_simulator_body', { lang: appLang, fallback: 'Notification permission prompts do not run in the iOS simulator. Test this on a real device.' })
       );
-    } else {
-      router.push('/(tabs)/profile');
+      return;
     }
+
+    const permissionSettings = await Notifications.getPermissionsAsync();
+    setNotificationPermission(permissionSettings.granted);
+
+    if (permissionSettings.granted) {
+      router.push('/(tabs)/profile');
+      return;
+    }
+
+    if (permissionSettings.canAskAgain) {
+      const granted = await NotificationService.initialize();
+      setNotificationPermission(granted);
+
+      if (granted) {
+        router.push('/(tabs)/profile');
+        return;
+      }
+    }
+
+    showAlert(
+      t('tabs.dashboard.notifications_disabled_title', { lang: appLang, fallback: 'Notifications Disabled' }),
+      t('tabs.dashboard.notifications_disabled_body', { lang: appLang, fallback: 'Enable notifications in device settings.' })
+    );
+
+    await Linking.openSettings().catch(() => {});
+  }, [appLang, router, showAlert]);
+
+  const switchTab = (next: 'tasks' | 'subjects') => {
+    if (next === activeTab) return;
+    Animated.timing(tabAnim, { toValue: 0, duration: 110, useNativeDriver: true }).start(() => {
+      setActiveTab(next);
+      tabAnim.setValue(0);
+      Animated.spring(tabAnim, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 240 }).start();
+    });
   };
 
-  const focusEffectCallback = useCallback(() => {
-    loadDashboardData(false); // Subsequent loads without notification init
-  }, []);
+  const openMetricSheet = (label: string, value: string) => {
+    const tasksLabel = t('tabs.dashboard.metric_tasks', { lang: appLang, fallback: 'Tasks' });
+    const studiedLabel = t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' });
+    const streakLabel = t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' });
+    const lines =
+      label === tasksLabel
+        ? [
+          t('tabs.dashboard.sheet_tasks_line_1', { lang: appLang, params: { completed: completedTasks, total: todayTasks.length }, fallback: `Completed ${completedTasks} of ${todayTasks.length}` }),
+          t('tabs.dashboard.sheet_tasks_line_2', { lang: appLang, fallback: 'Tap a task to start instantly.' }),
+        ]
+        : label === studiedLabel
+          ? [
+            t('tabs.dashboard.sheet_studied_line_1', { lang: appLang, params: { minutes: dailyProgress.minutes }, fallback: `${dailyProgress.minutes} minutes logged today` }),
+            t('tabs.dashboard.sheet_studied_line_2', { lang: appLang, params: { target: todayGoalMins }, fallback: `Target: ${todayGoalMins} minutes` }),
+          ]
+          : label === streakLabel
+            ? [
+              t('tabs.dashboard.sheet_streak_line_1', { lang: appLang, params: { days: currentStreak }, fallback: `Current consistency: ${currentStreak} day streak` }),
+              t('tabs.dashboard.sheet_streak_line_2', { lang: appLang, fallback: 'Keep one session daily to extend it.' }),
+            ]
+            : [
+              t('tabs.dashboard.sheet_done_line_1', { lang: appLang, params: { value: taskPct }, fallback: `Task completion is ${taskPct}%` }),
+              t('tabs.dashboard.sheet_done_line_2', { lang: appLang, fallback: 'Finish remaining tasks to hit 100%.' }),
+            ];
+    setMetricSheet({ visible: true, title: label, value, lines });
+  };
 
-  useFocusEffectNavigation(focusEffectCallback);
-
-  // Show loading state
+  // ── Loading ──
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primary[50] }}>
-        <LinearGradient
-          colors={[colors.primary[400], colors.primary[500], colors.primary[600]]}
-          style={{ width: 90, height: 90, borderRadius: 45, justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
+      <View style={styles.loadWrap}>
+        <LinearGradient colors={[DASH.bg0, DASH.bg1, DASH.bg2]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[DASH.tealDk, DASH.teal]} style={styles.loadBall} start={{ x:0,y:0 }} end={{ x:1,y:1 }}>
           <ActivityIndicator size="large" color="#fff" />
         </LinearGradient>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: colors.primary[700], marginBottom: 8, textAlign: 'center' }}>
-          Preparing your dashboard...
-        </Text>
-        <Text style={{ fontSize: 15, color: colors.neutral[500], textAlign: 'center', maxWidth: 260 }}>
-          Please wait while we load your personalized study data.
-        </Text>
+        <Text style={styles.loadTitle}>{t('tabs.dashboard.loading_title', { lang: appLang, fallback: 'Loading your plan...' })}</Text>
+        <Text style={styles.loadSub}>{t('tabs.dashboard.loading_subtitle', { lang: appLang, fallback: 'Personalizing your experience' })}</Text>
       </View>
     );
   }
 
-  // Calculate real metrics
+  // ── Derived ──
   const completedTasks = Object.values(taskCompletions).filter(Boolean).length;
-
-  // Calculate daily goal minutes from today's actual tasks
-  const todayGoalMinutes = todayTasks.reduce((total, task) => total + task.duration, 0);
-  const progressPercentage = todayGoalMinutes > 0 ? Math.min(100, (dailyProgress.minutes / todayGoalMinutes) * 100) : 0;
-
-  // Render trial warning banner
-  const renderTrialWarningBanner = () => {
-    if (!showTrialWarning || !referralTrial || !referralTrial.isActive) {
-      return null;
-    }
-
-    const isLastDay = trialDaysRemaining === 1;
-    const bannerColor = isLastDay ? colors.error : colors.warning;
-
-    return (
-      <View style={[styles.trialWarningBanner, { backgroundColor: bannerColor[50], borderColor: bannerColor[200] }]}>
-        <View style={styles.trialWarningContent}>
-          <Ionicons
-            name={isLastDay ? "alert-circle" : "time-outline"}
-            size={24}
-            color={bannerColor[600]}
-            style={styles.trialWarningIcon}
-          />
-          <View style={styles.trialWarningText}>
-            <Text style={[styles.trialWarningTitle, { color: bannerColor[800] }]}>
-              {isLastDay ? '⏰ Last Day of Trial!' : `⏰ ${trialDaysRemaining} Days Left`}
-            </Text>
-            <Text style={[styles.trialWarningSubtitle, { color: bannerColor[700] }]}>
-              {isLastDay
-                ? 'Your free trial ends today. Subscribe to keep learning!'
-                : `Your trial ends soon. Subscribe to continue your study plan.`}
-            </Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          style={[styles.trialWarningButton, { backgroundColor: bannerColor[600] }]}
-          onPress={() => router.push('/(onboarding)/subscription')}
-        >
-          <Text style={styles.trialWarningButtonText}>Subscribe Now</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  const todayGoalMins = todayTasks.reduce((t, tk) => t + tk.duration, 0);
+  const progressPct = todayGoalMins > 0 ? Math.min(100, (dailyProgress.minutes / todayGoalMins) * 100) : 0;
+  const taskPct = todayTasks.length > 0 ? Math.round((completedTasks / todayTasks.length) * 100) : 0;
+  const examType = getLocalizedExamName(programMetadata?.examType, appLang, programMetadata?.examType || 'EXAM');
+  const subjectLabel = (subject: string) =>
+    getLocalizedSubjectName(subject, appLang, subject, { examCode: programMetadata?.examType });
+  const doneLabel = t('tabs.dashboard.metric_done', { lang: appLang, fallback: 'Done' });
+  const daysRemaining = programMetadata?.daysRemaining || 0;
+  const currentStreak = programMetadata?.currentStreak || 0;
+  const subjectEntries = Object.entries(subjectProgress);
+  const canCollapseTasks = todayTasks.length > 2;
+  const visibleTasks = canCollapseTasks && !showAllTasks ? todayTasks.slice(0, 2) : todayTasks;
+  const hiddenTaskCount = Math.max(0, todayTasks.length - visibleTasks.length);
+  const isEmptyTasksState = activeTab === 'tasks' && todayTasks.length === 0;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} translucent={false} />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={[styles.greeting, { color: colors.neutral[600] }]}>
-            {greeting}{userName && `, ${userName}`}! 👋
+    <SafeAreaView style={styles.container} edges={['top','left','right']}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <LinearGradient colors={[DASH.bg0, DASH.bg1, DASH.bg2]} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+      <View style={styles.bgOrbA} />
+      <View style={styles.bgOrbB} />
+
+      {/* ── Header ── */}
+      <Animated.View style={[styles.header, { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greetingKicker}>{t('tabs.dashboard.kicker', { lang: appLang, fallback: 'StudyMap Dashboard' })}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {greeting}
           </Text>
-          <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-            Ready to crush your {programMetadata.examType?.toUpperCase()}?
+          {!!userName && (
+            <Text style={styles.headerName} numberOfLines={1}>
+              {userName}
+            </Text>
+          )}
+          <Text style={styles.headerSub}>
+            {t('tabs.dashboard.focused_on', { lang: appLang, fallback: 'Focused on' })}{' '}
+            <Text style={styles.headerExam}>{examType}</Text>
           </Text>
         </View>
-        <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.neutral[100] }]} onPress={handleNotificationPress}>
-          <Text style={styles.notificationIcon}>
-            {notificationPermission ? '🔔' : '🔕'}
+        <View style={styles.headerRight}>
+          <View style={styles.streakPill}>
+            <View style={styles.streakDot} />
+            <Text style={styles.streakTxt}>{t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' })}</Text>
+            <Text style={styles.streakNum}>{currentStreak}d</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => void handleNotificationPress()}
+          >
+            <Ionicons
+              name={Device.isDevice ? (notificationPermission ? 'notifications' : 'notifications-off-outline') : 'notifications-outline'}
+              size={20}
+              color={Device.isDevice ? (notificationPermission ? DASH.teal : '#94A3B8') : DASH.teal}
+            />
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+
+      {/* ── Trial Banner ── */}
+      {showTrialWarning && (
+        <TouchableOpacity
+          style={[styles.trialBanner, { backgroundColor: trialDaysRemaining === 1 ? '#FEF2F2' : '#FFFBEB' }]}
+          onPress={() => router.push('/(onboarding-v2)/subscription')}
+          activeOpacity={0.85}
+        >
+          <Ionicons
+            name={trialDaysRemaining === 1 ? 'alert-circle' : 'time-outline'}
+            size={17}
+            color={trialDaysRemaining === 1 ? '#EF4444' : '#F59E0B'}
+          />
+          <Text style={[styles.trialText, { color: trialDaysRemaining === 1 ? '#B91C1C' : '#92400E' }]}>
+            {trialDaysRemaining === 1
+              ? t('tabs.dashboard.trial_last_day', { lang: appLang, fallback: 'Last day of trial! Subscribe now →' })
+              : t('tabs.dashboard.trial_days_left', {
+                lang: appLang,
+                params: { days: trialDaysRemaining },
+                fallback: `${trialDaysRemaining} days left in your trial → Subscribe`,
+              })}
           </Text>
         </TouchableOpacity>
-      </View>
+      )}
 
-      {/* Trial Warning Banner */}
-      {renderTrialWarningBanner()}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Progress Overview */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-            Progress Overview
-          </Text>
-          
-          {/* Main Progress Card */}
-          <View style={[styles.progressCard, { backgroundColor: colors.neutral[0] }]}>
-            <LinearGradient
-              colors={[colors.primary[500], colors.primary[600]] as const}
-              style={styles.progressGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.progressContent}>
-                <View style={styles.progressLeft}>
-                  <Text style={styles.progressPercentage}>{Math.round(progressPercentage)}%</Text>
-                  <Text style={styles.progressLabel}>Daily Goal</Text>
+        {/* ── Hero Card ── */}
+        <View style={styles.heroCard}>
+          <LinearGradient
+            colors={['#0F766E','#0F9D8C','#2DD4BF']}
+            style={styles.heroGradient}
+            start={{ x:0, y:0 }} end={{ x:1, y:1 }}
+          >
+            <View style={styles.heroBlob1} />
+            <View style={styles.heroBlob2} />
+            <View style={styles.heroRow}>
+              {/* Circular progress */}
+              <CircularProgress
+                percentage={progressPct} size={108} strokeWidth={9}
+                color="rgba(255,255,255,0.95)" bgColor="rgba(255,255,255,0.22)"
+              >
+                <Text style={styles.heroCirclePct}>{Math.round(progressPct)}%</Text>
+                <Text style={styles.heroCircleLabel}>{t('tabs.dashboard.daily', { lang: appLang, fallback: 'Daily' })}</Text>
+              </CircularProgress>
+
+              {/* Right stats */}
+              <View style={styles.heroStats}>
+                <Text style={styles.heroStatsTitle}>{t('tabs.dashboard.todays_progress', { lang: appLang, fallback: "Today's Progress" })}</Text>
+                <View style={styles.heroStatRow}>
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatVal}>{dailyProgress.minutes}<Text style={styles.heroStatUnit}>m</Text></Text>
+                    <Text style={styles.heroStatLbl}>{t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' })}</Text>
+                  </View>
+                  <View style={styles.heroStatSep} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatVal}>{todayGoalMins}<Text style={styles.heroStatUnit}>m</Text></Text>
+                    <Text style={styles.heroStatLbl}>{t('tabs.dashboard.goal', { lang: appLang, fallback: 'Goal' })}</Text>
+                  </View>
+                  <View style={styles.heroStatSep} />
+                  <View style={styles.heroStat}>
+                    <Text style={styles.heroStatVal}>{daysRemaining}</Text>
+                    <Text style={styles.heroStatLbl}>{t('tabs.dashboard.days_left', { lang: appLang, fallback: 'Days Left' })}</Text>
+                  </View>
                 </View>
-                <View style={styles.progressRight}>
-                  <View style={styles.progressStat}>
-                    <Text style={styles.progressStatValue}>{programMetadata.daysRemaining}</Text>
-                    <Text style={styles.progressStatLabel}>Days Left</Text>
+                {/* Tasks mini bar */}
+                <View style={styles.heroMiniBar}>
+                  <View style={styles.heroMiniTrack}>
+                    <View style={[styles.heroMiniFill, { width: `${taskPct}%` as any }]} />
                   </View>
-                  <View style={styles.progressStat}>
-                    <Text style={styles.progressStatValue}>{todayTasks.length > 0 ? Math.round((completedTasks / todayTasks.length) * 100) : 0}%</Text>
-                    <Text style={styles.progressStatLabel}>Tasks Done</Text>
-                  </View>
+                  <Text style={styles.heroMiniText}>
+                    {t('tabs.dashboard.tasks_count', {
+                      lang: appLang,
+                      params: { completed: completedTasks, total: todayTasks.length },
+                      fallback: `${completedTasks}/${todayTasks.length} tasks`,
+                    })}
+                  </Text>
                 </View>
               </View>
-            </LinearGradient>
-          </View>
-
-          {/* Quick Stats */}
-          <View style={styles.quickStats}>
-            <View style={[styles.statCard, { backgroundColor: colors.success[50] }]}>
-              <Ionicons name="checkmark-circle" size={28} color={colors.success[600]} style={styles.statIcon} />
-              <Text style={[styles.statValue, { color: colors.success[700] }]}>
-                {completedTasks}/{todayTasks.length}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.success[600] }]}>
-                Tasks Done
-              </Text>
             </View>
-            <View style={[styles.statCard, { backgroundColor: colors.warning[50] }]}>
-              <Ionicons name="time" size={28} color={colors.warning[600]} style={styles.statIcon} />
-              <Text style={[styles.statValue, { color: colors.warning[700] }]}>
-                {dailyProgress.minutes}m
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.warning[600] }]}>
-                Studied Today
-              </Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
-              <Ionicons name="flame" size={28} color={colors.primary[600]} style={styles.statIcon} />
-              <Text style={[styles.statValue, { color: colors.primary[700] }]}>
-                {programMetadata.currentStreak || 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.primary[600] }]}>
-                Day Streak
-              </Text>
-            </View>
-          </View>
+          </LinearGradient>
         </View>
 
-        {/* Today's Study Plan */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-                              Today&apos;s Study Plan
-            </Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/calendar')}>
-              <Text style={[styles.seeAllText, { color: colors.primary[500] }]}>
-                View Calendar
-              </Text>
+        {/* ── Stat Pills ── */}
+        <View style={styles.metricsBoard}>
+          {[
+            { label: t('tabs.dashboard.metric_tasks', { lang: appLang, fallback: 'Tasks' }), value: `${completedTasks}/${todayTasks.length}` },
+            { label: t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' }), value: `${dailyProgress.minutes}m` },
+            { label: t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' }), value: `${currentStreak}d` },
+            { label: t('tabs.dashboard.metric_done', { lang: appLang, fallback: 'Done' }), value: `${taskPct}%` },
+          ].map((m, i) => (
+            <TouchableOpacity
+              key={m.label}
+              style={[styles.metricCell, i > 0 && styles.metricCellSep]}
+              onPress={() => openMetricSheet(m.label, m.value)}
+              activeOpacity={0.78}
+            >
+              <Text style={styles.metricLabel}>{m.label}</Text>
+              <Text style={styles.metricValue}>{m.value}</Text>
             </TouchableOpacity>
-          </View>
+          ))}
+        </View>
 
-          {/* Daily Progress Bar */}
-          <View style={[styles.dailyProgressContainer, { backgroundColor: colors.neutral[0] }]}>
-            <View style={styles.dailyProgressHeader}>
-              <Text style={[styles.dailyProgressTitle, { color: colors.neutral[800] }]}>
-                Daily Goal Progress
-              </Text>
-              <Text style={[styles.dailyProgressText, { color: colors.neutral[600] }]}>
-                {dailyProgress.minutes}/{todayGoalMinutes} min
-              </Text>
-            </View>
-            <View style={[styles.progressBarBg, { backgroundColor: colors.neutral[200] }]}>
-              <View 
-                style={[
-                  styles.progressBarFill, 
-                  { 
-                    backgroundColor: colors.primary[500],
-                    width: `${Math.min(progressPercentage, 100)}%`
-                  }
-                ]} 
-              />
-            </View>
-          </View>
+        {/* ── Tab Toggle ── */}
+        <View style={styles.tabRow}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'tasks' && styles.tabActive]}
+            onPress={() => switchTab('tasks')}
+          >
+            <Ionicons name="list" size={15} color={activeTab === 'tasks' ? DASH.teal : '#94A3B8'} />
+            <Text style={[styles.tabText, activeTab === 'tasks' && styles.tabTextActive]}>
+              {t('tabs.dashboard.tab_today_plan', { lang: appLang, fallback: "Today's Plan" })}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'subjects' && styles.tabActive]}
+            onPress={() => switchTab('subjects')}
+          >
+            <Ionicons name="bar-chart" size={15} color={activeTab === 'subjects' ? DASH.teal : '#94A3B8'} />
+            <Text style={[styles.tabText, activeTab === 'subjects' && styles.tabTextActive]}>
+              {t('tabs.dashboard.tab_subjects', { lang: appLang, fallback: 'Subjects' })}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-          {/* Task List */}
-          <View style={styles.taskList}>
+        {/* ── Tasks Tab ── */}
+        <Animated.View
+          style={{
+            opacity: tabAnim,
+            transform: [{ translateY: tabAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+          }}
+        >
+        {activeTab === 'tasks' && (
+          <>
+            {/* Daily goal bar */}
+            <View style={styles.goalCard}>
+              <View style={styles.goalCardRow}>
+                <View>
+                  <Text style={styles.goalCardTitle}>{t('tabs.dashboard.daily_goal', { lang: appLang, fallback: 'Daily Goal' })}</Text>
+                  <Text style={styles.goalCardSub}>
+                    {t('tabs.dashboard.minutes_progress', {
+                      lang: appLang,
+                      params: { done: dailyProgress.minutes, total: todayGoalMins },
+                      fallback: `${dailyProgress.minutes} of ${todayGoalMins} minutes`,
+                    })}
+                  </Text>
+                </View>
+                <View style={[styles.goalBadge, { backgroundColor: progressPct >= 100 ? 'rgba(45,212,191,0.18)' : 'rgba(45,212,191,0.12)' }]}>
+                  {progressPct >= 100 ? (
+                    <View style={styles.goalBadgeDoneRow}>
+                      <Ionicons name="checkmark-done-circle" size={13} color={DASH.teal} />
+                      <Text style={[styles.goalBadgeText, { color: DASH.tealDk }]}>
+                        {t('tabs.dashboard.metric_done', { lang: appLang, fallback: 'Done' })}
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.goalBadgeText, { color: DASH.tealDk }]}>
+                      {`${Math.round(progressPct)}%`}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <View style={styles.goalTrack}>
+                <View style={[styles.goalFill, { width: `${Math.min(progressPct, 100)}%` as any }]} />
+              </View>
+            </View>
+
+            {/* Tasks */}
             {todayTasks.length === 0 ? (
-              <View style={[styles.noTasksContainer, { backgroundColor: colors.neutral[50] }]}>
-                <Ionicons name="checkmark-done-circle" size={48} color={colors.success[600]} style={{ marginBottom: 12 }} />
-                <Text style={[styles.noTasksTitle, { color: colors.neutral[600] }]}>
-                  No tasks scheduled for today!
-                </Text>
-                <Text style={[styles.noTasksText, { color: colors.neutral[500] }]}>
-                  Enjoy your free day or check the calendar for upcoming tasks.
-                </Text>
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyIconBox}>
+                  <View style={styles.emptyGlyphBarA} />
+                  <View style={styles.emptyGlyphBarB} />
+                </View>
+                <Text style={styles.emptyTitle}>{t('tabs.dashboard.empty_all_clear', { lang: appLang, fallback: 'All clear for today' })}</Text>
+                <Text style={styles.emptySub}>{t('tabs.dashboard.empty_no_sessions', { lang: appLang, fallback: "No sessions left. You can review tomorrow's plan now." })}</Text>
+                <View style={styles.emptyList}>
+                  <View style={styles.emptyListRow}>
+                    <View style={styles.emptyListDot} />
+                    <Text style={styles.emptyListText}>{t('tabs.dashboard.empty_queue_done', { lang: appLang, fallback: "Today's queue is completed" })}</Text>
+                  </View>
+                  <View style={styles.emptyListRow}>
+                    <View style={styles.emptyListDot} />
+                    <Text style={styles.emptyListText}>{t('tabs.dashboard.empty_next_ready', { lang: appLang, fallback: 'Next sessions are ready on Calendar' })}</Text>
+                  </View>
+                </View>
+                <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(tabs)/calendar')}>
+                  <Ionicons name="calendar-outline" size={15} color={DASH.teal} />
+                  <Text style={styles.emptyBtnText}>{t('tabs.dashboard.view_calendar', { lang: appLang, fallback: 'View Calendar' })}</Text>
+                </TouchableOpacity>
               </View>
             ) : (
-              todayTasks.map((task, index) => {
-              const isCompleted = taskCompletions[task.id] || false;
-              return (
-                <TouchableOpacity
-                  key={task.id}
-                  style={[
-                    styles.taskItem,
-                    { backgroundColor: colors.neutral[0] },
-                    isCompleted && { opacity: 0.7 }
-                  ]}
-                  onPress={() => handleStartStudySession(task)}
-                >
-                  <View style={styles.taskCheckbox}>
-                    {isCompleted ? (
-                      <View style={[styles.checkbox, styles.checkboxCompleted, { backgroundColor: colors.success[500] }]}>
-                        <Text style={styles.checkmark}>✓</Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.checkbox, { borderColor: colors.neutral[300] }]} />
-                    )}
-                  </View>
-                  
-                  <View style={styles.taskContent}>
-                    <View style={styles.taskHeader}>
-                      <Text style={[styles.taskSubject, { color: colors.neutral[900] }]}>
-                        {task.subject}
-                      </Text>
-                      <Ionicons 
-                        name={getTaskTypeIcon(task.type) as any} 
-                        size={18} 
-                        color={getTaskTypeColor(task.type)} 
-                      />
-                    </View>
-                    <Text style={[styles.taskDuration, { color: colors.neutral[500] }]}>
-                      {task.duration} minutes {isCompleted ? '(Completed ✅)' : ''}
+              <View style={{ gap: 7 }}>
+                {visibleTasks.map((task, i) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    subjectLabel={subjectLabel(task.subject)}
+                    isCompleted={taskCompletions[task.id] || false}
+                    onPress={() => handleStartSession(task)}
+                    typeColor={getTypeColor(task.type)}
+                    typeIcon={getTypeIcon(task.type)}
+                    typeLabel={getTypeLabel(task.type)}
+                    doneLabel={doneLabel}
+                    index={i}
+                  />
+                ))}
+                {canCollapseTasks && (
+                  <TouchableOpacity
+                    style={styles.expandTasksRow}
+                    onPress={() => setShowAllTasks((p) => !p)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.expandTasksText}>
+                      {showAllTasks
+                        ? t('tabs.dashboard.show_less', { lang: appLang, fallback: 'Show less' })
+                        : t('tabs.dashboard.continue_with_next_tasks', {
+                          lang: appLang,
+                          params: { count: hiddenTaskCount },
+                          fallback: `Continue with next ${hiddenTaskCount} task${hiddenTaskCount > 1 ? 's' : ''}`,
+                        })}
                     </Text>
-                  </View>
+                    <Ionicons
+                      name={showAllTasks ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color={DASH.teal}
+                    />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={[styles.linkRow, styles.calendarLinkRow]} onPress={() => router.push('/(tabs)/calendar')}>
+                  <Ionicons name="calendar-outline" size={14} color={DASH.teal} />
+                  <Text style={styles.linkRowText}>{t('tabs.dashboard.view_full_calendar', { lang: appLang, fallback: 'View full calendar' })}</Text>
+                  <Ionicons name="chevron-forward" size={13} color={DASH.teal} />
                 </TouchableOpacity>
-                              );
-              })
-            )}
-          </View>
-        </View>
-
-        {/* Recent Performance */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-              Recent Performance
-            </Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/progress')}>
-              <Text style={[styles.seeAllText, { color: colors.primary[500] }]}>
-                View Details
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.performanceList}>
-            {Object.entries(subjectProgress).map(([subject, progress]: [string, any], index) => (
-              <View
-                key={index}
-                style={[styles.performanceCard, { backgroundColor: colors.neutral[0] }]}
-              >
-                <View style={styles.performanceLeft}>
-                  <Text style={[styles.performanceSubject, { color: colors.neutral[800] }]}>
-                    {subject}
-                  </Text>
-                  <Text style={[styles.performanceScore, { color: colors.neutral[600] }]}>
-                    {progress.progress}% completed ({progress.completed}/{progress.total} tasks)
-                  </Text>
-                </View>
-                <View style={styles.performanceRight}>
-                  <Text style={styles.performanceTrend}>
-                    {progress.progress >= 75 ? '📈' : progress.progress >= 50 ? '➖' : '📉'}
-                  </Text>
-                </View>
               </View>
-            ))}
-          </View>
-        </View>
+            )}
+          </>
+        )}
 
-        {/* Motivational Quote */}
-        <View style={[styles.motivationCard, { backgroundColor: colors.success[50], borderColor: colors.success[200] }]}>
-          <Ionicons name="star" size={32} color={colors.success[600]} style={styles.motivationIcon} />
-          <Text style={[styles.motivationQuote, { color: colors.success[800] }]}>
-            {getDailyMotivationQuote()}
-          </Text>
-          <Text style={[styles.motivationAuthor, { color: colors.success[600] }]}>
-            — Daily Motivation
-          </Text>
-        </View>
+        {/* ── Subjects Tab ── */}
+        {activeTab === 'subjects' && (
+          <>
+            {subjectEntries.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>{t('tabs.dashboard.empty_no_data', { lang: appLang, fallback: 'No data yet' })}</Text>
+                <Text style={styles.emptySub}>{t('tabs.dashboard.empty_complete_sessions', { lang: appLang, fallback: 'Complete study sessions to see per-subject progress.' })}</Text>
+              </View>
+            ) : (
+              <View style={styles.subjectsCard}>
+                {subjectEntries.map(([sub, prog]: [string, any], idx) => (
+                  <SubjectBar
+                    key={sub}
+                    subject={subjectLabel(sub)}
+                    progress={prog.progress}
+                    completed={prog.completed}
+                    total={prog.total}
+                    index={idx}
+                    delay={idx * 90}
+                  />
+                ))}
+                <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/(tabs)/progress')}>
+                  <Ionicons name="stats-chart-outline" size={14} color={DASH.teal} />
+                  <Text style={styles.linkRowText}>{t('tabs.dashboard.view_detailed_progress', { lang: appLang, fallback: 'View detailed progress' })}</Text>
+                  <Ionicons name="chevron-forward" size={13} color={DASH.teal} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
+        </Animated.View>
 
-        {/* Bottom Spacing - Account for tab bar */}
-        <View style={{ height: Platform.OS === 'ios' ? 100 : 88 }} />
+        <View style={{ height: isIOS ? (isEmptyTasksState ? 62 : 90) : (isEmptyTasksState ? 54 : 78) }} />
       </ScrollView>
+
+      <Modal visible={metricSheet.visible} transparent animationType="fade" onRequestClose={() => setMetricSheet((p) => ({ ...p, visible: false }))}>
+        <Pressable style={styles.sheetOverlay} onPress={() => setMetricSheet((p) => ({ ...p, visible: false }))}>
+          <Pressable style={styles.sheetCard}>
+            <View style={styles.sheetTop}>
+              <Text style={styles.sheetTitle}>{metricSheet.title}</Text>
+              <Text style={styles.sheetValue}>{metricSheet.value}</Text>
+            </View>
+            <View style={styles.sheetList}>
+              {metricSheet.lines.map((line) => (
+                <View key={line} style={styles.sheetLineRow}>
+                  <View style={styles.sheetDot} />
+                  <Text style={styles.sheetLine}>{line}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.sheetBtn} onPress={() => setMetricSheet((p) => ({ ...p, visible: false }))}>
+              <Text style={styles.sheetBtnTxt}>{t('tabs.dashboard.close', { lang: appLang, fallback: 'Close' })}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: DASH.bg0 },
+  bgOrbA: { position: 'absolute', width: 260, height: 260, borderRadius: 130, top: -80, right: -100, backgroundColor: 'rgba(45,212,191,0.14)' },
+  bgOrbB: { position: 'absolute', width: 220, height: 220, borderRadius: 110, bottom: 120, left: -110, backgroundColor: 'rgba(52,211,153,0.10)' },
+
+  // Loading
+  loadWrap: { flex: 1, backgroundColor: DASH.bg0, justifyContent: 'center', alignItems: 'center' },
+  loadBall: { width: 78, height: 78, borderRadius: 39, justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: DASH.teal, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8 },
+  loadTitle: { fontSize: 20, fontWeight: '700', color: DASH.ink, marginBottom: 5 },
+  loadSub: { fontSize: 14, color: DASH.sub },
+
+  // Header
   header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: isIOS ? 6 : 14, paddingBottom: 10, backgroundColor: 'transparent',
+  },
+  greetingKicker: { fontSize: 10, fontWeight: '700', color: DASH.muted, letterSpacing: 1.1, textTransform: 'uppercase', marginBottom: 4 },
+  headerTitle: { fontSize: 21, fontWeight: '800', color: DASH.ink, lineHeight: 25 },
+  headerName: { marginTop: 1, fontSize: 20, fontWeight: '800', color: DASH.ink, lineHeight: 24 },
+  headerSub: { marginTop: 1, fontSize: 12, fontWeight: '500', color: DASH.sub },
+  headerExam: { color: DASH.teal, fontWeight: '800' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  streakPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(45,212,191,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: DASH.cardBorder,
+  },
+  streakDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DASH.teal },
+  streakTxt: { fontSize: 10, fontWeight: '700', color: DASH.sub, letterSpacing: 0.4, textTransform: 'uppercase' },
+  streakNum: { fontSize: 12, fontWeight: '800', color: DASH.ink },
+  notifBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, justifyContent: 'center', alignItems: 'center' },
+
+  // Trial
+  trialBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 20, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10,
+  },
+  trialText: { fontSize: 13, fontWeight: '600', flex: 1 },
+
+  // Scroll
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 2 },
+
+  // Hero Card
+  heroCard: {
+    borderRadius: 22, overflow: 'hidden', marginBottom: 12,
+    shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 18, elevation: 12,
+  },
+  heroGradient: { padding: 19 },
+  heroBlob1: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)', top: -40, right: -30 },
+  heroBlob2: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 60 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 17 },
+  heroCirclePct: { fontSize: 22, fontWeight: '800', color: '#FFF' },
+  heroCircleLabel: { fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
+  heroStats: { flex: 1 },
+  heroStatsTitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginBottom: 10 },
+  heroStatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  heroStat: { flex: 1, alignItems: 'center' },
+  heroStatVal: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+  heroStatUnit: { fontSize: 13, fontWeight: '600' },
+  heroStatLbl: { fontSize: 10, fontWeight: '500', color: 'rgba(255,255,255,0.75)', marginTop: 1 },
+  heroStatSep: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.3)' },
+  heroMiniBar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroMiniTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+  heroMiniFill: { height: 5, borderRadius: 3, backgroundColor: '#FFF' },
+  heroMiniText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.9)', minWidth: 52, textAlign: 'right' },
+
+  // Metrics Board
+  metricsBoard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: isIOS ? 12: 20,
-    paddingBottom: 20,
-  },
-  greeting: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
-  notificationButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationIcon: {
-    fontSize: 18,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  progressCard: {
-    borderRadius: 16,
-    marginBottom: 16,
-    marginTop: 16, 
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  progressGradient: {
-    borderRadius: 16,
-    padding: 20,
-  },
-  progressContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressLeft: {
-    alignItems: 'center',
-  },
-  progressPercentage: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  progressRight: {
-    flexDirection: 'row',
-    gap: 24,
-  },
-  progressStat: {
-    alignItems: 'center',
-  },
-  progressStatValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  progressStatLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  quickStats: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  statIcon: {
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  dailyProgressContainer: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  dailyProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 12,
-  },
-  dailyProgressTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  dailyProgressText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  progressBarBg: {
-    height: 8,
-    borderRadius: 4,
+    borderRadius: 14,
+    backgroundColor: DASH.card,
+    borderWidth: 1,
+    borderColor: DASH.cardBorder,
     overflow: 'hidden',
   },
-  progressBarFill: {
-    height: 8,
-    borderRadius: 4,
-  },
-  taskList: {
-    gap: 12,
-  },
-  taskItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  taskCheckbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  taskCheckIcon: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  taskContent: {
+  metricCell: {
     flex: 1,
-  },
-  taskHeader: {
-    flexDirection: 'row',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 2,
-  },
-  taskSubject: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  taskTypeIcon: {
-    fontSize: 16,
-  },
-  taskTopic: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  taskRight: {
-    alignItems: 'flex-end',
-  },
-  taskDuration: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  performanceList: {
-    gap: 12,
-  },
-  performanceCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  performanceLeft: {},
-  performanceSubject: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  performanceScore: {
-    fontSize: 13,
-  },
-  performanceRight: {},
-  performanceTrend: {
-    fontSize: 20,
-  },
-  motivationCard: {
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  motivationIcon: {
-    fontSize: 32,
-    marginBottom: 12,
-  },
-  motivationQuote: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 8,
-  },
-  motivationAuthor: {
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
-  
-  // Checkbox styles
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
     justifyContent: 'center',
-    alignItems: 'center',
+    gap: 3,
   },
-  checkboxCompleted: {
-    borderWidth: 0,
+  metricCellSep: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: DASH.cardBorder,
   },
-  checkmark: {
-    fontSize: 14,
+  metricLabel: {
+    fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: DASH.sub,
+    textTransform: 'uppercase',
+    letterSpacing: 0.45,
   },
-  taskType: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  
-  // No tasks styles
-  noTasksContainer: {
-    padding: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  noTasksTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  noTasksText: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
+  metricValue: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: DASH.ink,
+    letterSpacing: -0.2,
   },
 
-  // Trial warning banner styles
-  trialWarningBanner: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  // Tab
+  tabRow: {
+    flexDirection: 'row', backgroundColor: DASH.card, borderRadius: 12, padding: 4, marginBottom: 10, borderWidth: 1, borderColor: DASH.cardBorder,
   },
-  trialWarningContent: {
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 8, borderRadius: 9,
+  },
+  tabActive: {
+    backgroundColor: 'rgba(45,212,191,0.12)',
+    shadowColor: DASH.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.14, shadowRadius: 4, elevation: 2,
+  },
+  tabText: { fontSize: 13, fontWeight: '600', color: DASH.muted },
+  tabTextActive: { color: DASH.teal },
+
+  // Goal Card
+  goalCard: {
+    backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, borderRadius: 14, padding: 12, marginBottom: 8,
+    shadowColor: DASH.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+  },
+  goalCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  goalCardTitle: { fontSize: 14, fontWeight: '700', color: DASH.ink },
+  goalCardSub: { fontSize: 12, color: DASH.sub, marginTop: 2 },
+  goalBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  goalBadgeDoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  goalBadgeText: { fontSize: 12, fontWeight: '700' },
+  goalTrack: { height: 8, borderRadius: 4, backgroundColor: DASH.track, overflow: 'hidden' },
+  goalFill: { height: 8, borderRadius: 4, backgroundColor: DASH.teal },
+
+  // Task Card
+  taskCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, borderRadius: 14, overflow: 'hidden',
+    shadowColor: DASH.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+    paddingRight: 14, paddingVertical: 10,
+  },
+  taskCardDone: { opacity: 0.62 },
+  taskAccent: { width: 4, alignSelf: 'stretch', marginRight: 14 },
+  taskCircle: {
+    width: 26, height: 26, borderRadius: 13, borderWidth: 2,
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  taskBody: { flex: 1 },
+  taskSubject: { fontSize: 15, fontWeight: '700', color: DASH.ink, marginBottom: 4 },
+  taskSubjectDone: { textDecorationLine: 'line-through', color: DASH.muted },
+  taskMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  taskBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  taskBadgeText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
+  taskDuration: { fontSize: 12, color: DASH.muted, fontWeight: '500' },
+  doneTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  trialWarningIcon: {
-    marginRight: 12,
-  },
-  trialWarningText: {
-    flex: 1,
-  },
-  trialWarningTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  trialWarningSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-  },
-  trialWarningButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    gap: 4,
+    backgroundColor: 'rgba(45,212,191,0.16)',
     borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  doneTagText: { fontSize: 12, fontWeight: '700', color: DASH.tealDk },
+  playBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+
+  // Expand Tasks
+  expandTasksRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(45,212,191,0.10)',
+    borderWidth: 1,
+    borderColor: DASH.cardBorder,
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
   },
-  trialWarningButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  expandTasksText: { fontSize: 12, fontWeight: '700', color: DASH.tealDk, letterSpacing: 0.1 },
+
+  // Link Row
+  linkRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 7,
   },
-}); 
+  calendarLinkRow: { marginTop: 8 },
+  linkRowText: { fontSize: 13, fontWeight: '600', color: DASH.teal },
+
+  // Empty
+  emptyCard: { backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center' },
+  emptyIconBox: { width: 64, height: 64, borderRadius: 16, borderWidth: 1, borderColor: DASH.cardBorder, backgroundColor: 'rgba(45,212,191,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 10, gap: 6 },
+  emptyGlyphBarA: { width: 30, height: 4, borderRadius: 2, backgroundColor: DASH.teal },
+  emptyGlyphBarB: { width: 22, height: 4, borderRadius: 2, backgroundColor: 'rgba(45,212,191,0.45)' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: DASH.ink, marginBottom: 5 },
+  emptySub: { fontSize: 12, color: DASH.sub, textAlign: 'center', lineHeight: 17, marginBottom: 10 },
+  emptyList: { width: '100%', gap: 4, marginBottom: 10 },
+  emptyListRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  emptyListDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DASH.teal },
+  emptyListText: { fontSize: 11.5, color: DASH.sub, fontWeight: '500' },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(45,212,191,0.12)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
+  emptyBtnText: { fontSize: 12, fontWeight: '600', color: DASH.teal },
+
+  // Subjects
+  subjectsCard: {
+    backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, borderRadius: 16, padding: 16,
+    shadowColor: DASH.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+  },
+  subjectRow: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DASH.cardBorder },
+  subjectRowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  subjectRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subjectDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: DASH.cardBorder, backgroundColor: 'rgba(45,212,191,0.10)', justifyContent: 'center', alignItems: 'center' },
+  subjectDotTxt: { fontSize: 10, fontWeight: '800', color: DASH.teal },
+  subjectName: { fontSize: 13, fontWeight: '600', color: DASH.ink },
+  subjectRowRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  subjectPct: { fontSize: 12, fontWeight: '700', color: DASH.teal },
+  subjectMeta: { fontSize: 11, color: DASH.muted, fontWeight: '500' },
+  subjectTrack: { height: 7, borderRadius: 4, backgroundColor: DASH.track, overflow: 'hidden' },
+  subjectFill: { height: 7, borderRadius: 4, backgroundColor: DASH.teal },
+
+  // Metric Sheet
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(2,6,23,0.40)',
+    justifyContent: 'flex-end',
+    padding: 16,
+  },
+  sheetCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: DASH.cardBorder,
+    padding: 16,
+    gap: 12,
+  },
+  sheetTop: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  sheetTitle: { fontSize: 14, fontWeight: '700', color: DASH.sub },
+  sheetValue: { fontSize: 24, fontWeight: '900', color: DASH.ink, letterSpacing: -0.4 },
+  sheetList: { gap: 8 },
+  sheetLineRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sheetDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DASH.teal },
+  sheetLine: { flex: 1, fontSize: 13, lineHeight: 18, color: DASH.sub },
+  sheetBtn: {
+    marginTop: 2,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,157,140,0.12)',
+  },
+  sheetBtnTxt: { fontSize: 14, fontWeight: '800', color: DASH.teal },
+});

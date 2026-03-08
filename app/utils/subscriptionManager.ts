@@ -1,10 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
+import { devLog, devWarn, reportError } from './logger';
 
-import { hasActiveReferralTrial, updateReferralOnSubscription } from './referralManager';
+import { hasActiveReferralTrial, hasCachedReferralTrial, updateReferralOnSubscription } from './referralManager';
 
 const SUBSCRIPTION_STATUS_KEY = 'subscription_status';
-const SUBSCRIPTION_TEMP_DISABLED = process.env.EXPO_PUBLIC_APP_ENV !== 'production';
+const PREMIUM_HISTORY_KEY = 'premium_history_status';
+const SUBSCRIPTION_BYPASS_ENABLED =
+  __DEV__ && process.env.EXPO_PUBLIC_BYPASS_PREMIUM === 'true';
+let revenueCatConfigured = false;
 
 // Universal RevenueCat API key from environment variables
 const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
@@ -17,18 +21,46 @@ export interface SubscriptionStatus {
   productId?: string;
 }
 
+export const getCachedSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
+  const localStatus = await AsyncStorage.getItem(SUBSCRIPTION_STATUS_KEY);
+  return {
+    isActive: localStatus === 'active',
+  };
+};
+
+export const hasEverPremiumAccess = async (): Promise<boolean> => {
+  try {
+    return (await AsyncStorage.getItem(PREMIUM_HISTORY_KEY)) === 'true';
+  } catch (error) {
+    reportError('❌ Error reading premium history:', error);
+    return false;
+  }
+};
+
+const markPremiumHistory = async (): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(PREMIUM_HISTORY_KEY, 'true');
+  } catch (error) {
+    reportError('❌ Error persisting premium history:', error);
+  }
+};
+
 /**
  * Initialize RevenueCat with universal API key
  */
 export const initializeRevenueCat = async (): Promise<boolean> => {
   try {
+    if (revenueCatConfigured) {
+      return true;
+    }
+
     if (__DEV__) {
       const preview = REVENUECAT_API_KEY ? `${REVENUECAT_API_KEY.slice(0, 6)}…` : 'undefined';
-      console.log('🔑 Using RevenueCat key (dev):', preview);
+      devLog('🔑 Using RevenueCat key (dev):', preview);
     }
     
     if (!REVENUECAT_API_KEY || REVENUECAT_API_KEY === 'your-api-key-here') {
-      console.warn('⚠️ RevenueCat API key not configured');
+      devWarn('⚠️ RevenueCat API key not configured');
       return false;
     }
 
@@ -36,16 +68,30 @@ export const initializeRevenueCat = async (): Promise<boolean> => {
       apiKey: REVENUECAT_API_KEY,
       appUserID: undefined, // Let RevenueCat generate anonymous user ID
     });
-    
-    // Force sync with App Store
-    console.log('🔄 Syncing with App Store...');
-    await Purchases.syncPurchases();
 
-    console.log('✅ RevenueCat initialized successfully');
+    revenueCatConfigured = true;
+
+    if (__DEV__) {
+      devLog('✅ RevenueCat initialized successfully');
+    }
     return true;
   } catch (error) {
-    console.error('❌ RevenueCat initialization error:', error);
+    reportError('❌ RevenueCat initialization error:', error);
     return false;
+  }
+};
+
+/**
+ * Sync purchases manually when needed (restore/subscription screen/purchase recovery).
+ * Do not call at app startup to avoid unnecessary App Store auth prompts.
+ */
+export const syncRevenueCatPurchases = async (): Promise<void> => {
+  try {
+    const ok = await initializeRevenueCat();
+    if (!ok) return;
+    await Purchases.syncPurchases();
+  } catch (error) {
+    reportError('❌ RevenueCat sync error:', error);
   }
 };
 
@@ -54,44 +100,55 @@ export const initializeRevenueCat = async (): Promise<boolean> => {
  */
 export const getSubscriptionOfferings = async (): Promise<PurchasesOffering | null> => {
   try {
-    console.log('🔍 Fetching offerings from RevenueCat...');
+    const ok = await initializeRevenueCat();
+    if (!ok) return null;
+
+    if (__DEV__) {
+      devLog('🔍 Fetching offerings from RevenueCat...');
+    }
     const offerings = await Purchases.getOfferings();
 
-    console.log('📦 Raw offerings response:', JSON.stringify({
-      current: offerings.current?.identifier,
-      all: Object.keys(offerings.all),
-    }));
+    if (__DEV__) {
+      devLog('📦 Raw offerings response:', JSON.stringify({
+        current: offerings.current?.identifier,
+        all: Object.keys(offerings.all),
+      }));
+    }
 
     if (offerings.current !== null) {
-      console.log('📦 Current offering identifier:', offerings.current.identifier);
-      console.log('📦 Available packages count:', offerings.current.availablePackages.length);
+      if (__DEV__) {
+        devLog('📦 Current offering identifier:', offerings.current.identifier);
+        devLog('📦 Available packages count:', offerings.current.availablePackages.length);
+      }
 
       // Log each package details
-      offerings.current.availablePackages.forEach((pkg, index) => {
-        console.log(`📦 Package ${index + 1}:`, {
-          identifier: pkg.identifier,
-          packageType: pkg.packageType,
-          productId: pkg.product.identifier,
-          title: pkg.product.title,
-          priceString: pkg.product.priceString,
+      if (__DEV__) {
+        offerings.current.availablePackages.forEach((pkg, index) => {
+          devLog(`📦 Package ${index + 1}:`, {
+            identifier: pkg.identifier,
+            packageType: pkg.packageType,
+            productId: pkg.product.identifier,
+            title: pkg.product.title,
+            priceString: pkg.product.priceString,
+          });
         });
-      });
+      }
 
       return offerings.current;
     } else {
-      console.warn('⚠️ No current offering found!');
-      console.warn('⚠️ All offerings:', Object.keys(offerings.all));
+      devWarn('⚠️ No current offering found!');
+      devWarn('⚠️ All offerings:', Object.keys(offerings.all));
 
       // Try to get 'default' offering explicitly
       if (offerings.all['default']) {
-        console.log('✅ Found "default" offering, using that instead');
+        devLog('✅ Found "default" offering, using that instead');
         return offerings.all['default'];
       }
 
       return null;
     }
   } catch (error) {
-    console.error('❌ Error fetching offerings:', error);
+    reportError('❌ Error fetching offerings:', error);
     return null;
   }
 };
@@ -101,17 +158,24 @@ export const getSubscriptionOfferings = async (): Promise<PurchasesOffering | nu
  */
 export const purchasePackage = async (packageToPurchase: PurchasesPackage): Promise<SubscriptionStatus> => {
   try {
-    console.log('💳 Starting purchase for package:', packageToPurchase.identifier);
+    const ok = await initializeRevenueCat();
+    if (!ok) throw new Error('Payment system is not available');
+
+    if (__DEV__) {
+      devLog('💳 Starting purchase for package:', packageToPurchase.identifier);
+    }
     
     const { customerInfo } = await Purchases.purchasePackage(packageToPurchase);
 
     // Debug: Log customerInfo details
-    console.log('🔍 CustomerInfo after purchase:', {
-      allEntitlements: Object.keys(customerInfo.entitlements.all),
-      activeEntitlements: Object.keys(customerInfo.entitlements.active),
-      allPurchasedProductIds: customerInfo.allPurchasedProductIdentifiers,
-      activeSubscriptions: customerInfo.activeSubscriptions
-    });
+    if (__DEV__) {
+      devLog('🔍 CustomerInfo after purchase:', {
+        allEntitlements: Object.keys(customerInfo.entitlements.all),
+        activeEntitlements: Object.keys(customerInfo.entitlements.active),
+        allPurchasedProductIds: customerInfo.allPurchasedProductIdentifiers,
+        activeSubscriptions: customerInfo.activeSubscriptions
+      });
+    }
 
     const isActive = customerInfo.entitlements.active['premium'] !== undefined;
     
@@ -120,6 +184,7 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage): Prom
 
       // Update local storage
       await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, 'active');
+      await markPremiumHistory();
 
       const subscriptionType = getSubscriptionType(packageToPurchase.identifier);
 
@@ -127,11 +192,13 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage): Prom
       try {
         await updateReferralOnSubscription();
       } catch (referralError) {
-        console.error('⚠️ Error updating referral status:', referralError);
+        reportError('⚠️ Error updating referral status:', referralError);
         // Don't fail the purchase if referral update fails
       }
 
-      console.log('✅ Purchase successful!');
+      if (__DEV__) {
+        devLog('✅ Purchase successful!');
+      }
 
       return {
         isActive: true,
@@ -144,7 +211,7 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage): Prom
       throw new Error('Purchase completed but entitlement not found');
     }
   } catch (error: any) {
-    console.error('❌ Purchase failed:', error);
+    reportError('❌ Purchase failed:', error);
     
     // Handle specific RevenueCat errors
     if (error.code === 'PURCHASE_CANCELLED') {
@@ -164,6 +231,12 @@ export const purchasePackage = async (packageToPurchase: PurchasesPackage): Prom
  */
 export const getSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
   try {
+    const ok = await initializeRevenueCat();
+    if (!ok) {
+      const localStatus = await AsyncStorage.getItem(SUBSCRIPTION_STATUS_KEY);
+      return { isActive: localStatus === 'active' };
+    }
+
     // Always verify with RevenueCat for the most current status
     const customerInfo = await Purchases.getCustomerInfo();
     
@@ -174,6 +247,7 @@ export const getSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
       
       // Update local storage
       await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, 'active');
+      await markPremiumHistory();
       
       return {
         isActive: true,
@@ -190,7 +264,7 @@ export const getSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
       };
     }
   } catch (error) {
-    console.error('❌ Error checking subscription status:', error);
+    reportError('❌ Error checking subscription status:', error);
     
     // Fallback to local storage if RevenueCat fails
     const localStatus = await AsyncStorage.getItem(SUBSCRIPTION_STATUS_KEY);
@@ -205,26 +279,62 @@ export const getSubscriptionStatus = async (): Promise<SubscriptionStatus> => {
  * Checks both subscription and referral trial status
  */
 export const hasPremiumAccess = async (): Promise<boolean> => {
-  if (SUBSCRIPTION_TEMP_DISABLED) {
-    console.log('🚧 Subscription check temporarily bypassed');
+  if (SUBSCRIPTION_BYPASS_ENABLED) {
+    devLog('🚧 Subscription check temporarily bypassed');
     return true;
   }
 
   // 1. Check RevenueCat subscription
   const status = await getSubscriptionStatus();
   if (status.isActive) {
-    console.log('✅ Has active subscription');
+    if (__DEV__) {
+      devLog('✅ Has active subscription');
+    }
     return true;
   }
 
   // 2. Check referral trial
   const hasReferralTrial = await hasActiveReferralTrial();
   if (hasReferralTrial) {
-    console.log('🎁 Has active referral trial');
+    await markPremiumHistory();
+    if (__DEV__) {
+      devLog('🎁 Has active referral trial');
+    }
     return true;
   }
 
-  console.log('❌ No premium access');
+  if (__DEV__) {
+    devLog('❌ No premium access');
+  }
+  return false;
+};
+
+export const hasCachedPremiumAccess = async (): Promise<boolean> => {
+  if (SUBSCRIPTION_BYPASS_ENABLED) {
+    devLog('🚧 Subscription check temporarily bypassed');
+    return true;
+  }
+
+  const status = await getCachedSubscriptionStatus();
+  if (status.isActive) {
+    if (__DEV__) {
+      devLog('✅ Has cached active subscription');
+    }
+    return true;
+  }
+
+  const hasReferralTrial = await hasCachedReferralTrial();
+  if (hasReferralTrial) {
+    await markPremiumHistory();
+    if (__DEV__) {
+      devLog('🎁 Has active referral trial');
+    }
+    return true;
+  }
+
+  if (__DEV__) {
+    devLog('❌ No cached premium access');
+  }
   return false;
 };
 
@@ -233,14 +343,18 @@ export const hasPremiumAccess = async (): Promise<boolean> => {
  */
 export const restorePurchases = async (): Promise<SubscriptionStatus> => {
   try {
-    console.log('🔄 Restoring purchases...');
+    const ok = await initializeRevenueCat();
+    if (!ok) throw new Error('Payment system is not available');
+
+    devLog('🔄 Restoring purchases...');
     const customerInfo = await Purchases.restorePurchases();
     
     if (customerInfo.entitlements.active['premium']) {
       await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, 'active');
+      await markPremiumHistory();
       
       const entitlement = customerInfo.entitlements.active['premium'];
-      console.log('✅ Purchases restored successfully');
+      devLog('✅ Purchases restored successfully');
       
       return {
         isActive: true,
@@ -250,14 +364,14 @@ export const restorePurchases = async (): Promise<SubscriptionStatus> => {
       };
     } else {
       await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, 'inactive');
-      console.log('ℹ️ No active subscriptions found to restore');
+      devLog('ℹ️ No active subscriptions found to restore');
       
       return {
         isActive: false,
       };
     }
   } catch (error) {
-    console.error('❌ Error restoring purchases:', error);
+    reportError('❌ Error restoring purchases:', error);
     throw error;
   }
 };
@@ -266,8 +380,11 @@ export const restorePurchases = async (): Promise<SubscriptionStatus> => {
  * Set subscription status manually (for testing or offline scenarios)
  */
 export const setSubscriptionStatus = async (status: 'active' | 'inactive'): Promise<void> => {
+  if (!__DEV__) {
+    return;
+  }
   await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, status);
-  console.log('🧪 Manual subscription status set to:', status);
+  devLog('🧪 Manual subscription status set to:', status);
 };
 
 /**
@@ -277,15 +394,25 @@ export const clearSubscriptionStatus = async (): Promise<void> => {
   await AsyncStorage.removeItem(SUBSCRIPTION_STATUS_KEY);
 };
 
+export const setCachedPremiumStatus = async (status: 'active' | 'inactive'): Promise<void> => {
+  await AsyncStorage.setItem(SUBSCRIPTION_STATUS_KEY, status);
+  if (status === 'active') {
+    await markPremiumHistory();
+  }
+};
+
 /**
  * Get user subscription details
  */
 export const getSubscriptionDetails = async (): Promise<CustomerInfo | null> => {
   try {
+    const ok = await initializeRevenueCat();
+    if (!ok) return null;
+
     const customerInfo = await Purchases.getCustomerInfo();
     return customerInfo;
   } catch (error) {
-    console.error('❌ Error getting subscription details:', error);
+    reportError('❌ Error getting subscription details:', error);
     return null;
   }
 };
@@ -310,6 +437,9 @@ const getSubscriptionType = (packageId: string): 'monthly' | 'annual' | 'weekly'
  */
 export const checkIntroEligibility = async (): Promise<boolean> => {
   try {
+    const ok = await initializeRevenueCat();
+    if (!ok) return true;
+
     const customerInfo = await Purchases.getCustomerInfo();
     
     // User is eligible for intro pricing if they haven't had any previous subscriptions
@@ -317,19 +447,24 @@ export const checkIntroEligibility = async (): Promise<boolean> => {
     
     return !hasHadSubscription;
   } catch (error) {
-    console.error('❌ Error checking intro eligibility:', error);
+    reportError('❌ Error checking intro eligibility:', error);
     return true; // Default to eligible if check fails
   }
 };
 
 export default {
   initializeRevenueCat,
+  syncRevenueCatPurchases,
   getSubscriptionOfferings,
   purchasePackage,
+  getCachedSubscriptionStatus,
   getSubscriptionStatus,
+  hasCachedPremiumAccess,
+  hasEverPremiumAccess,
   hasPremiumAccess,
   restorePurchases,
   setSubscriptionStatus,
+  setCachedPremiumStatus,
   clearSubscriptionStatus,
   getSubscriptionDetails,
   checkIntroEligibility,

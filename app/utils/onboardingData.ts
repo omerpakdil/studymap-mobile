@@ -8,10 +8,6 @@ export interface ExamData {
   subjects: string[];
 }
 
-export interface TopicProficiency {
-  [topicId: string]: number; // 0-4 scale (Beginner to Expert)
-}
-
 export interface SubjectIntensity {
   [subjectName: string]: number; // 0-3 scale (Light, Moderate, High, Intensive)
 }
@@ -39,7 +35,6 @@ export interface LearningStyleData {
 
 export interface OnboardingData {
   examData: ExamData | null;
-  topicProficiency: TopicProficiency;
   subjectIntensity: SubjectIntensity;
   goalsData: GoalsData | null;
   scheduleData: ScheduleData;
@@ -50,9 +45,7 @@ export interface OnboardingData {
 
 // Storage keys
 const STORAGE_KEYS = {
-  ONBOARDING_DATA: 'onboarding_data',
   EXAM_DATA: 'onboarding_exam',
-  TOPIC_PROFICIENCY: 'onboarding_topics',
   SUBJECT_INTENSITY: 'onboarding_subject_intensity',
   GOALS_DATA: 'onboarding_goals',
   SCHEDULE_DATA: 'onboarding_schedule',
@@ -63,7 +56,6 @@ const STORAGE_KEYS = {
 // Default empty data
 const getDefaultOnboardingData = (): OnboardingData => ({
   examData: null,
-  topicProficiency: {},
   subjectIntensity: {},
   goalsData: null,
   scheduleData: {},
@@ -78,15 +70,6 @@ export const saveExamData = async (examData: ExamData): Promise<void> => {
     await AsyncStorage.setItem(STORAGE_KEYS.EXAM_DATA, JSON.stringify(examData));
   } catch (error) {
     console.error('Error saving exam data:', error);
-    throw error;
-  }
-};
-
-export const saveTopicProficiency = async (topicProficiency: TopicProficiency): Promise<void> => {
-  try {
-    await AsyncStorage.setItem(STORAGE_KEYS.TOPIC_PROFICIENCY, JSON.stringify(topicProficiency));
-  } catch (error) {
-    console.error('Error saving topic proficiency:', error);
     throw error;
   }
 };
@@ -138,16 +121,6 @@ export const loadExamData = async (): Promise<ExamData | null> => {
   }
 };
 
-export const loadTopicProficiency = async (): Promise<TopicProficiency> => {
-  try {
-    const data = await AsyncStorage.getItem(STORAGE_KEYS.TOPIC_PROFICIENCY);
-    return data ? JSON.parse(data) : {};
-  } catch (error) {
-    console.error('Error loading topic proficiency:', error);
-    return {};
-  }
-};
-
 export const loadSubjectIntensity = async (): Promise<SubjectIntensity> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.SUBJECT_INTENSITY);
@@ -191,9 +164,8 @@ export const loadLearningStyleData = async (): Promise<LearningStyleData | null>
 // Load complete onboarding data
 export const loadCompleteOnboardingData = async (): Promise<OnboardingData> => {
   try {
-    const [examData, topicProficiency, subjectIntensity, goalsData, scheduleData, learningStyleData] = await Promise.all([
+    const [examData, subjectIntensity, goalsData, scheduleData, learningStyleData] = await Promise.all([
       loadExamData(),
-      loadTopicProficiency(),
       loadSubjectIntensity(),
       loadGoalsData(),
       loadScheduleData(),
@@ -206,7 +178,6 @@ export const loadCompleteOnboardingData = async (): Promise<OnboardingData> => {
 
     return {
       examData,
-      topicProficiency,
       subjectIntensity,
       goalsData,
       scheduleData,

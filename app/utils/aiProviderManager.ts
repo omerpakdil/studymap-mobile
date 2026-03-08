@@ -1,113 +1,60 @@
 import { OnboardingData } from './onboardingData';
+import { generateStudyProgramWithRules, type ProgressCallback } from './planner/ruleBasedStudyGenerator';
+import type { StudyProgram, StudyTask } from './studyTypes';
+import { generateStudyContent as generateLocalStudyContent, type ContentItem } from './contentGenerator';
 
-// Import Gemini AI provider
-import {
-    ContentItem,
-    generateStudyContentWithGemini,
-    generateStudyProgramWithGemini,
-    StudyProgram,
-    StudyTask,
-} from './geminiStudyGenerator';
-
-/**
- * Simple provider identifier used until multi-provider selection is available.
- * Keeping this async maintains parity with future storage-backed implementations.
- */
-const DEFAULT_PROVIDER = 'gemini' as const;
+const DEFAULT_PROVIDER = 'rule_engine' as const;
 
 export type AIProvider = typeof DEFAULT_PROVIDER;
 
 export const getCurrentAIProvider = async (): Promise<AIProvider> => DEFAULT_PROVIDER;
 
-// Progress callback type for chunk generation
-export type ProgressCallback = (status: string, current: number, total: number) => void;
+export type { ProgressCallback };
 
-/**
- * Generate study program using Gemini AI
- */
 export const generateStudyProgram = async (
   onboardingData: OnboardingData,
   onProgress?: ProgressCallback
 ): Promise<StudyProgram | null> => {
   try {
-    console.log('🤖 Generating study program with Gemini AI');
-    return await generateStudyProgramWithGemini(onboardingData, onProgress);
+    console.log('Generating study program with rule engine');
+    return await generateStudyProgramWithRules(onboardingData, onProgress);
   } catch (error) {
-    console.error('❌ Error generating study program with Gemini:', error);
+    console.error('Error generating study program with rules:', error);
     return null;
   }
 };
 
-/**
- * Generate study content using Gemini AI
- */
 export const generateStudyContent = async (params: {
   examId: string;
   subject: string;
+  topic?: string;
   sessionType: 'Practice' | 'Study' | 'Review';
   duration: number;
 }): Promise<ContentItem[]> => {
   try {
-    console.log('🤖 Generating study content with Gemini AI');
-    return await generateStudyContentWithGemini(params);
+    return await generateLocalStudyContent({
+      examId: params.examId,
+      subject: params.subject,
+      sessionType: params.sessionType,
+      duration: params.duration,
+    });
   } catch (error) {
-    console.error('❌ Error generating study content with Gemini:', error);
-    // Return empty array on error - the study session will handle this
+    console.error('Error generating study content:', error);
     return [];
   }
 };
 
-/**
- * Test Gemini AI connectivity
- */
-export const testAIProvider = async (): Promise<{ success: boolean; message: string }> => {
-  try {
-    console.log('🧪 Testing Gemini AI connectivity...');
+export const testAIProvider = async (): Promise<{ success: boolean; message: string }> => ({
+  success: true,
+  message: 'Rule-based engine is active',
+});
 
-    const testParams = {
-      examId: 'sat',
-      subject: 'Mathematics',
-      sessionType: 'Practice' as const,
-      duration: 30
-    };
-
-    const content = await generateStudyContent(testParams);
-
-    if (content && content.length > 0) {
-      return {
-        success: true,
-        message: 'Gemini AI is working correctly'
-      };
-    } else {
-      return {
-        success: false,
-        message: 'Gemini AI returned empty content'
-      };
-    }
-  } catch (error) {
-    return {
-      success: false,
-      message: `Gemini AI test failed: ${error}`
-    };
-  }
-};
-
-/**
- * Get Gemini AI status and health
- */
 export const getAIProviderStatus = async (): Promise<{
   available: boolean;
   lastTested: string;
-}> => {
-  // Simple availability check based on API key
-  const geminiAvailable = process.env.EXPO_PUBLIC_GOOGLE_API_KEY &&
-                         process.env.EXPO_PUBLIC_GOOGLE_API_KEY !== 'your-google-api-key-here';
+}> => ({
+  available: true,
+  lastTested: new Date().toISOString(),
+});
 
-  return {
-    available: Boolean(geminiAvailable),
-    lastTested: new Date().toISOString()
-  };
-};
-
-// Re-export types for convenience
 export type { ContentItem, StudyProgram, StudyTask };

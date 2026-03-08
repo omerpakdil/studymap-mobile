@@ -1,12 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Purchases from 'react-native-purchases';
+import { devLog, reportError } from './logger';
+import { isRevenueCatUninitializedError } from './revenueCatSafe';
 
-import { supabase, DatabaseUser, DatabaseReferralStats } from './supabase';
+import { supabase, DatabaseReferralStats } from './supabase';
 
 // Storage keys
 const REFERRAL_CODE_KEY = 'user_referral_code';
 const REFERRAL_TRIAL_KEY = 'referral_trial_status';
 const USED_REFERRAL_CODE_KEY = 'used_referral_code';
+const TEMP_APP_USER_ID_KEY = 'temp_app_user_id';
+const REFERRAL_CODE_LENGTH = 6;
 
 // Types
 export interface ReferralTrial {
@@ -24,6 +28,18 @@ export interface ReferralStats {
   pendingDays: number;
 }
 
+const createRandomReferralCode = (): string => {
+  // Excluded confusing chars: I, O, 0, 1
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < REFERRAL_CODE_LENGTH; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+const normalizeReferralCode = (code: string): string => code.trim().toUpperCase();
+
 /**
  * Get current user's RevenueCat ID
  */
@@ -32,9 +48,17 @@ const getCurrentUserId = async (): Promise<string> => {
     const customerInfo = await Purchases.getCustomerInfo();
     return customerInfo.originalAppUserId;
   } catch (error) {
-    console.error('❌ Error getting user ID:', error);
-    // Fallback: generate a temporary ID
-    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (!isRevenueCatUninitializedError(error)) {
+      reportError('❌ Error getting user ID:', error);
+    }
+
+    const existingTempId = await AsyncStorage.getItem(TEMP_APP_USER_ID_KEY);
+    if (existingTempId) {
+      return existingTempId;
+    }
+    // Fallback: generate a stable temporary ID
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    await AsyncStorage.setItem(TEMP_APP_USER_ID_KEY, tempId);
     return tempId;
   }
 };
@@ -50,20 +74,14 @@ export const generateReferralCode = async (): Promise<string> => {
       return existingCode;
     }
 
-    // Generate 6-character random code (only English alphabet + numbers)
-    // Excluded confusing characters: I, O, 0, 1 for better readability
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
+    const code = createRandomReferralCode();
 
     await AsyncStorage.setItem(REFERRAL_CODE_KEY, code);
 
-    console.log('✅ Referral code generated:', code);
+    devLog('✅ Referral code generated:', code);
     return code;
   } catch (error) {
-    console.error('❌ Error generating referral code:', error);
+    reportError('❌ Error generating referral code:', error);
     throw error;
   }
 };
@@ -76,7 +94,7 @@ export const getReferralCode = async (): Promise<string | null> => {
     const code = await AsyncStorage.getItem(REFERRAL_CODE_KEY);
     return code;
   } catch (error) {
-    console.error('❌ Error getting referral code:', error);
+    reportError('❌ Error getting referral code:', error);
     return null;
   }
 };
@@ -98,33 +116,37 @@ export const registerUserWithReferralCode = async (): Promise<string> => {
     if (existingUser && !fetchError) {
       // User exists, save code locally
       await AsyncStorage.setItem(REFERRAL_CODE_KEY, existingUser.referral_code);
-      console.log('✅ User already registered with code:', existingUser.referral_code);
+      devLog('✅ User already registered with code:', existingUser.referral_code);
       return existingUser.referral_code;
     }
 
-    // Generate new code
-    const code = await generateReferralCode();
+    let code = (await AsyncStorage.getItem(REFERRAL_CODE_KEY)) || createRandomReferralCode();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { error } = await supabase
+        .from('users')
+        .upsert(
+          {
+            user_id: userId,
+            referral_code: code,
+          },
+          { onConflict: 'user_id' }
+        );
 
-    // Insert into Supabase
-    const { data, error } = await supabase
-      .from('users')
-      .insert({
-        user_id: userId,
-        referral_code: code,
-      })
-      .select()
-      .single();
+      if (!error) {
+        await AsyncStorage.setItem(REFERRAL_CODE_KEY, code);
+        devLog('✅ User registered in Supabase with code:', code);
+        return code;
+      }
 
-    if (error) {
-      console.error('❌ Supabase insert error:', error);
-      // Continue with local code if Supabase fails
-      return code;
+      reportError(`❌ Supabase upsert error (attempt ${attempt + 1}):`, error);
+      code = createRandomReferralCode();
     }
 
-    console.log('✅ User registered in Supabase with code:', code);
+    // Fallback to local code if Supabase fails repeatedly
+    await AsyncStorage.setItem(REFERRAL_CODE_KEY, code);
     return code;
   } catch (error) {
-    console.error('❌ Error registering user:', error);
+    reportError('❌ Error registering user:', error);
     // Fallback to local code generation
     return await generateReferralCode();
   }
@@ -135,7 +157,8 @@ export const registerUserWithReferralCode = async (): Promise<string> => {
  */
 export const validateReferralCode = async (code: string): Promise<boolean> => {
   try {
-    if (!code || code.length !== 6) {
+    const normalizedCode = normalizeReferralCode(code);
+    if (!normalizedCode || normalizedCode.length !== REFERRAL_CODE_LENGTH) {
       return false;
     }
 
@@ -143,32 +166,32 @@ export const validateReferralCode = async (code: string): Promise<boolean> => {
     const { data, error } = await supabase
       .from('users')
       .select('referral_code, user_id')
-      .eq('referral_code', code.toUpperCase())
+      .eq('referral_code', normalizedCode)
       .single();
 
     if (error || !data) {
-      console.log('❌ Code not found in Supabase:', code);
+      devLog('❌ Code not found in Supabase:', code);
       return false;
     }
 
     // Check if it's not the user's own code
     const currentUserId = await getCurrentUserId();
     if (data.user_id === currentUserId) {
-      console.log('❌ Cannot use own referral code');
+      devLog('❌ Cannot use own referral code');
       return false;
     }
 
     // Check if user already used a referral code
     const usedCode = await AsyncStorage.getItem(USED_REFERRAL_CODE_KEY);
     if (usedCode) {
-      console.log('❌ User already used a referral code');
+      devLog('❌ User already used a referral code');
       return false;
     }
 
-    console.log('✅ Referral code is valid:', code);
+    devLog('✅ Referral code is valid:', code);
     return true;
   } catch (error) {
-    console.error('❌ Error validating referral code:', error);
+    reportError('❌ Error validating referral code:', error);
     return false;
   }
 };
@@ -178,7 +201,24 @@ export const validateReferralCode = async (code: string): Promise<boolean> => {
  */
 export const applyReferralCode = async (code: string): Promise<boolean> => {
   try {
-    const isValid = await validateReferralCode(code);
+    const normalizedCode = normalizeReferralCode(code);
+    if (!normalizedCode || normalizedCode.length !== REFERRAL_CODE_LENGTH) {
+      throw new Error('Invalid referral code format');
+    }
+
+    const existingUsedCode = await AsyncStorage.getItem(USED_REFERRAL_CODE_KEY);
+    if (existingUsedCode) {
+      if (existingUsedCode === normalizedCode) {
+        devLog('ℹ️ Referral code already applied for this user');
+        return true;
+      }
+      throw new Error('A referral code was already used');
+    }
+
+    const currentUserId = await getCurrentUserId();
+    const ownCode = await registerUserWithReferralCode();
+
+    const isValid = await validateReferralCode(normalizedCode);
     if (!isValid) {
       throw new Error('Invalid referral code');
     }
@@ -187,54 +227,60 @@ export const applyReferralCode = async (code: string): Promise<boolean> => {
     const { data: referrerData, error: referrerError } = await supabase
       .from('users')
       .select('user_id, referral_code')
-      .eq('referral_code', code.toUpperCase())
+      .eq('referral_code', normalizedCode)
       .single();
 
     if (referrerError || !referrerData) {
       throw new Error('Referrer not found');
     }
 
-    const currentUserId = await getCurrentUserId();
     const now = new Date();
     const extensionEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // Update user's referral_extension_end_date in Supabase
+    // Upsert user row + update referral extension in one operation
     const { error: updateError } = await supabase
       .from('users')
-      .update({
-        referral_extension_end_date: extensionEndDate.toISOString(),
-        referral_used_code: code.toUpperCase(),
-      })
-      .eq('user_id', currentUserId);
+      .upsert(
+        {
+          user_id: currentUserId,
+          referral_code: ownCode,
+          referral_extension_end_date: extensionEndDate.toISOString(),
+          referral_used_code: normalizedCode,
+        },
+        { onConflict: 'user_id' }
+      );
 
     if (updateError) {
-      console.error('❌ Failed to update referral extension:', updateError);
+      reportError('❌ Failed to update referral extension:', updateError);
     } else {
-      console.log('✅ Referral extension saved to Supabase');
+      devLog('✅ Referral extension saved to Supabase');
     }
 
     // Create referral record in Supabase
     const { error: referralError } = await supabase
       .from('referrals')
-      .insert({
-        referrer_code: code.toUpperCase(),
-        referrer_user_id: referrerData.user_id,
-        referee_user_id: currentUserId,
-        status: 'trial_started',
-        trial_start_date: now.toISOString(),
-        trial_end_date: extensionEndDate.toISOString(),
-      });
+      .upsert(
+        {
+          referrer_code: normalizedCode,
+          referrer_user_id: referrerData.user_id,
+          referee_user_id: currentUserId,
+          status: 'trial_started',
+          trial_start_date: now.toISOString(),
+          trial_end_date: extensionEndDate.toISOString(),
+        },
+        { onConflict: 'referee_user_id' }
+      );
 
     if (referralError) {
-      console.error('❌ Failed to create referral in Supabase:', referralError);
+      reportError('❌ Failed to create referral in Supabase:', referralError);
       // Continue with local trial even if Supabase fails
     } else {
-      console.log('✅ Referral record created in Supabase');
+      devLog('✅ Referral record created in Supabase');
     }
 
     // Update local trial status
     const trial: ReferralTrial = {
-      code: code.toUpperCase(),
+      code: normalizedCode,
       startDate: now.toISOString(),
       endDate: extensionEndDate.toISOString(),
       isActive: true,
@@ -242,14 +288,14 @@ export const applyReferralCode = async (code: string): Promise<boolean> => {
     };
 
     await AsyncStorage.setItem(REFERRAL_TRIAL_KEY, JSON.stringify(trial));
-    await AsyncStorage.setItem(USED_REFERRAL_CODE_KEY, code.toUpperCase());
+    await AsyncStorage.setItem(USED_REFERRAL_CODE_KEY, normalizedCode);
 
-    console.log('✅ Referral code applied successfully');
-    console.log('🎁 7-day extension activated until:', extensionEndDate.toISOString());
+    devLog('✅ Referral code applied successfully');
+    devLog('🎁 7-day extension activated until:', extensionEndDate.toISOString());
 
     return true;
   } catch (error) {
-    console.error('❌ Error applying referral code:', error);
+    reportError('❌ Error applying referral code:', error);
     throw error;
   }
 };
@@ -273,7 +319,7 @@ export const hasActiveReferralTrial = async (): Promise<boolean> => {
       const extensionEnd = new Date(userData.referral_extension_end_date);
 
       if (extensionEnd > now) {
-        console.log('✅ Active referral extension in Supabase');
+        devLog('✅ Active referral extension in Supabase');
         return true;
       }
     }
@@ -298,7 +344,31 @@ export const hasActiveReferralTrial = async (): Promise<boolean> => {
 
     return trial.isActive;
   } catch (error) {
-    console.error('❌ Error checking referral trial:', error);
+    reportError('❌ Error checking referral trial:', error);
+    return false;
+  }
+};
+
+export const hasCachedReferralTrial = async (): Promise<boolean> => {
+  try {
+    const trialStr = await AsyncStorage.getItem(REFERRAL_TRIAL_KEY);
+    if (!trialStr) {
+      return false;
+    }
+
+    const trial: ReferralTrial = JSON.parse(trialStr);
+    const now = new Date();
+    const endDate = new Date(trial.endDate);
+
+    if (now > endDate) {
+      trial.isActive = false;
+      await AsyncStorage.setItem(REFERRAL_TRIAL_KEY, JSON.stringify(trial));
+      return false;
+    }
+
+    return trial.isActive;
+  } catch (error) {
+    reportError('❌ Error checking cached referral trial:', error);
     return false;
   }
 };
@@ -326,7 +396,7 @@ export const getReferralTrial = async (): Promise<ReferralTrial | null> => {
 
     return trial;
   } catch (error) {
-    console.error('❌ Error getting referral trial:', error);
+    reportError('❌ Error getting referral trial:', error);
     return null;
   }
 };
@@ -348,7 +418,7 @@ export const getReferralTrialDaysRemaining = async (): Promise<number> => {
 
     return Math.max(0, diffDays);
   } catch (error) {
-    console.error('❌ Error getting trial days remaining:', error);
+    reportError('❌ Error getting trial days remaining:', error);
     return 0;
   }
 };
@@ -368,7 +438,7 @@ export const getReferralStats = async (): Promise<ReferralStats> => {
       .single();
 
     if (error || !data) {
-      console.log('ℹ️ No referral stats found, returning defaults');
+      devLog('ℹ️ No referral stats found, returning defaults');
       return {
         totalReferrals: 0,
         successfulReferrals: 0,
@@ -386,7 +456,7 @@ export const getReferralStats = async (): Promise<ReferralStats> => {
       pendingDays: 0, // This is calculated separately in local storage
     };
   } catch (error) {
-    console.error('❌ Error getting referral stats:', error);
+    reportError('❌ Error getting referral stats:', error);
     return {
       totalReferrals: 0,
       successfulReferrals: 0,
@@ -412,7 +482,7 @@ export const updateReferralOnSubscription = async (): Promise<void> => {
       .single();
 
     if (fetchError || !referralData) {
-      console.log('ℹ️ No active referral found for this user');
+      devLog('ℹ️ No active referral found for this user');
       return;
     }
 
@@ -426,13 +496,13 @@ export const updateReferralOnSubscription = async (): Promise<void> => {
       .eq('id', referralData.id);
 
     if (updateError) {
-      console.error('❌ Failed to update referral status:', updateError);
+      reportError('❌ Failed to update referral status:', updateError);
     } else {
-      console.log('✅ Referral status updated to subscribed');
-      console.log(`🎉 Referrer ${referralData.referrer_code} earned 7 days!`);
+      devLog('✅ Referral status updated to subscribed');
+      devLog(`🎉 Referrer ${referralData.referrer_code} earned 7 days!`);
     }
   } catch (error) {
-    console.error('❌ Error updating referral on subscription:', error);
+    reportError('❌ Error updating referral on subscription:', error);
   }
 };
 
@@ -442,22 +512,25 @@ export const updateReferralOnSubscription = async (): Promise<void> => {
 export const initializeReferralStats = async (): Promise<void> => {
   // This function is kept for backward compatibility
   // Stats are now managed in Supabase
-  console.log('ℹ️ Referral stats are now managed in Supabase');
+  devLog('ℹ️ Referral stats are now managed in Supabase');
 };
 
 /**
  * Clear all referral data (for testing)
  */
 export const clearReferralData = async (): Promise<void> => {
+  if (!__DEV__) {
+    return;
+  }
   try {
     await AsyncStorage.multiRemove([
       REFERRAL_CODE_KEY,
       REFERRAL_TRIAL_KEY,
       USED_REFERRAL_CODE_KEY,
     ]);
-    console.log('✅ Referral data cleared');
+    devLog('✅ Referral data cleared');
   } catch (error) {
-    console.error('❌ Error clearing referral data:', error);
+    reportError('❌ Error clearing referral data:', error);
   }
 };
 
@@ -468,6 +541,7 @@ export default {
   validateReferralCode,
   applyReferralCode,
   hasActiveReferralTrial,
+  hasCachedReferralTrial,
   getReferralTrial,
   getReferralTrialDaysRemaining,
   initializeReferralStats,

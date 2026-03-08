@@ -23,7 +23,6 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_GOOGLE_API_KEY": "$GOOGLE_API_KEY",
         "EXPO_PUBLIC_REVENUECAT_API_KEY": "$REVENUECAT_API_KEY",
         "EXPO_PUBLIC_APP_ENV": "production"
       },

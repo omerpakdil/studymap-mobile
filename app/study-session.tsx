@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   AppState,
   Dimensions,
@@ -11,68 +11,107 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  SafeAreaView,
+  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { generateStudyContent } from '@/app/utils/aiProviderManager';
+import { useAppAlert } from '@/app/components/ui/AppAlert';
+import { resolveAppLanguage, t } from '@/app/i18n';
+import { getLocalizedTaskTitle } from '@/app/i18n/taskContent';
+import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
 import NotificationService from '@/app/utils/notificationService';
-import { loadExamData } from '@/app/utils/onboardingData';
 import { requestReview, trackCompletedStudySession } from '@/app/utils/reviewPrompt';
-import { useTheme } from '@/themes';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 const isTablet = width >= 768;
 
-// Timer states
-type TimerState = 'study' | 'break' | 'longBreak' | 'paused' | 'completed';
+// ─── Design tokens (mirrors dashboard palette) ──────────────────────────────
+const S = {
+  bg0: '#F6FCFB',
+  bg1: '#F0FAF8',
+  bg2: '#E8F6F2',
+  ink: '#0F172A',
+  sub: 'rgba(51,65,85,0.76)',
+  muted: 'rgba(100,116,139,0.76)',
+  card: '#FFFFFF',
+  cardBorder: 'rgba(15,157,140,0.14)',
+  track: 'rgba(148,163,184,0.20)',
+  teal: '#0F9D8C',
+  tealDk: '#0B7A6E',
+  tealLt: 'rgba(15,157,140,0.10)',
+  tealGlow: 'rgba(15,157,140,0.22)',
+  green: '#16A34A',
+  greenLt: 'rgba(22,163,74,0.10)',
+  amber: '#D97706',
+  amberLt: 'rgba(217,119,6,0.10)',
+  rose: '#E11D48',
+};
 
-// Session types
+type TimerState = 'idle' | 'running' | 'paused' | 'completed';
 type SessionType = 'Practice' | 'Study' | 'Review';
 
-// Content type definitions
-type QuestionContent = {
-  id: number;
-  type: 'question';
-  question: string;
-  options: string[];
-  correct: number;
-  explanation: string;
-  difficulty?: 'Easy' | 'Medium' | 'Hard';
-  topic?: string;
-};
+// ─── Animated Ring ────────────────────────────────────────────────────────────
+function TimerRing({
+  progress,
+  size,
+  strokeWidth,
+  color,
+  children,
+}: {
+  progress: number; // 0–1
+  size: number;
+  strokeWidth: number;
+  color: string;
+  children?: React.ReactNode;
+}) {
+  const clamp = Math.min(1, Math.max(0, progress));
+  const angle = clamp * 360;
+  return (
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      {/* Track */}
+      <View style={{
+        position: 'absolute', width: size, height: size,
+        borderRadius: size / 2, borderWidth: strokeWidth,
+        borderColor: 'rgba(148,163,184,0.18)',
+      }} />
+      {/* Fill arc */}
+      <View style={{
+        position: 'absolute', width: size, height: size,
+        borderRadius: size / 2, borderWidth: strokeWidth,
+        borderColor: 'transparent',
+        borderTopColor: color,
+        borderRightColor: angle >= 90 ? color : 'transparent',
+        borderBottomColor: angle >= 180 ? color : 'transparent',
+        borderLeftColor: angle >= 270 ? color : 'transparent',
+        transform: [{ rotate: '-90deg' }],
+      }} />
+      {/* Inner glow ring — decoration only, no background fill */}
+      <View style={{
+        position: 'absolute', width: size - strokeWidth * 2 - 10,
+        height: size - strokeWidth * 2 - 10,
+        borderRadius: (size - strokeWidth * 2 - 10) / 2,
+        borderWidth: 1, borderColor: `${color}30`,
+        backgroundColor: 'transparent',
+      }} />
+      {/* Children sit on top */}
+      <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
+        {children}
+      </View>
+    </View>
+  );
+}
 
-type PassageContent = {
-  id: number;
-  type: 'passage';
-  passage: string;
-  question: string;
-  options: string[];
-  correct: number;
-  explanation: string;
-  topic?: string;
-};
-
-type PromptContent = {
-  id: number;
-  type: 'prompt';
-  prompt: string;
-  sampleAnswer?: string;
-  tips?: string[];
-  topic?: string;
-};
-
-type ContentItem = QuestionContent | PassageContent | PromptContent;
-
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function StudySessionScreen() {
-  const { colors } = useTheme();
+  const { showAlert } = useAppAlert();
   const router = useRouter();
   const params = useLocalSearchParams<{
     taskId: string;
@@ -81,1190 +120,845 @@ export default function StudySessionScreen() {
     type: string;
     duration: string;
     title?: string;
+    examCode?: string;
   }>();
 
-  // Timer state
-  const [timeLeft, setTimeLeft] = useState(parseInt(params?.duration || '25') * 60); // seconds
-  const [isRunning, setIsRunning] = useState(false);
-  const [timerState, setTimerState] = useState<TimerState>('study');
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number | null>(null); // Timestamp when timer started
-  const backgroundTimeRef = useRef<number | null>(null); // Timestamp when app went to background
-
-  // Duration settings
-  const [focusDuration, setFocusDuration] = useState(parseInt(params?.duration || '25')); // minutes
+  const totalSeconds = parseInt(params?.duration || '25') * 60;
+  const [focusDuration, setFocusDuration] = useState(parseInt(params?.duration || '25'));
+  const [timeLeft, setTimeLeft] = useState(totalSeconds);
+  const [timerState, setTimerState] = useState<TimerState>('idle');
+  const [notes, setNotes] = useState('');
+  const [isSessionCompleted, setIsSessionCompleted] = useState(false);
+  const [isNotesFocused, setIsNotesFocused] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
-  const [isNotesFocused, setIsNotesFocused] = useState(false);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const notesHeightAnim = useRef(new Animated.Value(160)).current;
+  const [activeTab, setActiveTab] = useState<'timer' | 'notes'>('timer');
 
-  // Content state
-  const [content, setContent] = useState<ContentItem[]>([]);
-  const [loadingContent, setLoadingContent] = useState(true);
-  const [currentContentIndex, setCurrentContentIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [showExplanation, setShowExplanation] = useState(false);
-  const [correctAnswers, setCorrectAnswers] = useState(0);
-  const [totalAnswered, setTotalAnswered] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const backgroundTimeRef = useRef<number | null>(null);
+  const isRunningRef = useRef(false);
 
-  // Notes state
-  const [notes, setNotes] = useState('');
-  const [isSessionCompleted, setIsSessionCompleted] = useState(false);
+  // Animations
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const headerSlide = useRef(new Animated.Value(-20)).current;
+  const ringPulse = useRef(new Animated.Value(1)).current;
+  const tabAnim = useRef(new Animated.Value(1)).current;
+  const notesHeight = useRef(new Animated.Value(180)).current;
+  const completionScale = useRef(new Animated.Value(0.7)).current;
+  const completionOpacity = useRef(new Animated.Value(0)).current;
 
-  // Keyboard listeners
   useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setIsKeyboardVisible(true);
-    });
-    
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      // Add a small delay to ensure keyboard is fully hidden
-      setTimeout(() => {
-        setIsKeyboardVisible(false);
-        setIsNotesFocused(false);
-      }, 100);
-    });
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.spring(headerSlide, { toValue: 0, useNativeDriver: true, tension: 80 }),
+    ]).start();
+    loadSessionData();
   }, []);
 
-  // Handle notes height animation based on keyboard state only
   useEffect(() => {
-    let targetHeight = 160; // Default large size
-    
-    if (isKeyboardVisible) {
-      // When keyboard is visible, make it small
-      targetHeight = 80;
-    } else {
-      // When keyboard is hidden, always make it large (regardless of content)
-      targetHeight = 160;
-    }
-    
-    Animated.timing(notesHeightAnim, {
-      toValue: targetHeight,
-      duration: 300,
-      useNativeDriver: false,
+    const show = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setTimeout(() => { setIsKeyboardVisible(false); setIsNotesFocused(false); }, 100);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  useEffect(() => {
+    Animated.timing(notesHeight, {
+      toValue: isKeyboardVisible ? 90 : 180,
+      duration: 280, useNativeDriver: false,
     }).start();
   }, [isKeyboardVisible]);
 
-  // Load Claude-generated content
-  const loadContent = async () => {
-    try {
-      setLoadingContent(true);
-      
-      if (!params?.subject) {
-        console.warn('Missing subject for content generation');
-        setContent([]);
-        return;
+  // Background timer
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if ((state === 'background' || state === 'inactive') && isRunningRef.current) {
+        backgroundTimeRef.current = Date.now();
+      } else if (state === 'active' && isRunningRef.current && backgroundTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - backgroundTimeRef.current) / 1000);
+        setTimeLeft((prev) => {
+          const next = Math.max(0, prev - elapsed);
+          if (next === 0) completeTimer();
+          return next;
+        });
+        backgroundTimeRef.current = null;
       }
+    });
+    return () => sub.remove();
+  }, []);
 
-      // Load exam data to get examId
-      const examData = await loadExamData();
-      if (!examData?.id) {
-        throw new Error('No exam data found. Please complete onboarding first.');
-      }
+  useEffect(() => { return () => { if (intervalRef.current) clearInterval(intervalRef.current); }; }, []);
+  useEffect(() => { saveNotes(notes); }, [notes]);
 
-      console.log('🧠 Generating exam-specific content for:', {
-        examId: examData.id,
-        subject: params.subject,
-        topic: 'General',
-        type: params.type
-      });
-
-      const generatedContent = await generateStudyContent({
-        examId: examData.id,
-        subject: params.subject,
-        topic: 'General',
-        sessionType: params.type as SessionType,
-        duration: focusDuration
-      });
-
-      setContent(generatedContent);
-      console.log(`✅ Generated ${generatedContent.length} content items`);
-      
-    } catch (error) {
-      console.error('❌ Error generating content:', error);
-      
-      // Fallback to basic content structure
-      const fallbackContent: ContentItem[] = [
-        {
-          id: 1,
-          type: 'question',
-          question: `What is a key concept in ${params.subject}?`,
-          options: [
-            'Understanding the fundamental principles',
-            'Memorizing all formulas',
-            'Speed over accuracy',
-            'Avoiding practice problems'
-          ],
-          correct: 0,
-          explanation: 'Understanding fundamental principles is crucial for mastering any topic.',
-          difficulty: 'Medium',
-          topic: 'General'
-        }
-      ];
-      
-      setContent(fallbackContent);
-    } finally {
-      setLoadingContent(false);
+  // Ring pulse when running
+  useEffect(() => {
+    if (timerState === 'running') {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(ringPulse, { toValue: 1.015, duration: 1200, useNativeDriver: true }),
+          Animated.timing(ringPulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        ])
+      );
+      pulse.start();
+      return () => pulse.stop();
     }
-  };
+  }, [timerState]);
 
-  // Storage functions
   const getStorageKeys = () => {
-    const taskId = params?.taskId || 'default';
-    return {
-      notes: `session_notes_${taskId}`,
-      completed: `session_completed_${taskId}`,
-      completionTime: `session_completion_time_${taskId}`,
-    };
+    const id = params?.taskId || 'default';
+    return { notes: `session_notes_${id}`, completed: `session_completed_${id}`, completionTime: `session_completion_time_${id}` };
   };
 
   const loadSessionData = async () => {
     try {
       const keys = getStorageKeys();
-      const [savedNotes, completionStatus] = await Promise.all([
-        AsyncStorage.getItem(keys.notes),
-        AsyncStorage.getItem(keys.completed),
-      ]);
-      
-      if (savedNotes) {
-        setNotes(savedNotes);
-      }
-      
-      if (completionStatus === 'true') {
-        setIsSessionCompleted(true);
-      }
-    } catch (error) {
-      console.log('Error loading session data:', error);
-    }
+      const [n, c] = await Promise.all([AsyncStorage.getItem(keys.notes), AsyncStorage.getItem(keys.completed)]);
+      if (n) setNotes(n);
+      if (c === 'true') setIsSessionCompleted(true);
+    } catch {}
   };
 
-  const saveNotes = async (noteText: string) => {
+  const saveNotes = async (text: string) => {
+    try { await AsyncStorage.setItem(getStorageKeys().notes, text); } catch {}
+  };
+
+  const saveCompletion = async () => {
     try {
       const keys = getStorageKeys();
-      await AsyncStorage.setItem(keys.notes, noteText);
-    } catch (error) {
-      console.log('Error saving notes:', error);
-    }
+      await AsyncStorage.setItem(keys.completed, 'true');
+      await AsyncStorage.setItem(keys.completionTime, new Date().toISOString());
+    } catch {}
   };
 
-  const saveCompletionStatus = async (completed: boolean) => {
-    try {
-      const keys = getStorageKeys();
-      await AsyncStorage.setItem(keys.completed, completed.toString());
-      if (completed) {
-        await AsyncStorage.setItem(keys.completionTime, new Date().toISOString());
-      }
-    } catch (error) {
-      console.log('Error saving completion status:', error);
-    }
-  };
-
-  // Initialize component
-  useEffect(() => {
-    loadContent();
-    loadSessionData();
-  }, []);
-
-  // Background timer tracking - keeps timer running when app is in background
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'background' || nextAppState === 'inactive') {
-        // App going to background - record timestamp
-        if (isRunning && startTimeRef.current !== null) {
-          backgroundTimeRef.current = Date.now();
-          console.log('⏱️ App backgrounded - timer paused at UI but tracking continues');
-        }
-      } else if (nextAppState === 'active') {
-        // App coming to foreground - calculate elapsed time
-        if (isRunning && startTimeRef.current !== null && backgroundTimeRef.current !== null) {
-          const timeInBackground = Math.floor((Date.now() - backgroundTimeRef.current) / 1000);
-          console.log(`⏱️ App foregrounded - ${timeInBackground}s elapsed in background`);
-
-          setTimeLeft((prev) => {
-            const newTime = Math.max(0, prev - timeInBackground);
-            if (newTime === 0) {
-              handleTimerComplete();
-            }
-            return newTime;
-          });
-
-          backgroundTimeRef.current = null;
-        }
-      }
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [isRunning]);
-
-  // Cleanup interval on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
-
-  const currentContent = content[currentContentIndex];
-
-  // Timer functions
   const startTimer = () => {
-    setIsRunning(true);
-    startTimeRef.current = Date.now(); // Record start time
-
-    // Schedule break reminder if this is a study session and we're just starting
-    if (timerState === 'study' && timeLeft === focusDuration * 60) {
-      NotificationService.startBreakReminders();
-    }
-
+    if (timerState === 'completed') return;
+    setTimerState('running');
+    isRunningRef.current = true;
+    if (timerState === 'idle') NotificationService.startBreakReminders?.();
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleTimerComplete();
-          return 0;
-        }
+        if (prev <= 1) { completeTimer(); return 0; }
         return prev - 1;
       });
     }, 1000);
   };
 
   const pauseTimer = () => {
-    setIsRunning(false);
-    startTimeRef.current = null; // Clear start time
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
+    setTimerState('paused');
+    isRunningRef.current = false;
+    if (intervalRef.current) clearInterval(intervalRef.current);
   };
 
   const resetTimer = () => {
     pauseTimer();
-    if (timerState === 'study') {
-      setTimeLeft(focusDuration * 60);
-    } else if (timerState === 'break') {
-      setTimeLeft(5 * 60);
-    } else if (timerState === 'longBreak') {
-      setTimeLeft(15 * 60);
-    }
+    setTimerState('idle');
+    setTimeLeft(focusDuration * 60);
   };
 
-  const changeFocusDuration = (minutes: number) => {
-    setFocusDuration(minutes);
-    if (timerState === 'study') {
-      setTimeLeft(minutes * 60);
-      pauseTimer();
-    }
-    setShowDurationModal(false);
-  };
-
-  const openDurationModal = () => {
-    setShowDurationModal(true);
-  };
-
-  const handleTimerComplete = () => {
+  const completeTimer = () => {
     pauseTimer();
     setTimerState('completed');
-    Alert.alert('Timer Complete!', 'Focus session finished. Great job! 🎉');
+    showAlert(ts('time_up_title', 'Time is up!'), ts('time_up_body', 'Great focus session!'));
   };
 
-  const handleAnswer = (answerIndex: number) => {
-    if (selectedAnswer !== null) return; // Already answered
-    
-    setSelectedAnswer(answerIndex);
-    setShowExplanation(true);
-    setTotalAnswered(prev => prev + 1);
-    
-    if ('correct' in currentContent && currentContent.correct === answerIndex) {
-      setCorrectAnswers(prev => prev + 1);
-    }
-  };
-
-  const nextContent = () => {
-    if (currentContentIndex < content.length - 1) {
-      setCurrentContentIndex(prev => prev + 1);
-      setSelectedAnswer(null);
-      setShowExplanation(false);
-    } else {
-      // Session complete
-      handleSessionComplete();
-    }
-  };
-
-  const previousContent = () => {
-    if (currentContentIndex > 0) {
-      setCurrentContentIndex(prev => prev - 1);
-      setSelectedAnswer(null);
-      setShowExplanation(false);
-    }
-  };
-
-  const handleSessionComplete = () => {
+  const handleSessionComplete = async () => {
     pauseTimer();
-    setTimerState('completed');
     setIsSessionCompleted(true);
-    saveCompletionStatus(true);
+    await saveCompletion();
+    Animated.parallel([
+      Animated.spring(completionScale, { toValue: 1, useNativeDriver: true, tension: 70, friction: 8 }),
+      Animated.timing(completionOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+    ]).start();
     setShowCompletionModal(true);
   };
 
-  const resetSession = async () => {
-    try {
-      const keys = getStorageKeys();
-      await AsyncStorage.multiRemove([keys.completed, keys.completionTime]);
-      setIsSessionCompleted(false);
-      resetTimer();
-    } catch (error) {
-      console.log('Error resetting session:', error);
-    }
+  const changeDuration = (mins: number) => {
+    setFocusDuration(mins);
+    setTimeLeft(mins * 60);
+    setTimerState('idle');
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    isRunningRef.current = false;
+    setShowDurationModal(false);
   };
 
-  const exitSession = () => {
-    setShowExitModal(true);
+  const switchTab = (next: 'timer' | 'notes') => {
+    if (next === activeTab) return;
+    Animated.timing(tabAnim, { toValue: 0, duration: 100, useNativeDriver: true }).start(() => {
+      setActiveTab(next);
+      tabAnim.setValue(0);
+      Animated.spring(tabAnim, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 240 }).start();
+    });
   };
 
-  // Format time display
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
 
-  // Get timer color based on state
-  const getTimerColor = () => {
-    switch (timerState) {
-      case 'study': return colors.primary[500];
-      case 'break': return colors.success[500];
-      case 'longBreak': return colors.warning[500];
-      default: return colors.neutral[500];
-    }
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
-
-  // Auto-save notes when they change (including empty string)
-  useEffect(() => {
-    saveNotes(notes);
-  }, [notes]);
-
-  const renderTimer = () => (
-    <View style={styles.timerContainer}>
-      <View style={[styles.timerCircle, { borderColor: getTimerColor() }]}>
-        <Text style={[styles.timerText, { color: getTimerColor() }]}>
-          {formatTime(timeLeft)}
-        </Text>
-        <Text style={[styles.timerLabel, { color: colors.neutral[600] }]}>
-          {timerState === 'study' ? 'Focus Time' : 
-           timerState === 'break' ? 'Short Break' : 
-           timerState === 'longBreak' ? 'Long Break' : 'Completed'}
-        </Text>
-      </View>
-      
-      <View style={styles.timerControls}>
-        <TouchableOpacity
-          style={[styles.timerButton, { backgroundColor: colors.neutral[100] }]}
-          onPress={resetTimer}
-        >
-          <Text style={[styles.timerButtonText, { color: colors.neutral[700] }]}>Reset</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.timerButton, { backgroundColor: colors.warning[100] }]}
-          onPress={openDurationModal}
-        >
-          <Text style={[styles.timerButtonText, { color: colors.warning[700] }]}>{focusDuration}m</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.timerButton, { backgroundColor: getTimerColor() }]}
-          onPress={isRunning ? pauseTimer : startTimer}
-        >
-          <View style={styles.timerButtonContent}>
-            <Ionicons 
-              name={isRunning ? 'pause' : 'play'} 
-              size={20} 
-              color="white" 
-              style={{ marginRight: 8 }} 
-            />
-            <Text style={[styles.timerButtonText, { color: '#FFFFFF' }]}>
-              {isRunning ? 'Pause' : 'Start'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-    </View>
+  const progress = 1 - timeLeft / (focusDuration * 60);
+  const progressPct = Math.round(progress * 100);
+  const appLang = resolveAppLanguage();
+  const ts = (key: string, fallback: string, params?: Record<string, string | number>) =>
+    t(`study_session.${key}`, { lang: appLang, fallback, params });
+  const subjectLabel = getLocalizedSubjectName(
+    params?.subject,
+    appLang,
+    params?.subject || 'Study Session',
+    { examCode: typeof params?.examCode === 'string' ? params.examCode : null }
+  );
+  const localizedTaskTitle = getLocalizedTaskTitle(
+    {
+      subject: params?.subject || 'Study Session',
+      type: ((params?.type || 'study').toLowerCase() as StudyTask['type']),
+    },
+    appLang,
+    typeof params?.examCode === 'string' ? params.examCode : null
   );
 
-  const renderContent = () => (
-    <View style={styles.contentContainer}>
-      <View style={styles.contentHeader}>
-        <Text style={[styles.contentSubject, { color: colors.primary[600] }]}>
-          {params?.subject}
-        </Text>
-        <Text style={[styles.contentType, { color: colors.neutral[500] }]}>
-          Focus & Notes
-        </Text>
-      </View>
-
-      {/* Notes Panel */}
-      <View style={[styles.notesContainer, { backgroundColor: colors.neutral[0] }]}>
-        <View style={styles.sectionTitleContainer}>
-          {isSessionCompleted ? (
-            <Ionicons name="checkmark-circle" size={20} color={colors.success[600]} style={{ marginRight: 8 }} />
-          ) : (
-            <Ionicons name="document-text" size={20} color={colors.primary[600]} style={{ marginRight: 8 }} />
-          )}
-          <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-            {isSessionCompleted ? 'Study Notes (Completed)' : 'Study Notes'}
-          </Text>
-        </View>
-        
-        <Animated.View
-          style={{
-            height: notesHeightAnim,
-          }}
-        >
-          <TextInput
-            style={[
-              styles.notesInput,
-              {
-                backgroundColor: colors.neutral[50],
-                borderColor: isNotesFocused || notes.length > 0 ? colors.primary[300] : colors.neutral[200],
-                color: colors.neutral[900],
-                flex: 1,
-              }
-            ]}
-            placeholder="Take notes during your study session..."
-            placeholderTextColor={colors.neutral[400]}
-            value={notes}
-            onChangeText={setNotes}
-            onFocus={() => setIsNotesFocused(true)}
-            onBlur={() => setIsNotesFocused(false)}
-            multiline
-            textAlignVertical="top"
-            scrollEnabled={true}
-            keyboardType="default"
-            returnKeyType="default"
-            blurOnSubmit={false}
-            autoCorrect={true}
-            spellCheck={true}
-          />
-        </Animated.View>
-      </View>
-
-      {/* Complete Session Button */}
-      {!isSessionCompleted ? (
-        <TouchableOpacity
-          style={[styles.completeButton, { backgroundColor: colors.success[500] }]}
-          onPress={handleSessionComplete}
-        >
-          <View style={styles.completeButtonContent}>
-            <Ionicons name="checkmark-circle" size={20} color="white" style={{ marginRight: 8 }} />
-            <Text style={styles.completeButtonText}>Complete Session</Text>
-          </View>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={[styles.completeButton, { backgroundColor: colors.primary[500] }]}
-          onPress={() => router.back()}
-        >
-          <View style={styles.completeButtonContent}>
-            <Ionicons name="home" size={20} color="white" style={{ marginRight: 8 }} />
-            <Text style={styles.completeButtonText}>Back to Dashboard</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
-  const renderDurationModal = () => {
-    const presetDurations = [5, 15, 25, 30, 45, 60];
-    
-    return (
-      <Modal
-        visible={showDurationModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowDurationModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.neutral[0] }]}>
-            <View style={styles.modalTitleContainer}>
-              <Ionicons name="timer" size={24} color={colors.primary[600]} style={{ marginRight: 8 }} />
-              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
-                Set Focus Duration
-              </Text>
-            </View>
-            
-            <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
-              Choose how long you want to focus
-            </Text>
-
-            <View style={styles.presetGrid}>
-              {presetDurations.map((duration) => (
-                <TouchableOpacity
-                  key={duration}
-                  style={[
-                    styles.presetButton,
-                    {
-                      backgroundColor: duration === focusDuration ? colors.primary[500] : colors.neutral[100],
-                      borderColor: duration === focusDuration ? colors.primary[500] : colors.neutral[200],
-                    }
-                  ]}
-                  onPress={() => changeFocusDuration(duration)}
-                >
-                  <Text style={[
-                    styles.presetButtonText,
-                    { color: duration === focusDuration ? '#FFFFFF' : colors.neutral[700] }
-                  ]}>
-                    {duration}m
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.neutral[100] }]}
-                onPress={() => setShowDurationModal(false)}
-              >
-                <Text style={[styles.modalButtonText, { color: colors.neutral[700] }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
+  const typeMap: Record<string, { color: string; icon: string; label: string }> = {
+    practice: { color: S.teal, icon: 'create-outline', label: ts('type_practice', 'Practice') },
+    study: { color: '#6366F1', icon: 'book-outline', label: ts('type_study', 'Study') },
+    review: { color: S.amber, icon: 'refresh-outline', label: ts('type_review', 'Review') },
+    quiz: { color: '#EC4899', icon: 'bulb-outline', label: ts('type_quiz', 'Quiz') },
   };
+  const sessionType = typeMap[(params?.type || 'study').toLowerCase()] || typeMap.study;
 
-  const renderCompletionModal = () => {
-    const notesLength = notes.trim().length;
-    const focusMinutes = parseInt(params?.duration || '25');
-    const focusSeconds = focusMinutes * 60;
-    const actualStudyTime = focusSeconds - timeLeft;
-    const totalStudyTime = formatTime(actualStudyTime > 0 ? actualStudyTime : focusSeconds);
-    
-    return (
-      <Modal
-        visible={showCompletionModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowCompletionModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.completionModalContent, { backgroundColor: colors.neutral[0] }]}>
-            {/* Success Animation/Icon */}
-            <View style={[styles.successCircle, { backgroundColor: colors.success[100] }]}>
-              <Ionicons name="trophy" size={48} color={colors.success[600]} />
-            </View>
-            
-            {/* Title */}
-            <Text style={[styles.completionTitle, { color: colors.neutral[900] }]}>
-              Session Complete!
-            </Text>
-            
-            {/* Subtitle */}
-            <Text style={[styles.completionSubtitle, { color: colors.neutral[600] }]}>
-              Great focus session! Here&apos;s what you accomplished:
-            </Text>
-
-            {/* Stats Cards */}
-            <View style={styles.statsContainer}>
-              <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
-                <Ionicons name="time" size={24} color={colors.primary[600]} style={styles.statIcon} />
-                <Text style={[styles.statNumber, { color: colors.primary[700] }]}>
-                  {totalStudyTime}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.primary[600] }]}>
-                  Focused Time
-                </Text>
-              </View>
-              
-              <View style={[styles.statCard, { backgroundColor: colors.success[50] }]}>
-                <Ionicons name="document-text" size={24} color={colors.success[600]} style={styles.statIcon} />
-                <Text style={[styles.statNumber, { color: colors.success[700] }]}>
-                  {notesLength}
-                </Text>
-                <Text style={[styles.statLabel, { color: colors.success[600] }]}>
-                  Note Characters
-                </Text>
-              </View>
-            </View>
-
-            {/* Message */}
-            <Text style={[styles.completionMessage, { color: colors.neutral[700] }]}>
-              {notesLength > 0 
-                ? "Excellent note-taking! Your insights will help with retention." 
-                : "Consider taking notes next time to improve retention and recall."}
-            </Text>
-
-            {/* Action Buttons */}
-            <View style={styles.completionActions}>
-              <TouchableOpacity
-                style={[styles.completionButton, styles.secondaryButton, { borderColor: colors.neutral[200] }]}
-                onPress={() => setShowCompletionModal(false)}
-              >
-                <Text style={[styles.completionButtonText, { color: colors.neutral[700] }]}>
-                  Review Session
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.completionButton, styles.primaryButton, { backgroundColor: colors.primary[500] }]}
-                onPress={async () => {
-                  setShowCompletionModal(false);
-
-                  // Track completed study session
-                  await trackCompletedStudySession();
-
-                  // Request review if conditions are met
-                  await requestReview();
-
-                  router.back();
-                }}
-              >
-                <Text style={[styles.completionButtonText, { color: '#FFFFFF' }]}>
-                  Back to Dashboard
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  const renderExitModal = () => (
-    <Modal
-      visible={showExitModal}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={() => setShowExitModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.exitModalContent, { backgroundColor: colors.neutral[0] }]}>
-          {/* Icon */}
-          <View style={[styles.exitIconContainer, { backgroundColor: colors.warning[100] }]}>
-            <Ionicons name="warning" size={32} color={colors.warning[600]} />
-          </View>
-          
-          {/* Title & Message */}
-          <Text style={[styles.exitModalTitle, { color: colors.neutral[900] }]}>
-            {isSessionCompleted ? 'Session Options' : 'Exit Study Session?'}
-          </Text>
-          
-          <Text style={[styles.exitModalMessage, { color: colors.neutral[600] }]}>
-            {isSessionCompleted 
-              ? 'This session is already completed. What would you like to do?'
-              : 'Your progress will be saved. Are you sure you want to exit?'
-            }
-          </Text>
-
-          {/* Actions */}
-          <View style={styles.exitModalActions}>
-            {isSessionCompleted ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.exitModalButton, styles.secondaryButton]}
-                  onPress={() => {
-                    setShowExitModal(false);
-                    resetSession();
-                  }}
-                >
-                  <Text style={[styles.exitModalButtonText, { color: colors.neutral[700] }]}>
-                    Reset Session
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.exitModalButton, styles.primaryButton, { backgroundColor: colors.primary[500] }]}
-                  onPress={() => {
-                    setShowExitModal(false);
-                    router.back();
-                  }}
-                >
-                  <Text style={[styles.exitModalButtonText, { color: '#FFFFFF' }]}>
-                    Back to Dashboard
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={[styles.exitModalButton, styles.secondaryButton]}
-                  onPress={() => setShowExitModal(false)}
-                >
-                  <Text style={[styles.exitModalButtonText, { color: colors.neutral[700] }]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.exitModalButton, styles.dangerButton, { backgroundColor: '#EF4444' }]}
-                  onPress={() => {
-                    setShowExitModal(false);
-                    router.back();
-                  }}
-                >
-                  <Text style={[styles.exitModalButtonText, { color: '#FFFFFF' }]}>
-                    Exit Session
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-          
-          {/* Cancel Button for completed state */}
-          {isSessionCompleted && (
-            <TouchableOpacity
-              style={styles.exitModalCancelButton}
-              onPress={() => setShowExitModal(false)}
-            >
-              <Text style={[styles.exitModalCancelText, { color: colors.neutral[500] }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
+  const timerColor = timerState === 'completed' ? S.teal
+    : timerState === 'paused' ? S.amber
+    : sessionType.color;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
-      
-      {/* Header - Fixed */}
-      <SafeAreaView>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.exitButton, { backgroundColor: colors.neutral[100] }]}
-            onPress={exitSession}
-          >
-            <Text style={[styles.exitButtonText, { color: colors.neutral[700] }]}>✕</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.headerContent}>
-            <View style={styles.headerTitleContainer}>
-              {isSessionCompleted ? (
-                <Ionicons name="checkmark-circle" size={24} color={colors.success[600]} style={{ marginRight: 8 }} />
-              ) : (
-                <Ionicons name="book" size={24} color={colors.primary[600]} style={{ marginRight: 8 }} />
-              )}
-              <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-                {isSessionCompleted ? 'Completed Session' : 'Study Session'}
-              </Text>
+    <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <LinearGradient colors={[S.bg0, S.bg1, S.bg2]} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+
+      {/* Decorative orbs */}
+      <View style={styles.orbA} />
+      <View style={styles.orbB} />
+
+      {/* ── Header ── */}
+      <Animated.View style={[styles.header, { opacity: fadeIn, transform: [{ translateY: headerSlide }] }]}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => setShowExitModal(true)}>
+          <Ionicons name="chevron-back" size={20} color={S.ink} />
+        </TouchableOpacity>
+
+        <View style={styles.headerMid}>
+          <Text style={styles.headerSubject} numberOfLines={1}>{localizedTaskTitle}</Text>
+          <View style={styles.headerMetaRow}>
+            <View style={[styles.typePill, { backgroundColor: S.tealLt, borderColor: `${S.teal}25` }]}>
+              <Text style={[styles.typePillText, { color: S.teal }]}>{sessionType.label.toUpperCase()}</Text>
             </View>
-            <Text style={[styles.headerSubtitle, { color: colors.neutral[600] }]}>
-              {params?.type} • {params?.duration} min planned
-            </Text>
+            <Text style={styles.headerDot}>·</Text>
+            <Text style={styles.headerDuration}>{ts('duration_min', '{minutes} min', { minutes: focusDuration })}</Text>
           </View>
         </View>
 
-        {/* Timer Section - Fixed */}
-        {renderTimer()}
-      </SafeAreaView>
+        {isSessionCompleted ? (
+          <View style={styles.doneChip}>
+            <View style={styles.doneChipDot} />
+            <Text style={styles.doneChipText}>{ts('done', 'Done')}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.moreBtn} onPress={() => setShowDurationModal(true)}>
+            <Ionicons name="ellipsis-horizontal" size={18} color={S.sub} />
+          </TouchableOpacity>
+        )}
+      </Animated.View>
 
-      {/* Content Section with Keyboard Avoiding */}
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
-        <ScrollView 
+      {/* ── Tab Toggle ── */}
+      <Animated.View style={[styles.tabRow, { opacity: fadeIn }]}>
+        {(['timer', 'notes'] as const).map((t) => (
+          <TouchableOpacity key={t} style={[styles.tab, activeTab === t && styles.tabActive]} onPress={() => switchTab(t)}>
+            <Ionicons name={t === 'timer' ? 'timer-outline' : 'document-text-outline'} size={15} color={activeTab === t ? S.teal : '#94A3B8'} />
+            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]} numberOfLines={1} ellipsizeMode="tail">
+              {t === 'timer' ? ts('tab_timer', 'Focus Timer') : ts('tab_notes', 'Study Notes')}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </Animated.View>
+
+      {/* ── Content ── */}
+      <KeyboardAvoidingView behavior={isIOS ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          bounces={true}
-          keyboardDismissMode="interactive"
+          bounces={false}
         >
-          {renderContent()}
+          <Animated.View style={{ opacity: tabAnim, transform: [{ translateY: tabAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
+
+            {/* ═══ TIMER TAB ═══ */}
+            {activeTab === 'timer' && (
+              <View style={styles.timerTab}>
+
+                {/* Hero ring card */}
+                <View style={styles.ringCard}>
+                  <LinearGradient
+                    colors={['#0F766E', '#0F9D8C', '#14B8A6']}
+                    style={styles.ringGradient}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  >
+                    <View style={styles.ringBlob1} />
+                    <View style={styles.ringBlob2} />
+
+                    <Animated.View style={{ transform: [{ scale: ringPulse }] }}>
+                      <TimerRing
+                        progress={progress}
+                        size={isTablet ? 220 : 190}
+                        strokeWidth={isTablet ? 14 : 11}
+                        color="rgba(255,255,255,0.95)"
+                      >
+                        <View style={styles.ringInner}>
+                          <Text style={styles.ringTime}>{formatTime(timeLeft)}</Text>
+                          <View style={[styles.ringStateBadge, {
+                            backgroundColor: timerState === 'running'
+                              ? 'rgba(255,255,255,0.25)'
+                              : 'rgba(255,255,255,0.15)',
+                          }]}>
+                            <View style={[styles.ringStateDot, {
+                              backgroundColor: timerState === 'running' ? '#4ADE80'
+                                : timerState === 'paused' ? '#FCD34D'
+                                : timerState === 'completed' ? '#2DD4BF'
+                                : 'rgba(255,255,255,0.5)',
+                            }]} />
+                            <Text style={styles.ringStateText}>
+                              {timerState === 'running'
+                                ? ts('state_focusing', 'Focusing')
+                                : timerState === 'paused'
+                                  ? ts('state_paused', 'Paused')
+                                  : timerState === 'completed'
+                                    ? ts('state_done', 'Done')
+                                    : ts('state_ready', 'Ready')}
+                            </Text>
+                          </View>
+                        </View>
+                      </TimerRing>
+                    </Animated.View>
+
+                    {/* Mini progress bar */}
+                    <View style={styles.ringBar}>
+                      <View style={styles.ringBarTrack}>
+                        <View style={[styles.ringBarFill, { width: `${progressPct}%` as any }]} />
+                      </View>
+                      <Text style={styles.ringBarPct}>{progressPct}%</Text>
+                    </View>
+                  </LinearGradient>
+                </View>
+
+                {/* Session meta chips */}
+                <View style={styles.metaRow}>
+                  <View style={styles.metaChip}>
+                    <Ionicons name="time-outline" size={14} color={S.teal} />
+                    <Text style={styles.metaChipText}>{ts('planned_minutes', '{minutes}m planned', { minutes: focusDuration })}</Text>
+                  </View>
+                  <View style={styles.metaChip}>
+                    <Ionicons name="book-outline" size={14} color={S.teal} />
+                    <Text style={styles.metaChipText}>{subjectLabel}</Text>
+                  </View>
+                </View>
+
+                {/* Controls */}
+                <View style={styles.controls}>
+                  {/* Reset */}
+                  <TouchableOpacity style={styles.ctrlSecondary} onPress={resetTimer}>
+                    <Ionicons name="refresh" size={18} color={S.sub} />
+                    <Text style={styles.ctrlSecondaryText}>{ts('reset', 'Reset')}</Text>
+                  </TouchableOpacity>
+
+                  {/* Main play/pause */}
+                  <TouchableOpacity
+                    style={styles.ctrlMain}
+                    onPress={timerState === 'running' ? pauseTimer : startTimer}
+                    activeOpacity={0.82}
+                    disabled={timerState === 'completed'}
+                  >
+                    <LinearGradient
+                      colors={['#0F766E', '#0F9D8C']}
+                      style={styles.ctrlMainGrad}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    >
+                      <Ionicons name={timerState === 'running' ? 'pause' : 'play'} size={28} color="#fff" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  {/* Duration */}
+                  <TouchableOpacity style={styles.ctrlSecondary} onPress={() => setShowDurationModal(true)}>
+                    <Ionicons name="timer-outline" size={18} color={S.teal} />
+                    <Text style={[styles.ctrlSecondaryText, { color: S.teal }]}>{focusDuration}m</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Complete button */}
+                {!isSessionCompleted ? (
+                  <TouchableOpacity style={styles.completeBtn} onPress={handleSessionComplete} activeOpacity={0.82}>
+                    <View style={styles.completeBtnInner}>
+                      <Ionicons name="checkmark-circle-outline" size={18} color={S.teal} />
+                      <Text style={styles.completeBtnText}>{ts('mark_complete', 'Mark as Complete')}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.completeBtn, { backgroundColor: S.tealLt, borderColor: `${S.teal}30` }]}
+                    onPress={() => router.back()}
+                    activeOpacity={0.82}
+                  >
+                    <View style={styles.completeBtnInner}>
+                      <Ionicons name="checkmark-circle" size={18} color={S.teal} />
+                      <Text style={[styles.completeBtnText, { color: S.tealDk }]}>{ts('session_complete_back', 'Session Complete - Go Back')}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* ═══ NOTES TAB ═══ */}
+            {activeTab === 'notes' && (
+              <View style={styles.notesTab}>
+
+                {/* Notes card */}
+                <View style={styles.notesCard}>
+                  <View style={styles.notesCardHeader}>
+                    <View style={styles.notesCardLeft}>
+                      <View style={[styles.notesIcon, { backgroundColor: S.tealLt }]}>
+                        <Ionicons name="document-text-outline" size={16} color={S.teal} />
+                      </View>
+                      <View>
+                        <Text style={styles.notesCardTitle}>{ts('session_notes', 'Session Notes')}</Text>
+                        <Text style={styles.notesCardSub}>{notes.length > 0 ? ts('characters_count', '{count} characters', { count: notes.length }) : ts('start_typing', 'Start typing...')}</Text>
+                      </View>
+                    </View>
+                    {notes.length > 0 && (
+                      <View style={[styles.notesCountBadge, { backgroundColor: S.tealLt }]}>
+                        <Text style={[styles.notesCountText, { color: S.teal }]}>{ts('words_count', '{count} words', { count: notes.split(' ').filter(Boolean).length })}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <Animated.View style={{ height: notesHeight, marginTop: 12 }}>
+                    <TextInput
+                      style={[styles.notesInput, {
+                        borderColor: isNotesFocused ? `${S.teal}60` : S.cardBorder,
+                        flex: 1,
+                      }]}
+                      placeholder={ts('notes_placeholder', 'Jot down key ideas, formulas, insights...')}
+                      placeholderTextColor={S.muted}
+                      value={notes}
+                      onChangeText={setNotes}
+                      onFocus={() => setIsNotesFocused(true)}
+                      onBlur={() => setIsNotesFocused(false)}
+                      multiline
+                      textAlignVertical="top"
+                      scrollEnabled
+                      autoCorrect
+                      blurOnSubmit={false}
+                    />
+                  </Animated.View>
+                </View>
+
+                {/* Quick insight cards */}
+                <Text style={styles.tipsTitle}>{ts('tips_title', 'Study Tips')}</Text>
+                {[
+                  { icon: 'bulb-outline', text: ts('tip_1', 'Write in your own words to reinforce memory.'), color: S.amber },
+                  { icon: 'repeat-outline', text: ts('tip_2', 'Revisit these notes before your next session.'), color: S.teal },
+                  { icon: 'checkmark-circle-outline', text: ts('tip_3', 'Mark session complete once you finish.'), color: S.teal },
+                ].map((tip, i) => (
+                  <View key={i} style={styles.tipCard}>
+                    <View style={[styles.tipIcon, { backgroundColor: `${tip.color}12` }]}>
+                      <Ionicons name={tip.icon as any} size={16} color={tip.color} />
+                    </View>
+                    <Text style={styles.tipText}>{tip.text}</Text>
+                  </View>
+                ))}
+
+                {/* Complete / back */}
+                {!isSessionCompleted ? (
+                  <TouchableOpacity style={styles.notesCompleteBtn} onPress={handleSessionComplete} activeOpacity={0.82}>
+                    <LinearGradient colors={['#0F766E', '#0F9D8C']} style={styles.notesCompleteBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                      <Text style={styles.notesCompleteBtnText}>{ts('complete_session', 'Complete Session')}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={[styles.notesCompleteBtn, { marginTop: 0 }]} onPress={() => router.back()} activeOpacity={0.82}>
+                    <LinearGradient colors={['#0F766E', '#0F9D8C']} style={styles.notesCompleteBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                      <Ionicons name="home-outline" size={18} color="#fff" />
+                      <Text style={styles.notesCompleteBtnText}>{ts('back_dashboard', 'Back to Dashboard')}</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Duration Modal */}
-      {renderDurationModal()}
+      {/* ── Duration Modal ── */}
+      <Modal visible={showDurationModal} transparent animationType="fade" onRequestClose={() => setShowDurationModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowDurationModal(false)}>
+          <Pressable style={styles.modalCard}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconBox, { backgroundColor: S.tealLt }]}>
+                <Ionicons name="timer-outline" size={22} color={S.teal} />
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>{ts('focus_duration', 'Focus Duration')}</Text>
+                <Text style={styles.modalSub}>{ts('select_focus_duration', 'Select how long to focus')}</Text>
+              </View>
+            </View>
+            <View style={styles.durationGrid}>
+              {[[5,15,25],[30,45,60]].map((row, ri) => (
+                <View key={ri} style={styles.durationRow}>
+                  {row.map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.durationCell, d === focusDuration && styles.durationCellActive]}
+                      onPress={() => changeDuration(d)}
+                    >
+                      <Text style={[styles.durationNum, d === focusDuration && { color: '#fff' }]}>{d}</Text>
+                      <Text style={[styles.durationUnit, d === focusDuration && { color: 'rgba(255,255,255,0.75)' }]}>{ts('min_short', 'min')}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowDurationModal(false)}>
+              <Text style={styles.modalCloseBtnText}>{ts('cancel', 'Cancel')}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
-      {/* Completion Modal */}
-      {renderCompletionModal()}
+      {/* ── Completion Modal ── */}
+      <Modal visible={showCompletionModal} transparent animationType="fade" onRequestClose={() => setShowCompletionModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => {}}>
+          <Animated.View style={[styles.completionCard, { opacity: completionOpacity, transform: [{ scale: completionScale }] }]}>
 
-      {/* Exit Modal */}
-      {renderExitModal()}
-    </View>
+            {/* Top accent bar */}
+            <LinearGradient colors={['#0F766E', '#0F9D8C', '#2DD4BF']} style={styles.completionAccentBar} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} />
+
+            <View style={styles.completionBody}>
+              {/* Title block */}
+              <View style={styles.completionTitleBlock}>
+                <Text style={styles.completionEyebrow}>{ts('session_complete_upper', 'SESSION COMPLETE')}</Text>
+                <Text style={styles.completionTitle}>{subjectLabel}</Text>
+                <Text style={styles.completionSub}>{sessionType.label} · {ts('planned_minutes', '{minutes}m planned', { minutes: focusDuration })}</Text>
+              </View>
+
+              {/* Divider */}
+              <View style={styles.completionDivider} />
+
+              {/* Stats */}
+              <View style={styles.completionStats}>
+                <View style={styles.completionStatItem}>
+                  <Text style={styles.completionStatVal}>{formatTime(focusDuration * 60 - timeLeft > 0 ? focusDuration * 60 - timeLeft : focusDuration * 60)}</Text>
+                  <Text style={styles.completionStatLbl}>{ts('time_focused', 'Time focused')}</Text>
+                </View>
+                <View style={styles.completionStatDivider} />
+                <View style={styles.completionStatItem}>
+                  <Text style={styles.completionStatVal}>{notes.split(' ').filter(Boolean).length}</Text>
+                  <Text style={styles.completionStatLbl}>{ts('words_noted', 'Words noted')}</Text>
+                </View>
+                <View style={styles.completionStatDivider} />
+                <View style={styles.completionStatItem}>
+                  <Text style={[styles.completionStatVal, { color: S.teal }]}>{progressPct}%</Text>
+                  <Text style={styles.completionStatLbl}>{ts('completed', 'Completed')}</Text>
+                </View>
+              </View>
+
+              {/* Message */}
+              <Text style={styles.completionMsg}>
+                {notes.length > 20 ? ts('completion_msg_notes', 'Great note-taking - review soon to lock in retention.') : ts('completion_msg_no_notes', 'Try taking notes next time to boost recall.')}
+              </Text>
+
+              {/* Actions */}
+              <View style={styles.completionActions}>
+                <TouchableOpacity style={styles.completionSecBtn} onPress={() => setShowCompletionModal(false)}>
+                  <Text style={styles.completionSecBtnText}>{ts('stay', 'Stay')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.completionPrimBtn}
+                  onPress={async () => {
+                    setShowCompletionModal(false);
+                    await trackCompletedStudySession();
+                    await requestReview();
+                    router.back();
+                  }}
+                  activeOpacity={0.82}
+                >
+                  <LinearGradient colors={['#0F766E', '#0F9D8C']} style={styles.completionPrimBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                    <Text style={styles.completionPrimBtnText}>{ts('back_dashboard', 'Back to Dashboard')}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
+        </Pressable>
+      </Modal>
+
+      {/* ── Exit Modal ── */}
+      <Modal visible={showExitModal} transparent animationType="fade" onRequestClose={() => setShowExitModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowExitModal(false)}>
+          <Pressable style={styles.exitCard}>
+            <View style={styles.modalHandle} />
+            <View style={[styles.exitIconBox, { backgroundColor: isSessionCompleted ? S.tealLt : S.amberLt }]}>
+              <Ionicons name={isSessionCompleted ? 'checkmark-circle' : 'warning-outline'} size={28} color={isSessionCompleted ? S.teal : S.amber} />
+            </View>
+            <Text style={styles.exitTitle}>{isSessionCompleted ? ts('session_complete', 'Session Complete') : ts('exit_session', 'Exit Session?')}</Text>
+            <Text style={styles.exitMsg}>
+              {isSessionCompleted ? ts('exit_msg_completed', 'Your session is saved. Return to dashboard?') : ts('exit_msg', 'Your notes are auto-saved. Exit anytime.')}
+            </Text>
+            <View style={styles.exitActions}>
+              <TouchableOpacity style={styles.exitCancelBtn} onPress={() => setShowExitModal(false)}>
+                <Text style={styles.exitCancelText}>{ts('stay', 'Stay')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.exitConfirmBtn}
+                onPress={() => { setShowExitModal(false); router.back(); }}
+              >
+                <LinearGradient
+                  colors={isSessionCompleted ? ['#0F766E', '#0F9D8C'] : ['#0F766E', '#0F9D8C']}
+                  style={styles.exitConfirmGrad}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.exitConfirmText}>{isSessionCompleted ? ts('go_dashboard', 'Go to Dashboard') : ts('exit', 'Exit')}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  root: { flex: 1, backgroundColor: S.bg0 },
+  orbA: { position: 'absolute', width: 280, height: 280, borderRadius: 140, top: -90, right: -120, backgroundColor: 'rgba(45,212,191,0.12)' },
+  orbB: { position: 'absolute', width: 200, height: 200, borderRadius: 100, bottom: 100, left: -100, backgroundColor: 'rgba(52,211,153,0.08)' },
+
+  // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: isTablet ? 40 : 20,
-    paddingTop: isIOS ? 8 : 16,
-    paddingBottom: 16,
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18,
+    paddingTop: isIOS ? 4 : 12, paddingBottom: 12,
   },
-  exitButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+  backBtn: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: S.card,
+    borderWidth: 1, borderColor: S.cardBorder,
+    justifyContent: 'center', alignItems: 'center', marginRight: 14,
+    shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
-  exitButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
+  headerMid: { flex: 1, minWidth: 0 },
+  headerSubject: { fontSize: 19, fontWeight: '800', color: S.ink, marginBottom: 4, flexShrink: 1 },
+  headerMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  typePill: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+    borderWidth: 1,
   },
-  headerContent: {
-    flex: 1,
+  typePillText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  headerDot: { fontSize: 13, color: S.muted, fontWeight: '600' },
+  headerDuration: { fontSize: 12, fontWeight: '600', color: S.sub },
+  doneChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: S.tealLt, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 7,
+    borderWidth: 1, borderColor: `${S.teal}20`,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerSubtitle: {
-    fontSize: 14,
+  doneChipDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: S.teal },
+  doneChipText: { fontSize: 12, fontWeight: '700', color: S.tealDk },
+  moreBtn: {
+    width: 38, height: 38, borderRadius: 19, backgroundColor: S.card,
+    borderWidth: 1, borderColor: S.cardBorder, justifyContent: 'center', alignItems: 'center',
   },
 
-  // Timer Styles
-  timerContainer: {
-    alignItems: 'center',
-    paddingVertical: isTablet ? 32 : 20,
-    paddingHorizontal: isTablet ? 40 : 20,
+  // Tab
+  tabRow: {
+    flexDirection: 'row', marginHorizontal: 18, marginBottom: 16,
+    backgroundColor: S.card, borderRadius: 14, padding: 4,
+    borderWidth: 1, borderColor: S.cardBorder,
+    shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
-  timerCircle: {
-    width: isTablet ? 200 : 160,
-    height: isTablet ? 200 : 160,
-    borderRadius: isTablet ? 100 : 80,
-    borderWidth: isTablet ? 8 : 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: isTablet ? 28 : 20,
+  tab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, minWidth: 0,
   },
-  timerText: {
-    fontSize: isTablet ? 42 : 32,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  timerLabel: {
-    fontSize: isTablet ? 18 : 14,
-    fontWeight: '500',
-  },
-  timerControls: {
-    flexDirection: 'row',
-    gap: isTablet ? 16 : 12,
-    marginBottom: isTablet ? 28 : 20,
-    justifyContent: 'center',
-  },
-  timerButton: {
-    paddingHorizontal: isTablet ? 28 : 20,
-    paddingVertical: isTablet ? 16 : 12,
-    borderRadius: isTablet ? 28 : 24,
-    minWidth: isTablet ? 90 : 70,
-    alignItems: 'center',
-  },
-  timerButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerButtonText: {
-    fontSize: isTablet ? 18 : 16,
-    fontWeight: '600',
-  },
+  tabActive: { backgroundColor: S.tealGlow, shadowColor: S.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 },
+  tabText: { fontSize: 12, fontWeight: '600', color: S.muted, flexShrink: 1, minWidth: 0 },
+  tabTextActive: { color: S.teal },
 
-  // Content Styles
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: isTablet ? 20 : 0,
-  },
-  contentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  contentSubject: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  contentType: {
-    fontSize: 14,
-  },
+  // Scroll
+  scroll: { paddingHorizontal: 18, paddingBottom: isIOS ? 110 : 90 },
 
-  // Notes Styles
-  notesContainer: {
-    flex: 1,
-    padding: isTablet ? 24 : 16,
-    borderRadius: isTablet ? 16 : 12,
-    marginBottom: isTablet ? 28 : 20,
+  // Timer Tab
+  timerTab: { gap: 14 },
+
+  // Ring Card
+  ringCard: {
+    borderRadius: 24, overflow: 'hidden',
+    shadowColor: '#0F766E', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.28, shadowRadius: 20, elevation: 14,
   },
-  sectionTitle: {
-    fontSize: isTablet ? 22 : 18,
-    fontWeight: '700',
-    marginBottom: isTablet ? 12 : 8,
+  ringGradient: { paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center' },
+  ringBlob1: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.07)', top: -50, right: -40 },
+  ringBlob2: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 40 },
+  ringInner: { alignItems: 'center', justifyContent: 'center' },
+  ringTime: { fontSize: isTablet ? 48 : 42, fontWeight: '900', color: '#FFFFFF', letterSpacing: -2, textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  ringStateBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 8, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
   },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  ringStateDot: { width: 7, height: 7, borderRadius: 4 },
+  ringStateText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  ringBar: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20, width: '100%', maxWidth: 260 },
+  ringBarTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
+  ringBarFill: { height: 5, borderRadius: 3, backgroundColor: '#fff' },
+  ringBarPct: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)', minWidth: 32, textAlign: 'right' },
+
+  // Meta row
+  metaRow: { flexDirection: 'row', gap: 10 },
+  metaChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: S.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
+    borderWidth: 1, borderColor: S.cardBorder, flex: 1, justifyContent: 'center',
+    shadowColor: S.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1,
   },
+  metaChipText: { fontSize: 12, fontWeight: '600', color: S.sub, flexShrink: 1 },
+
+  // Controls
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginVertical: 4 },
+  ctrlSecondary: {
+    alignItems: 'center', gap: 5, backgroundColor: S.card,
+    paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16,
+    borderWidth: 1, borderColor: S.cardBorder, minWidth: 72,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
+  },
+  ctrlSecondaryText: { fontSize: 11, fontWeight: '700', color: S.sub, textTransform: 'uppercase', letterSpacing: 0.4 },
+  ctrlMain: {
+    borderRadius: 38,
+    shadowColor: S.tealDk, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.38, shadowRadius: 16, elevation: 12,
+  },
+  ctrlMainGrad: { width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center' },
+
+  // Complete
+  completeBtn: {
+    backgroundColor: S.tealLt, borderRadius: 16,
+    borderWidth: 1, borderColor: `${S.teal}25`, overflow: 'hidden',
+    shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 2,
+  },
+  completeBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
+  completeBtnText: { fontSize: 14, fontWeight: '700', color: S.teal },
+
+  // Notes Tab
+  notesTab: { gap: 14 },
+  notesCard: {
+    backgroundColor: S.card, borderRadius: 18, padding: 16,
+    borderWidth: 1, borderColor: S.cardBorder,
+    shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+  },
+  notesCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  notesCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  notesIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  notesCardTitle: { fontSize: 14, fontWeight: '700', color: S.ink },
+  notesCardSub: { fontSize: 12, color: S.muted, marginTop: 1 },
+  notesCountBadge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4 },
+  notesCountText: { fontSize: 11, fontWeight: '700' },
   notesInput: {
-    padding: isTablet ? 20 : 16,
-    borderWidth: 1.5,
-    borderRadius: isTablet ? 14 : 12,
-    fontSize: isTablet ? 18 : 16,
-    lineHeight: isTablet ? 28 : 24,
-    textAlignVertical: 'top',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    borderWidth: 1.5, borderRadius: 12, padding: 14,
+    fontSize: 15, lineHeight: 22, color: S.ink,
+    backgroundColor: S.bg1, fontFamily: isIOS ? 'Georgia' : 'serif',
   },
-  completeButton: {
-    padding: isTablet ? 20 : 16,
-    borderRadius: isTablet ? 28 : 24,
-    alignItems: 'center',
+  tipsTitle: { fontSize: 12, fontWeight: '800', color: S.muted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 },
+  tipCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: S.card, borderRadius: 12, padding: 13,
+    borderWidth: 1, borderColor: S.cardBorder,
   },
-  completeButtonText: {
-    fontSize: isTablet ? 18 : 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  completeButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  tipIcon: { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+  tipText: { flex: 1, fontSize: 13, color: S.sub, lineHeight: 18 },
+  notesCompleteBtn: { borderRadius: 16, overflow: 'hidden', shadowColor: S.tealDk, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 8 },
+  notesCompleteBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 16 },
+  notesCompleteBtnText: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
 
-  // Duration Modal Styles
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '80%',
-    padding: 20,
-    borderRadius: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  modalTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  presetGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'space-between',
-  },
-  presetButton: {
-    width: '30%',
-    padding: 12,
-    borderWidth: 2,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  presetButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 20,
-  },
-  modalButton: {
-    padding: 12,
-    borderRadius: 8,
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  // Modals overlay
+  overlay: { flex: 1, backgroundColor: 'rgba(2,6,23,0.42)', justifyContent: 'flex-end', padding: 16 },
 
-  // Completion Modal Styles
-  completionModalContent: {
-    width: '85%',
-    maxWidth: 400,
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+  // Duration modal
+  modalCard: {
+    backgroundColor: S.card, borderRadius: 22, padding: 20,
+    borderWidth: 1, borderColor: S.cardBorder,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 10,
   },
-  successCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  successIcon: {
-    fontSize: 48,
-    fontWeight: '700',
-  },
-  completionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  completionSubtitle: {
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
-  },
-  statCard: {
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: S.track, alignSelf: 'center', marginBottom: 18 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  modalIconBox: { width: 44, height: 44, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
+  modalTitle: { fontSize: 17, fontWeight: '800', color: S.ink },
+  modalSub: { fontSize: 12, color: S.muted, marginTop: 2 },
+  durationGrid: { gap: 10, marginBottom: 20 },
+  durationRow: { flexDirection: 'row', gap: 10 },
+  durationCell: {
     flex: 1,
-    padding: 12,
-    borderWidth: 2,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    alignItems: 'center',
+    paddingVertical: 20, borderRadius: 16,
+    alignItems: 'center', backgroundColor: S.bg1,
+    borderWidth: 1.5, borderColor: S.cardBorder,
   },
-  statIcon: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
+  durationCellActive: { backgroundColor: S.teal, borderColor: S.teal },
+  durationNum: { fontSize: 22, fontWeight: '900', color: S.ink },
+  durationUnit: { fontSize: 11, fontWeight: '600', color: S.muted, marginTop: 2 },
+  modalCloseBtn: {
+    height: 46, borderRadius: 13, backgroundColor: S.bg1,
+    borderWidth: 1, borderColor: S.cardBorder, alignItems: 'center', justifyContent: 'center',
   },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  completionMessage: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  completionActions: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
-  },
-  completionButton: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  secondaryButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#E5E5E5',
-  },
-  primaryButton: {
-    borderWidth: 0,
-  },
-  completionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  modalCloseBtnText: { fontSize: 14, fontWeight: '700', color: S.sub },
 
-  // Exit Modal Styles
-  exitModalContent: {
-    width: '80%',
-    maxWidth: 400,
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
+  // Completion modal
+  completionCard: {
+    backgroundColor: S.card, borderRadius: 24,
+    borderWidth: 1, borderColor: S.cardBorder, overflow: 'hidden', width: '100%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12,
   },
-  exitIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+  completionAccentBar: { height: 4, width: '100%' },
+  completionBody: { padding: 24 },
+  completionTitleBlock: { marginBottom: 20 },
+  completionEyebrow: { fontSize: 10, fontWeight: '800', color: S.teal, letterSpacing: 1.4, marginBottom: 8 },
+  completionTitle: { fontSize: 24, fontWeight: '900', color: S.ink, marginBottom: 4, letterSpacing: -0.5 },
+  completionSub: { fontSize: 13, color: S.sub, fontWeight: '500' },
+  completionDivider: { height: StyleSheet.hairlineWidth, backgroundColor: S.cardBorder, marginBottom: 20 },
+  completionStats: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  completionStatItem: { flex: 1, alignItems: 'center' },
+  completionStatDivider: { width: StyleSheet.hairlineWidth, height: 36, backgroundColor: S.cardBorder },
+  completionStatVal: { fontSize: 22, fontWeight: '900', color: S.ink, letterSpacing: -0.5, marginBottom: 3 },
+  completionStatLbl: { fontSize: 11, fontWeight: '600', color: S.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  completionMsg: { fontSize: 13, color: S.sub, lineHeight: 19, marginBottom: 22, paddingHorizontal: 2 },
+  completionActions: { flexDirection: 'row', gap: 10 },
+  completionSecBtn: {
+    flex: 0.8, height: 48, borderRadius: 13, backgroundColor: S.bg1,
+    borderWidth: 1, borderColor: S.cardBorder, justifyContent: 'center', alignItems: 'center',
   },
-  exitIcon: {
-    fontSize: 24,
-    fontWeight: '700',
+  completionSecBtnText: { fontSize: 14, fontWeight: '700', color: S.sub },
+  completionPrimBtn: { flex: 1.5, borderRadius: 13, overflow: 'hidden' },
+  completionPrimBtnGrad: { height: 48, justifyContent: 'center', alignItems: 'center' },
+  completionPrimBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+
+  // Exit modal
+  exitCard: {
+    backgroundColor: S.card, borderRadius: 22, padding: 24, alignItems: 'center',
+    borderWidth: 1, borderColor: S.cardBorder,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 10,
   },
-  exitModalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
+  exitIconBox: { width: 60, height: 60, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  exitTitle: { fontSize: 18, fontWeight: '800', color: S.ink, marginBottom: 8 },
+  exitMsg: { fontSize: 13, color: S.sub, textAlign: 'center', lineHeight: 19, marginBottom: 22 },
+  exitActions: { flexDirection: 'row', gap: 12, width: '100%' },
+  exitCancelBtn: {
+    flex: 1, height: 48, borderRadius: 13, backgroundColor: S.bg1,
+    borderWidth: 1, borderColor: S.cardBorder, justifyContent: 'center', alignItems: 'center',
   },
-  exitModalMessage: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  exitModalActions: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
-  },
-  exitModalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  exitModalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  exitModalCancelButton: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  exitModalCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  dangerButton: {
-    borderWidth: 0,
-  },
-}); 
+  exitCancelText: { fontSize: 14, fontWeight: '700', color: S.sub },
+  exitConfirmBtn: { flex: 1.3, borderRadius: 13, overflow: 'hidden' },
+  exitConfirmGrad: { height: 48, justifyContent: 'center', alignItems: 'center' },
+  exitConfirmText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+});

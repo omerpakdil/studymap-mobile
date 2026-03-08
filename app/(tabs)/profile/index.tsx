@@ -3,2103 +3,872 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   Linking,
   Modal,
   Platform,
-  SafeAreaView,
+  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-
+import { useAppAlert } from '@/app/components/ui/AppAlert';
+import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
+import { getLocalizedExamName } from '@/app/i18n/examNames';
 import NotificationService from '@/app/utils/notificationService';
+import { NotificationPreferences } from '@/app/utils/notifications';
 import { clearOnboardingData, loadCompleteOnboardingData } from '@/app/utils/onboardingData';
-import { calculateWeeklyProgress, clearStudyProgramData, getProgramMetadata, getStudyStreak } from '@/app/utils/studyProgramStorage';
-import { useTheme } from '@/themes';
-import { registerUserWithReferralCode, getReferralCode, getReferralStats, getReferralTrial, getReferralTrialDaysRemaining } from '@/app/utils/referralManager';
+import {
+  getReferralStats,
+  getReferralTrial,
+  getReferralTrialDaysRemaining,
+  registerUserWithReferralCode,
+} from '@/app/utils/referralManager';
+import {
+  calculateWeeklyProgress,
+  clearStudyProgramData,
+  getProgramMetadata,
+  getStudyStreak,
+} from '@/app/utils/studyProgramStorage';
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 
-const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/' as const;
-const PRIVACY_URL = 'https://studymap-site.vercel.app/privacy.html' as const;
-const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions' as const;
+const T = {
+  bg:         '#F4FAFA',
+  card:       '#FFFFFF',
+  ink:        '#0A1628',
+  sub:        '#4A6270',
+  muted:      '#8FA8B2',
+  border:     'rgba(15,157,140,0.12)',
+  teal:       '#0F9D8C',
+  tealDk:     '#0B7A6E',
+  tealMid:    '#13B5A2',
+  tealLt:     'rgba(15,157,140,0.09)',
+  tealGlow:   'rgba(15,157,140,0.18)',
+  glass:      'rgba(255,255,255,0.72)',
+  track:      'rgba(148,163,184,0.18)',
+};
 
-const reminderFrequencyOptions = [
-  { id: 'minimal', label: 'Minimal', frequency: 'Weekly check-ins', icon: '📅' },
-  { id: 'moderate', label: 'Moderate', frequency: 'Daily reminders', icon: '⏰' },
-  { id: 'frequent', label: 'Frequent', frequency: 'Multiple daily', icon: '🔔' },
-];
+const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const PRIVACY_URL = 'https://studymap-site.vercel.app/privacy.html';
+const MANAGE_URL = 'https://apps.apple.com/account/subscriptions';
+const APP_STORE_URL = process.env.EXPO_PUBLIC_APP_STORE_URL || 'https://apps.apple.com/app/id6748285218';
 
+// ─── Stat Tile ───────────────────────────────────────────────────────────────
+function StatTile({ value, label, delay = 0 }: { value: string; label: string; delay?: number }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    setTimeout(() => {
+      Animated.spring(anim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 9 }).start();
+    }, delay);
+  }, []);
+  return (
+    <Animated.View style={[styles.statTile, { opacity: anim, transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }] }]}>
+      <Text style={styles.statTileVal}>{value}</Text>
+      <Text style={styles.statTileLbl}>{label}</Text>
+    </Animated.View>
+  );
+}
+
+// ─── Slim Toggle ─────────────────────────────────────────────────────────────
+function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(anim, { toValue: value ? 1 : 0, useNativeDriver: false, tension: 160, friction: 12 }).start();
+  }, [value]);
+  const bg  = anim.interpolate({ inputRange: [0, 1], outputRange: ['#D1DCE2', T.teal] });
+  const tx  = anim.interpolate({ inputRange: [0, 1], outputRange: [2, 22] });
+  return (
+    <TouchableOpacity onPress={() => onChange(!value)} activeOpacity={0.85} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <Animated.View style={[styles.toggle, { backgroundColor: bg }]}>
+        <Animated.View style={[styles.toggleThumb, { transform: [{ translateX: tx }] }]} />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Section Header ───────────────────────────────────────────────────────────
+function SectionLabel({ title }: { title: string }) {
+  return (
+    <View style={styles.sectionLabelRow}>
+      <Text style={styles.sectionLabelText}>{title}</Text>
+    </View>
+  );
+}
+
+// ─── Setting Row ─────────────────────────────────────────────────────────────
+function SettingRow({
+  icon, title, subtitle, right, onPress, danger, last,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  onPress?: () => void;
+  danger?: boolean;
+  last?: boolean;
+}) {
+  return (
+    <>
+      <TouchableOpacity
+        style={styles.settingRow}
+        onPress={onPress}
+        activeOpacity={onPress ? 0.65 : 1}
+        disabled={!onPress}
+      >
+        <View style={[styles.settingIconWrap, danger && styles.settingIconDanger]}>
+          <Ionicons name={icon} size={16} color={danger ? '#E11D48' : T.teal} />
+        </View>
+        <View style={styles.settingBody}>
+          <Text style={[styles.settingTitle, danger && { color: '#E11D48' }]}>{title}</Text>
+          {subtitle ? <Text style={styles.settingSubtitle}>{subtitle}</Text> : null}
+        </View>
+        {right ?? (onPress ? <Ionicons name="chevron-forward" size={14} color={T.muted} /> : null)}
+      </TouchableOpacity>
+      {!last && <View style={styles.rowLine} />}
+    </>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
-  const { colors } = useTheme();
+  const { showAlert } = useAppAlert();
   const router = useRouter();
-  
-  // Real data states
-  const [programMetadata, setProgramMetadata] = useState<any>(null);
-  const [onboardingData, setOnboardingData] = useState<any>(null);
-  const [studyStreak, setStudyStreak] = useState(0);
-  const [weeklyProgress, setWeeklyProgress] = useState({ completed: 0, total: 0, hours: 0 });
-  const [loading, setLoading] = useState(true);
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [notificationPermission, setNotificationPermission] = useState(false);
-  const [showReminderModal, setShowReminderModal] = useState(false);
-  const [showSupportModal, setShowSupportModal] = useState(false);
-  const [showRateModal, setShowRateModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showStudyTimeModal, setShowStudyTimeModal] = useState(false);
-  const [pendingStudyTime, setPendingStudyTime] = useState('09:00');
+  const appLang = resolveAppLanguage();
+  const appLocale = getLocaleTagForLanguage(appLang);
+  const tp = (key: string, fallback: string, params?: Record<string, string | number>) =>
+    t(`tabs.profile.${key}`, { lang: appLang, fallback, params });
 
-  // Referral states
-  const [referralCode, setReferralCode] = useState<string | null>(null);
-  const [referralStats, setReferralStats] = useState({ totalReferrals: 0, successfulReferrals: 0, totalDaysEarned: 0, pendingDays: 0 });
-  const [referralTrial, setReferralTrial] = useState<any>(null);
-  const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
-  
+  const [programMetadata, setProgramMetadata]   = useState<any>(null);
+  const [onboardingData,  setOnboardingData]     = useState<any>(null);
+  const [studyStreak,     setStudyStreak]        = useState(0);
+  const [weeklyProgress,  setWeeklyProgress]     = useState({ completed: 0, total: 0, hours: 0 });
+  const [loading,         setLoading]            = useState(true);
+  const [userInfo,        setUserInfo]           = useState<any>(null);
 
-  
-  // Settings states
-  const [reminderSettings, setReminderSettings] = useState({
-    dailyReminder: false,
-    studyTime: '09:00',
-    breakReminder: false,
-    weeklyReport: false,
-    motivationalQuotes: false,
-    reminderFrequency: 'minimal',
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
+    studyReminders: false,
+    planSummaries: false,
+    progressNudges: false,
+    premiumUpdates: false,
+    referralUpdates: false,
+    breakReminders: false,
+    quietHoursStart: '21:30',
+    quietHoursEnd: '07:30',
+    preferredStudyTime: '09:00',
+    upcomingLeadMinutes: 15,
+    recoveryDelayMinutes: 45,
+    dailyWrapTime: '20:15',
+    weeklyPlanDay: 1,
+    weeklyPlanTime: '18:00',
   });
   const [privacySettings, setPrivacySettings] = useState({
-    analytics: false,
-    dataSharing: false,
-    marketing: false,
+    analytics: false, dataSharing: false, marketing: false,
   });
 
-  // Load real user data from Claude-generated program
-  const loadUserData = async (isInitialLoad: boolean = false) => {
+  const [referralCode,      setReferralCode]       = useState<string | null>(null);
+  const [referralStats,     setReferralStats]       = useState({ totalReferrals: 0, successfulReferrals: 0, totalDaysEarned: 0 });
+  const [referralTrial,     setReferralTrial]       = useState<any>(null);
+  const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
+
+  const [showStudyTimeModal, setShowStudyTimeModal] = useState(false);
+  const [showDeleteModal,    setShowDeleteModal]    = useState(false);
+  const [pendingStudyTime,   setPendingStudyTime]   = useState('09:00');
+
+  const scrollY    = useRef(new Animated.Value(0)).current;
+  const headerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(headerAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+  }, []);
+
+  const loadUserData = async (isInitialLoad = false) => {
     try {
       setLoading(true);
-      
-      // Only check/initialize notifications on first app load, not on every focus
       if (isInitialLoad) {
-        // Check notification permission without reinitializing
-        const hasPermission = NotificationService.hasNotificationPermission();
-        setNotificationPermission(hasPermission);
-        
-        // Only initialize if not already initialized
-        if (!hasPermission) {
-          const initialized = await NotificationService.initialize();
-          setNotificationPermission(initialized);
-        }
+        const hasPerm = NotificationService.hasNotificationPermission();
+        if (!hasPerm) await NotificationService.initialize();
       }
-      
-      // Load user info from AsyncStorage
-      const userInfoStr = await AsyncStorage.getItem('user_info');
-      if (userInfoStr) {
-        setUserInfo(JSON.parse(userInfoStr));
-      }
+      const uStr = await AsyncStorage.getItem('user_info');
+      if (uStr) setUserInfo(JSON.parse(uStr));
 
-      // Load all user data
       const [metadata, onboarding, streak, weekly] = await Promise.all([
-        getProgramMetadata(),
-        loadCompleteOnboardingData(),
-        getStudyStreak(),
-        calculateWeeklyProgress()
+        getProgramMetadata(), loadCompleteOnboardingData(), getStudyStreak(), calculateWeeklyProgress(),
       ]);
-      
       setProgramMetadata(metadata);
       setOnboardingData(onboarding);
       setStudyStreak(streak);
       setWeeklyProgress(weekly);
 
-      // Load reminder settings from notification service
-      const notificationSettings = NotificationService.getSettings();
-      setReminderSettings(notificationSettings);
+      const prefs = await NotificationService.loadPreferences();
+      setNotificationPrefs(prefs);
 
-      // Load and sync reminder frequency from onboarding data
-      if (onboarding?.goalsData?.reminderFrequency) {
-        const currentFrequency = onboarding.goalsData.reminderFrequency;
-        
-        // Update local state
-        setReminderSettings(prev => ({
-          ...prev,
-          reminderFrequency: currentFrequency as 'minimal' | 'moderate' | 'frequent'
-        }));
-        
-        // Sync with notification service if different
-        if (notificationSettings.reminderFrequency !== currentFrequency) {
-          await NotificationService.syncReminderFrequency(currentFrequency);
-        }
-      }
+      const ps = await AsyncStorage.getItem('privacy_settings');
+      if (ps) setPrivacySettings(JSON.parse(ps));
 
-      // Sync study time from schedule data if not manually set
-      if (onboarding?.scheduleData && Object.keys(onboarding.scheduleData).length > 0) {
-        const scheduleEntries = Object.entries(onboarding.scheduleData);
-        if (scheduleEntries.length > 0) {
-          // Find the most common time slot to determine preferred study time
-          const timeSlotCounts: {[key: string]: number} = {};
-          scheduleEntries.forEach(([day, timeSlots]) => {
-            (timeSlots as string[]).forEach(slot => {
-              timeSlotCounts[slot] = (timeSlotCounts[slot] || 0) + 1;
-            });
-          });
-          
-          const mostCommonSlot = Object.entries(timeSlotCounts)
-            .sort(([,a], [,b]) => b - a)[0]?.[0];
-          
-          // Map time slots to notification times
-          const slotToTime: {[key: string]: string} = {
-            'early_morning': '07:00',
-            'morning': '10:00', 
-            'afternoon': '14:00',
-            'evening': '18:00',
-            'night': '21:00'
-          };
-          
-          const preferredTime = slotToTime[mostCommonSlot] || '09:00';
-          
-          // Only sync if notification service has default time (not user-customized)
-          if (notificationSettings.studyTime === '09:00' && preferredTime !== '09:00') {
-            await NotificationService.updateSettings({ studyTime: preferredTime });
-            setReminderSettings(prev => ({ ...prev, studyTime: preferredTime }));
-            console.log(`✅ Study time synced from schedule: ${preferredTime}`);
-          }
-        }
-      }
-
-      // Load privacy settings
-      const privacyStr = await AsyncStorage.getItem('privacy_settings');
-      if (privacyStr) {
-        setPrivacySettings(JSON.parse(privacyStr));
-      }
-
-      // Load referral data - register user in Supabase if needed
-      const code = await registerUserWithReferralCode();
+      const code  = await registerUserWithReferralCode();
       setReferralCode(code);
-
       const stats = await getReferralStats();
       setReferralStats(stats);
-
       const trial = await getReferralTrial();
       setReferralTrial(trial);
-
-      if (trial && trial.isActive) {
-        const daysLeft = await getReferralTrialDaysRemaining();
-        setTrialDaysRemaining(daysLeft);
-      }
-      
-      console.log('👤 Profile data loaded:', {
-        examType: metadata?.examType,
-        streak: streak,
-        weeklyHours: weekly.hours,
-        learningStyle: onboarding?.learningStyleData?.primaryStyle,
-        notificationPermission: isInitialLoad ? notificationPermission : 'skipped',
-        reminderSettings: 'loaded from service',
-        privacySettings: privacyStr ? 'loaded' : 'default'
-      });
-      
-    } catch (error) {
-      console.error('❌ Error loading profile data:', error);
+      if (trial?.isActive) setTrialDaysRemaining(await getReferralTrialDaysRemaining());
+    } catch (e) {
+      console.error('Profile load error:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadUserData(true); // Initial load with notification check
-  }, []);
+  useEffect(() => { loadUserData(true); }, []);
+  useFocusEffect(useCallback(() => { loadUserData(false); }, []));
 
-  useFocusEffect(
-    useCallback(() => {
-      loadUserData(false); // Subsequent loads without notification init
-    }, [])
-  );
-
-  const handleEditProfile = () => {
-    router.push('/profile/edit');
+  const updateNotificationPref = async <K extends keyof NotificationPreferences>(
+    key: K,
+    value: NotificationPreferences[K]
+  ) => {
+    setNotificationPrefs(p => ({ ...p, [key]: value }));
+    const next = await NotificationService.updatePreferences({ [key]: value });
+    setNotificationPrefs(next);
+  };
+  const updatePrivacy = async (key: string, value: boolean) => {
+    const next = { ...privacySettings, [key]: value };
+    setPrivacySettings(next as any);
+    await AsyncStorage.setItem('privacy_settings', JSON.stringify(next));
   };
 
-
-  const handleDeleteAccount = () => {
-    setShowDeleteModal(true);
-  };
-
-  const handleContactSupport = () => {
-    setShowSupportModal(true);
-  };
-
-  const handleManageSubscriptions = async () => {
-    if (isIOS) {
-      try {
-        const canOpen = await Linking.canOpenURL(MANAGE_SUBSCRIPTIONS_URL);
-        if (canOpen) {
-          await Linking.openURL(MANAGE_SUBSCRIPTIONS_URL);
-        } else {
-          Alert.alert(
-            'Manage Subscription',
-            'Subscriptions can be managed from Settings > Apple ID > Subscriptions.'
-          );
-        }
-      } catch (error) {
-        console.error('❌ Error opening subscription management:', error);
-        Alert.alert(
-          'Manage Subscription',
-          'Unable to open Apple subscription settings. Please navigate manually to Settings > Apple ID > Subscriptions.'
-        );
-      }
-    } else {
-      Alert.alert(
-        'Manage Subscription',
-        'Subscriptions are billed through Apple. Use an iOS device and go to Settings > Apple ID > Subscriptions to manage your plan.'
-      );
-    }
-  };
-
-  const handleRateApp = () => {
-    setShowRateModal(true);
-  };
-
-  const openAppStore = () => {
-    const appStoreUrl = Platform.OS === 'ios' 
-      ? 'https://apps.apple.com/app/studymap' 
-      : 'https://play.google.com/store/apps/details?id=com.studymap.app';
-    
-    Linking.openURL(appStoreUrl).catch(() => {
-      Alert.alert('Error', 'Could not open app store. Please try again later.');
-    });
-  };
-
-  const openEmail = () => {
-    const emailUrl = 'mailto:callousity@gmail.com?subject=StudyMap Support Request';
-    Linking.openURL(emailUrl).catch(() => {
-      Alert.alert('Error', 'Could not open email app. Please contact us at callousity@gmail.com');
-    });
-  };
-
-  const openTerms = () => {
-    Linking.openURL(TERMS_URL).catch(() => {
-      Alert.alert('Error', 'Could not open Terms of Use. Please visit www.apple.com/legal/internet-services/itunes/dev/stdeula in your browser.');
-    });
-  };
-
-  const openPrivacy = () => {
-    Linking.openURL(PRIVACY_URL).catch(() => {
-      Alert.alert('Error', 'Could not open Privacy Policy. Please visit studymap-site.vercel.app/privacy.html in your browser.');
-    });
-  };
-
-  // Development only: Reset app data
-  const handleResetAppData = () => {
-    Alert.alert(
-      '🔄 Reset App Data',
-      'This will clear all local data and restart the app from onboarding. This is only available in development mode.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Clear all AsyncStorage data
-              await AsyncStorage.clear();
-
-              Alert.alert(
-                '✅ Reset Complete',
-                'All app data has been cleared. The app will now restart.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      // Redirect to onboarding
-                      router.replace('/(onboarding)/welcome');
-                    }
-                  }
-                ]
-              );
-            } catch (error) {
-              console.error('Error resetting app data:', error);
-              Alert.alert('Error', 'Failed to reset app data. Please try again.');
-            }
-          }
-        }
-      ]
+  const handleDeleteAccount = async () => {
+    await clearOnboardingData();
+    await clearStudyProgramData();
+    await AsyncStorage.multiRemove([
+      'user_info',
+      'reminder_settings',
+      'privacy_settings',
+      'notification_preferences_v1',
+      'scheduled_local_notifications_v1',
+    ]);
+    showAlert(
+      tp('alert_deleted_title', 'Account Deleted'),
+      tp('alert_deleted_body', 'All data removed. Please restart the app.')
     );
   };
 
-  const performDeleteAccount = async () => {
-    try {
-      // Clear all data
-      await clearOnboardingData();
-      await clearStudyProgramData();
-      await AsyncStorage.removeItem('user_info');
-      await AsyncStorage.removeItem('reminder_settings');
-      await AsyncStorage.removeItem('privacy_settings');
-      
-      Alert.alert(
-        'Account Deleted',
-        'Your account and all data have been permanently deleted. Please restart the app.',
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('Error deleting account:', error);
-      Alert.alert(
-        'Delete Failed',
-        'There was an error deleting your account. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
-  const handleStudyTimePress = () => {
-    setPendingStudyTime(reminderSettings.studyTime);
-    setShowStudyTimeModal(true);
-  };
-
-  // Generate all times in 30 min intervals
   const allTimes = Array.from({ length: 48 }, (_, i) => {
-    const hour = Math.floor(i / 2).toString().padStart(2, '0');
-    const min = i % 2 === 0 ? '00' : '30';
-    return `${hour}:${min}`;
+    const h = Math.floor(i / 2).toString().padStart(2, '0');
+    const m = i % 2 === 0 ? '00' : '30';
+    return `${h}:${m}`;
   });
 
-  const handleStudyTimeSave = () => {
-    updateReminderSetting('studyTime', pendingStudyTime);
-    setShowStudyTimeModal(false);
-  };
-
-  const handleResetOnboarding = () => {
-    Alert.alert(
-      'Reset Onboarding',
-      'This will clear all your onboarding data and study program. You\'ll need to complete the onboarding process again.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Reset', 
-          style: 'destructive', 
-          onPress: async () => {
-            try {
-              await clearOnboardingData();
-              await clearStudyProgramData();
-              await AsyncStorage.removeItem('user_info');
-              await AsyncStorage.removeItem('reminder_settings');
-              await AsyncStorage.removeItem('privacy_settings');
-              Alert.alert(
-                'Reset Complete',
-                'All data has been cleared. Please restart the app to begin the onboarding process again.',
-                [{ text: 'OK' }]
-              );
-            } catch (error) {
-              console.error('Error resetting onboarding:', error);
-              Alert.alert(
-                'Reset Failed',
-                'There was an error resetting your data. Please try again.',
-                [{ text: 'OK' }]
-              );
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const updateReminderSetting = async (key: keyof typeof reminderSettings, value: boolean | string) => {
-    try {
-      const newSettings = {
-        ...reminderSettings,
-        [key]: value
-      };
-      
-      // Update state
-      setReminderSettings(newSettings);
-      
-      // Update notification service (handles AsyncStorage and scheduling)
-      await NotificationService.updateSettings({ [key]: value });
-      
-      console.log(`✅ Reminder setting updated: ${key} = ${value}`);
-    } catch (error) {
-      console.error('❌ Error saving reminder setting:', error);
-      
-      // Revert state on error
-      setReminderSettings(prev => prev);
-      
-      Alert.alert(
-        'Error',
-        'Failed to save reminder setting. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
-  const updatePrivacySetting = async (key: keyof typeof privacySettings, value: boolean) => {
-    try {
-      const newSettings = {
-        ...privacySettings,
-        [key]: value
-      };
-      
-      // Update state
-      setPrivacySettings(newSettings);
-      
-      // Save to AsyncStorage
-      await AsyncStorage.setItem('privacy_settings', JSON.stringify(newSettings));
-      
-      console.log(`✅ Privacy setting updated: ${key} = ${value}`);
-    } catch (error) {
-      console.error('❌ Error saving privacy setting:', error);
-      
-      // Revert state on error
-      setPrivacySettings(prev => prev);
-      
-      Alert.alert(
-        'Error',
-        'Failed to save privacy setting. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  // Modern Toggle Component with Animation
-  const ModernToggle = ({ value, onToggle }: { value: boolean; onToggle: (newValue: boolean) => void }) => {
-    const [animatedValue] = useState(new Animated.Value(value ? 1 : 0));
-
-    useEffect(() => {
-      Animated.timing(animatedValue, {
-        toValue: value ? 1 : 0,
-        duration: 200,
-        useNativeDriver: false,
-      }).start();
-    }, [value]);
-
-    const translateX = animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [2, 22],
-    });
-
-    const backgroundColor = animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [colors.neutral[300], colors.primary[500]],
-    });
-
-    const shadowOpacity = animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 0.3],
-    });
-
-    return (
-      <View style={styles.modernToggleContainer}>
-        <TouchableOpacity
-          onPress={() => onToggle(!value)}
-          activeOpacity={0.8}
-          style={styles.modernToggleWrapper}
-        >
-          <Animated.View
-            style={[
-              styles.modernToggle,
-              { 
-                backgroundColor,
-                shadowOpacity,
-                shadowColor: colors.primary[500]
-              }
-            ]}
-          >
-            <Animated.View
-              style={[
-                styles.modernToggleThumb,
-                {
-                  backgroundColor: '#FFFFFF',
-                  transform: [{ translateX }],
-                }
-              ]}
-            >
-              {value && (
-                <Animated.View style={{ opacity: animatedValue }}>
-                  <Text style={styles.modernToggleCheck}>✓</Text>
-                </Animated.View>
-              )}
-            </Animated.View>
-          </Animated.View>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // Show loading state
   if (loading || !programMetadata || !onboardingData) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.primary[50], flex: 1 }]}> 
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <LinearGradient
-            colors={[colors.primary[400], colors.primary[500], colors.primary[600]]}
-            style={{ width: 90, height: 90, borderRadius: 45, justifyContent: 'center', alignItems: 'center', marginBottom: 24 }}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <ActivityIndicator size="large" color="#fff" />
-          </LinearGradient>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: colors.primary[700], marginBottom: 8, textAlign: 'center' }}>
-            Loading your profile...
-          </Text>
-          <Text style={{ fontSize: 15, color: colors.neutral[500], textAlign: 'center', maxWidth: 260 }}>
-            Please wait while we prepare your personalized data.
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadWrap}>
+        <LinearGradient colors={[T.bg, '#E8F6F2']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={[T.tealDk, T.tealMid]} style={styles.loadOrb} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <ActivityIndicator size="large" color="#fff" />
+        </LinearGradient>
+        <Text style={styles.loadTitle}>{tp('loading_title', 'Loading profile...')}</Text>
+        <Text style={styles.loadSub}>{tp('loading_subtitle', 'Just a moment')}</Text>
+      </View>
     );
   }
 
-  const renderUserHeader = () => (
-    <View style={[styles.userHeaderCard, { backgroundColor: colors.neutral[0] }]}>
-      <LinearGradient
-        colors={[colors.primary[500], colors.primary[600]] as const}
-        style={styles.userHeaderGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.userInfo}>
-          <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={48} color={colors.primary[600]} />
-          </View>
-          <View style={styles.userDetails}>
-            <Text style={styles.userName}>
-              {userInfo?.fullName || 'Study Buddy'}
-            </Text>
-            <Text style={styles.userEmail}>
-              {userInfo?.email || 'callousity@gmail.com'}
-            </Text>
-            <Text style={styles.userExam}>
-              {programMetadata.examType?.toUpperCase()} • {programMetadata.daysRemaining} days left
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.userStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.userStatValue}>{studyStreak}</Text>
-            <Text style={styles.userStatLabel}>Day Streak</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.userStatValue}>{programMetadata.completedTasks}</Text>
-            <Text style={styles.userStatLabel}>Sessions</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.userStatValue}>{weeklyProgress.hours}h</Text>
-            <Text style={styles.userStatLabel}>This Week</Text>
-          </View>
-        </View>
-      </LinearGradient>
-    </View>
-  );
+  const initials = (() => {
+    const first = (userInfo?.firstName || '').trim();
+    const last = (userInfo?.lastName || '').trim();
+    if (first) return `${first[0]}${last ? last[0] : ''}`.toUpperCase();
 
-  const handleCopyReferralCode = () => {
-    if (referralCode) {
-      // Copy to clipboard functionality would go here
-      Alert.alert('Copied!', `Your referral code "${referralCode}" has been copied to clipboard.`);
+    const full = (userInfo?.fullName || '').trim();
+    if (full) {
+      const parts = full.split(/\s+/).filter(Boolean);
+      const a = parts[0]?.[0] || '';
+      const b = parts[1]?.[0] || '';
+      if (a || b) return `${a}${b}`.toUpperCase();
     }
-  };
 
-  const handleShareReferralCode = () => {
-    if (referralCode) {
-      const message = `Join me on StudyMap AI! Use my code "${referralCode}" to get 7 days of premium for free! 🎓\n\nDownload: https://apps.apple.com/app/studymap`;
-      // Share functionality would use the Share API
-      Alert.alert('Share Referral Code', message);
-    }
-  };
+    const email = (userInfo?.email || '').trim();
+    if (email) return email[0].toUpperCase();
 
-  const renderReferralSection = () => (
-    <View style={[styles.section, { paddingTop: 8 }]}>
-      <Text style={[styles.sectionTitle, { color: colors.neutral[900], paddingTop: 0 }]}>
-        Invite Friends
-      </Text>
-
-      {/* Active Trial Banner */}
-      {referralTrial && referralTrial.isActive && (
-        <View style={[styles.trialBanner, { backgroundColor: colors.success[50] }]}>
-          <View style={styles.trialBannerContent}>
-            <Text style={[styles.trialBannerIcon]}>🎁</Text>
-            <View style={styles.trialBannerText}>
-              <Text style={[styles.trialBannerTitle, { color: colors.success[700] }]}>
-                Premium Trial Active!
-              </Text>
-              <Text style={[styles.trialBannerSubtitle, { color: colors.success[600] }]}>
-                {trialDaysRemaining} {trialDaysRemaining === 1 ? 'day' : 'days'} remaining
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Referral Code Card */}
-      <LinearGradient
-        colors={[colors.primary[500], colors.primary[600]]}
-        style={styles.referralCard}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Text style={styles.referralCardTitle}>Your Referral Code</Text>
-        <View style={styles.referralCodeContainer}>
-          <Text style={styles.referralCode}>{referralCode || 'Loading...'}</Text>
-        </View>
-        <Text style={styles.referralCardSubtitle}>
-          Share this code with friends to give them 7 days of premium for free!
-        </Text>
-
-        {/* Action Buttons */}
-        <View style={styles.referralActions}>
-          <TouchableOpacity
-            style={[styles.referralActionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
-            onPress={handleCopyReferralCode}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="copy-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.referralActionText}>Copy</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.referralActionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
-            onPress={handleShareReferralCode}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="share-social-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.referralActionText}>Share</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
-
-      {/* Referral Stats */}
-      <View style={styles.referralStatsContainer}>
-        <View style={[styles.referralStatCard, { backgroundColor: colors.primary[50] }]}>
-          <Text style={[styles.referralStatValue, { color: colors.primary[700] }]}>
-            {referralStats.totalReferrals}
-          </Text>
-          <Text style={[styles.referralStatLabel, { color: colors.primary[600] }]}>
-            Friends Invited
-          </Text>
-        </View>
-
-        <View style={[styles.referralStatCard, { backgroundColor: colors.success[50] }]}>
-          <Text style={[styles.referralStatValue, { color: colors.success[700] }]}>
-            {referralStats.successfulReferrals}
-          </Text>
-          <Text style={[styles.referralStatLabel, { color: colors.success[600] }]}>
-            Subscribers
-          </Text>
-        </View>
-
-        <View style={[styles.referralStatCard, { backgroundColor: colors.warning[50] }]}>
-          <Text style={[styles.referralStatValue, { color: colors.warning[700] }]}>
-            {referralStats.totalDaysEarned}
-          </Text>
-          <Text style={[styles.referralStatLabel, { color: colors.warning[600] }]}>
-            Days Earned
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderSettingsSection = (title: string, items: any[]) => (
-    <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-        {title}
-      </Text>
-      {items.map((item, index) => (
-        <TouchableOpacity
-          key={index}
-          style={[
-            styles.settingsItem,
-            { backgroundColor: colors.neutral[0], borderBottomColor: colors.neutral[100] }
-          ]}
-          onPress={item.onPress}
-          disabled={item.type === 'switch'}
-          activeOpacity={item.type === 'switch' ? 1 : 0.7}
-        >
-          <View style={styles.settingsItemLeft}>
-            {item.icon && (
-              typeof item.icon === 'string' ? (
-                <Text style={styles.settingsIcon}>{item.icon}</Text>
-              ) : (
-                <View style={styles.settingsIconContainer}>
-                  {item.icon}
-                </View>
-              )
-            )}
-            <View style={styles.settingsTextContainer}>
-              <Text style={[styles.settingsTitle, { color: colors.neutral[800] }]}>
-                {item.title}
-              </Text>
-              {item.subtitle && (
-                <Text style={[styles.settingsSubtitle, { color: colors.neutral[500] }]}>
-                  {item.subtitle}
-                </Text>
-              )}
-            </View>
-          </View>
-          <View style={styles.settingsItemRight}>
-            {item.type === 'switch' ? (
-              <ModernToggle
-                value={item.value}
-                onToggle={item.onChange || item.onToggle}
-              />
-            ) : item.type === 'info' ? (
-              <Text style={[styles.settingsValue, { color: colors.neutral[600] }]}>
-                {item.value}
-              </Text>
-            ) : (
-              <Text style={[styles.settingsArrow, { color: colors.neutral[400] }]}>
-                →
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-
-
+    return 'SM';
+  })();
+  const examType = getLocalizedExamName(programMetadata?.examType, appLang, programMetadata?.examType || 'EXAM');
+  const daysLeft   = programMetadata?.daysRemaining || 0;
+  const totalTasks = programMetadata?.completedTasks || 0;
+  // Header parallax
+  const heroScale = scrollY.interpolate({ inputRange: [-60, 0, 60], outputRange: [1.08, 1, 0.94], extrapolate: 'clamp' });
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.neutral[50] }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.neutral[50]} />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          <Ionicons name="person-circle" size={24} color={colors.primary[600]} style={{ marginRight: 8 }} />
-          <Text style={[styles.headerTitle, { color: colors.neutral[900] }]}>
-            Profile
-          </Text>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
+      {/* Ambient BG */}
+      <LinearGradient colors={[T.bg, '#EAF6F4', '#F4FAFA']} locations={[0, 0.5, 1]} style={StyleSheet.absoluteFill} />
+      <View style={styles.orbA} />
+      <View style={styles.orbB} />
+
+      {/* ── Top bar ── */}
+      <Animated.View style={[styles.topBar, { opacity: headerAnim }]}>
+        <View>
+          <Text style={styles.topKicker}>{tp('top_kicker', 'StudyMap')}</Text>
+          <Text style={styles.topTitle}>{tp('top_title', 'Profile')}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.editButton, { backgroundColor: colors.neutral[100] }]}
-          onPress={handleEditProfile}
+          style={styles.editChip}
+          onPress={() => router.push('/profile/edit')}
+          activeOpacity={0.75}
         >
-          <Text style={[styles.editButtonText, { color: colors.neutral[700] }]}>
-            Edit
-          </Text>
+          <Ionicons name="pencil-outline" size={13} color={T.teal} />
+          <Text style={styles.editChipText}>{tp('edit_button', 'Edit')}</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        {/* User Header */}
-        {renderUserHeader()}
-
-        {/* Stats Overview */}
-        <View style={[styles.section, { paddingBottom: 0 }]}>
-          <Text style={[styles.sectionTitle, { color: colors.neutral[900] }]}>
-            Study Stats
-          </Text>
-
-          <View style={styles.statsContainer}>
-            <View style={[styles.statCard, { backgroundColor: colors.primary[50] }]}>
-              <Text style={[styles.statValue, { color: colors.primary[700] }]}>
-                {studyStreak}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.primary[600] }]}>
-                Day Streak
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: colors.secondary[50] }]}>
-              <Text style={[styles.statValue, { color: colors.secondary[700] }]}>
-                {Math.round(weeklyProgress.hours)}h
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.secondary[600] }]}>
-                This Week
-              </Text>
-            </View>
-            
-            <View style={[styles.statCard, { backgroundColor: colors.accent[50] }]}>
-              <Text style={[styles.statValue, { color: colors.accent[700] }]}>
-                {programMetadata?.daysRemaining || 0}
-              </Text>
-              <Text style={[styles.statLabel, { color: colors.accent[600] }]}>
-                Days Left
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Referral Section */}
-        {renderReferralSection()}
-
-        {/* Preferences Section */}
-        {renderSettingsSection('Study Preferences', [
-          {
-            title: 'Daily Study Reminders',
-            subtitle: 'Get notified when it\'s time to study',
-            type: 'switch',
-            value: reminderSettings.dailyReminder,
-            onChange: (value: boolean) => updateReminderSetting('dailyReminder', value as boolean),
-          },
-          {
-            icon: <Ionicons name="time" size={20} color={colors.primary[600]} />,
-            title: 'Study Time',
-            subtitle: `Daily reminder at ${reminderSettings.studyTime}`,
-            onPress: handleStudyTimePress,
-          },
-          {
-            icon: '🔔',
-            title: 'Reminder Frequency',
-            subtitle: reminderSettings.reminderFrequency === 'minimal' ? 'Weekly check-ins' : 
-                     reminderSettings.reminderFrequency === 'moderate' ? 'Daily reminders' : 
-                     'Multiple daily reminders',
-            type: 'info',
-            value: '',
-            onPress: () => setShowReminderModal(true),
-          },
-        ])}
-
-        {/* Notification Settings */}
-        {renderSettingsSection('Notifications', [
-          {
-            icon: <Ionicons name="cafe" size={20} color={colors.warning[600]} />,
-            title: 'Break Reminders',
-            subtitle: 'Pomodoro break notifications',
-            type: 'switch',
-            value: reminderSettings.breakReminder,
-            onChange: (value: boolean) => updateReminderSetting('breakReminder', value as boolean),
-          },
-          {
-            icon: <Ionicons name="bar-chart" size={20} color={colors.success[600]} />,
-            title: 'Weekly Reports',
-            subtitle: 'Progress summary every Sunday',
-            type: 'switch',
-            value: reminderSettings.weeklyReport,
-            onChange: (value: boolean) => updateReminderSetting('weeklyReport', value as boolean),
-          },
-          {
-            icon: <Ionicons name="star" size={20} color={colors.secondary[600]} />,
-            title: 'Motivational Quotes',
-            subtitle: 'Daily inspiration',
-            type: 'switch',
-            value: reminderSettings.motivationalQuotes,
-            onChange: (value: boolean) => updateReminderSetting('motivationalQuotes', value as boolean),
-          },
-        ])}
-
-        {/* Privacy & Data */}
-        {renderSettingsSection('Privacy & Data', [
-          {
-            icon: <Ionicons name="trending-up" size={20} color={colors.primary[600]} />,
-            title: 'Usage Analytics',
-            subtitle: 'Help improve the app',
-            type: 'switch',
-            value: privacySettings.analytics,
-            onChange: (value: boolean) => updatePrivacySetting('analytics', value),
-          },
-          {
-            icon: <Ionicons name="people" size={20} color={colors.warning[600]} />,
-            title: 'Data Sharing',
-            subtitle: 'Share with partners',
-            type: 'switch',
-            value: privacySettings.dataSharing,
-            onChange: (value: boolean) => updatePrivacySetting('dataSharing', value),
-          },
-          {
-            icon: <Ionicons name="mail" size={20} color={colors.primary[600]} />,
-            title: 'Marketing Emails',
-            subtitle: 'Tips and updates',
-            type: 'switch',
-            value: privacySettings.marketing,
-            onChange: (value: boolean) => updatePrivacySetting('marketing', value),
-          },
-        ])}
-
-        {/* Account & Support */}
-        {renderSettingsSection('Account & Support', [
-          {
-            icon: <Ionicons name="card-outline" size={20} color={colors.primary[600]} />,
-            title: 'Manage Subscription',
-            subtitle: 'Update or cancel your plan',
-            onPress: handleManageSubscriptions,
-          },
-          {
-            icon: <Ionicons name="phone-portrait" size={20} color={colors.neutral[600]} />,
-            title: 'App Version',
-            subtitle: '1.0.0 (Build 1)',
-            type: 'info',
-            value: '',
-          },
-          {
-            icon: <Ionicons name="help-circle" size={20} color={colors.primary[600]} />,
-            title: 'Help & Support',
-            subtitle: 'Contact us or browse FAQs',
-            onPress: handleContactSupport,
-          },
-          {
-            icon: <Ionicons name="star-outline" size={20} color={colors.warning[600]} />,
-            title: 'Rate StudyMap',
-            subtitle: 'Share your feedback',
-            onPress: handleRateApp,
-          },
-          // Development only: Reset app data button
-          ...(__DEV__ ? [{
-            icon: <Ionicons name="refresh-circle" size={20} color={colors.warning[600]} />,
-            title: '🔄 Reset App Data (Dev)',
-            subtitle: 'Clear all data and restart from onboarding',
-            onPress: handleResetAppData,
-          }] : []),
-          {
-            icon: <Ionicons name="trash" size={20} color={colors.error[600]} />,
-            title: 'Delete Account',
-            subtitle: 'Permanently delete your account',
-            onPress: handleDeleteAccount,
-          },
-        ])}
-
-
-        {/* Legal Links */}
-        <View style={[styles.legalLinks, { borderTopColor: colors.neutral[100] }]}>
-          <TouchableOpacity onPress={openTerms} activeOpacity={0.7}>
-            <Text style={[styles.legalLinkText, { color: colors.neutral[500] }]}>
-              Terms of Use
-            </Text>
-          </TouchableOpacity>
-          <Text style={[styles.legalSeparator, { color: colors.neutral[300] }]}>•</Text>
-          <TouchableOpacity onPress={openPrivacy} activeOpacity={0.7}>
-            <Text style={[styles.legalLinkText, { color: colors.neutral[500] }]}>
-              Privacy Policy
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Member Since */}
-        <View style={styles.memberSince}>
-          <Text style={[styles.memberSinceText, { color: colors.neutral[500] }]}>
-            Member since {formatDate(programMetadata?.createdAt || new Date().toISOString())}
-          </Text>
-        </View>
-
-        {/* Bottom Spacing - Account for tab bar */}
-        <View style={{ height: Platform.OS === 'ios' ? 100 : 88 }} />
-      </ScrollView>
-
-      {/* Reminder Frequency Modal */}
-      <Modal
-        visible={showReminderModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowReminderModal(false)}
+      <Animated.ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
-                Reminder Frequency
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
-                Choose how often you&apos;d like to receive study reminders
-              </Text>
-            </View>
+        {/* ── Hero Identity ── */}
+        <Animated.View style={{ transform: [{ scale: heroScale }] }}>
+          <View style={styles.heroCard}>
+            <LinearGradient
+              colors={['#0C7A6E', '#0F9D8C', '#18C4AF']}
+              style={styles.heroGrad}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            >
+              {/* Decorative rings */}
+              <View style={styles.heroRingA} />
+              <View style={styles.heroRingB} />
+              <View style={styles.heroRingC} />
 
-            {/* Reminder Options */}
-            <View style={styles.modalOptionsContainer}>
-              {reminderFrequencyOptions.map((option) => {
-                const isSelected = reminderSettings.reminderFrequency === option.id;
-                
-                return (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[
-                      styles.modalOptionCard,
-                      {
-                        backgroundColor: isSelected ? colors.success[500] : colors.neutral[0],
-                        borderColor: isSelected ? colors.success[500] : colors.neutral[200],
-                      }
-                    ]}
-                    onPress={() => {
-                      updateReminderSetting('reminderFrequency', option.id);
-                      setShowReminderModal(false);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.modalOptionContent}>
-                      <View style={styles.modalOptionHeader}>
-                        <Text style={styles.modalOptionIcon}>{option.icon}</Text>
-                        <Text style={[
-                          styles.modalOptionLabel,
-                          { color: isSelected ? '#FFFFFF' : colors.neutral[800] }
-                        ]}>
-                          {option.label}
-                        </Text>
-                      </View>
-                      <Text style={[
-                        styles.modalOptionFrequency,
-                        { color: isSelected ? 'rgba(255,255,255,0.9)' : colors.success[600] }
-                      ]}>
-                        {option.frequency}
-                      </Text>
+              {/* Top row: avatar + info */}
+              <View style={styles.heroIdentity}>
+                <View style={styles.avatarWrap}>
+                  <View style={styles.avatarRingOuter}>
+                    <View style={styles.avatarInner}>
+                      <Text style={styles.avatarInitials}>{initials}</Text>
                     </View>
-                    {isSelected && (
-                      <View style={styles.modalSelectedIndicator}>
-                        <Text style={styles.modalCheckIcon}>✓</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                  </View>
+                  <View style={styles.avatarBadge}>
+                    <View style={styles.avatarBadgeDot} />
+                  </View>
+                </View>
 
-            {/* Modal Actions */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100] }]}
-                onPress={() => setShowReminderModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Help & Support Modal */}
-      <Modal
-        visible={showSupportModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowSupportModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
-                Help & Support
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
-                Get help with StudyMap or contact our support team
-              </Text>
-            </View>
-
-            {/* Support Options */}
-            <View style={styles.modalOptionsContainer}>
-              <TouchableOpacity
-                style={[styles.modalSupportOption, { backgroundColor: colors.primary[50] }]}
-                onPress={() => {
-                  setShowSupportModal(false);
-                  openEmail();
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.modalSupportContent}>
-                  <Text style={styles.modalSupportIcon}>📧</Text>
-                  <View style={styles.modalSupportText}>
-                    <Text style={[styles.modalSupportTitle, { color: colors.primary[700] }]}>
-                      Email Support
-                    </Text>
-                    <Text style={[styles.modalSupportDesc, { color: colors.primary[600] }]}>
-                      callousity@gmail.com
+                <View style={styles.heroMeta}>
+                  <Text style={styles.heroName}>{userInfo?.fullName || tp('study_buddy', 'Study Buddy')}</Text>
+                  <Text style={styles.heroEmail}>{userInfo?.email || ''}</Text>
+                  <View style={styles.examChip}>
+                    <Text style={styles.examChipText}>{examType}</Text>
+                    <View style={styles.examChipDiv} />
+                    <Text style={styles.examChipText}>
+                      {tp('days_left_short', '{days}d left', { days: daysLeft })}
                     </Text>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={[styles.modalSupportOption, { backgroundColor: colors.accent[50] }]}
-                onPress={() => {
-                  setShowSupportModal(false);
-                  Alert.alert('Bug Report', 'Thank you for helping us improve! Please email us at callousity@gmail.com with details about the issue.');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.modalSupportContent}>
-                  <Text style={styles.modalSupportIcon}>🐛</Text>
-                  <View style={styles.modalSupportText}>
-                    <Text style={[styles.modalSupportTitle, { color: colors.accent[700] }]}>
-                      Report Bug
-                    </Text>
-                    <Text style={[styles.modalSupportDesc, { color: colors.accent[600] }]}>
-                      Help us improve the app
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+              {/* Stats strip */}
+              <View style={styles.statsStrip}>
+                <StatTile value={`${studyStreak}`}                   label={tp('streak', 'Streak')}   delay={0} />
+                <View style={styles.statsDiv} />
+                <StatTile value={`${totalTasks}`}                    label={tp('sessions', 'Sessions')} delay={80} />
+                <View style={styles.statsDiv} />
+                <StatTile value={`${Math.round(weeklyProgress.hours)}h`} label={tp('this_week', 'This week')} delay={160} />
+              </View>
+            </LinearGradient>
+          </View>
+        </Animated.View>
 
-              <View style={[styles.modalLegalLinks, { borderTopColor: colors.neutral[100] }]}>
-                <TouchableOpacity onPress={() => { setShowSupportModal(false); openTerms(); }} activeOpacity={0.8}>
-                  <Text style={[styles.modalLegalLinkText, { color: colors.neutral[600] }]}>
-                    Terms of Use
-                  </Text>
+        {/* ── Referral Trial Banner ── */}
+        {referralTrial?.isActive && (
+          <View style={styles.trialBanner}>
+            <View style={[styles.trialIcon, { backgroundColor: 'rgba(22,163,74,0.12)' }]}>
+              <Ionicons name="gift-outline" size={15} color="#16A34A" />
+            </View>
+            <Text style={styles.trialText}>
+              {tp('trial_active', 'Premium trial active')} · <Text style={{ fontWeight: '800', color: '#166534' }}>
+                {tp('trial_days_left', '{days} days left', { days: trialDaysRemaining })}
+              </Text>
+            </Text>
+          </View>
+        )}
+
+        {/* ── Referral ── */}
+        <View style={styles.block}>
+          <SectionLabel title={tp('section_invite', 'Invite & Earn')} />
+
+          <View style={styles.referralCard}>
+            <LinearGradient colors={['#0B7A6E', '#0F9D8C']} style={styles.referralGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <View style={styles.referralGradOrb} />
+              <Text style={styles.referralLabel}>{tp('your_referral_code', 'Your Referral Code')}</Text>
+              <Text style={styles.referralCode}>{referralCode || '——'}</Text>
+              <Text style={styles.referralHint}>{tp('referral_hint', 'Friends get 7 days of premium for free')}</Text>
+              <View style={styles.referralActions}>
+                <TouchableOpacity
+                  style={styles.referralBtn}
+                  onPress={() => showAlert(
+                    tp('copied_title', 'Copied!'),
+                    tp('copied_body', 'Code "{code}" copied.', { code: referralCode ?? '' })
+                  )}
+                >
+                  <Ionicons name="copy-outline" size={13} color="#fff" />
+                  <Text style={styles.referralBtnText}>{tp('copy', 'Copy')}</Text>
                 </TouchableOpacity>
-                <Text style={[styles.modalLegalSeparator, { color: colors.neutral[400] }]}>•</Text>
-                <TouchableOpacity onPress={() => { setShowSupportModal(false); openPrivacy(); }} activeOpacity={0.8}>
-                  <Text style={[styles.modalLegalLinkText, { color: colors.neutral[600] }]}>
-                    Privacy Policy
-                  </Text>
+                <TouchableOpacity
+                  style={styles.referralBtn}
+                  onPress={() => showAlert(
+                    tp('share', 'Share'),
+                    tp('share_body', 'Use my code "{code}" for 7 days free on StudyMap!', { code: referralCode ?? '' })
+                  )}
+                >
+                  <Ionicons name="share-outline" size={13} color="#fff" />
+                  <Text style={styles.referralBtnText}>{tp('share', 'Share')}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </LinearGradient>
 
-            {/* Modal Actions */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100] }]}
-                onPress={() => setShowSupportModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
-                  Close
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Rate StudyMap Modal */}
-      <Modal
-        visible={showRateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRateModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalRateIcon}>⭐</Text>
-              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>
-                Rate StudyMap
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
-                Help others discover StudyMap by sharing your experience
-              </Text>
-            </View>
-
-            {/* Rating Content */}
-            <View style={styles.modalRateContent}>
-              <Text style={[styles.modalRateText, { color: colors.neutral[700] }]}>
-                If you&apos;re enjoying StudyMap, we&apos;d love your feedback on the app store! 
-                Your review helps us improve and reach more students.
-              </Text>
-            </View>
-
-            {/* Modal Actions */}
-            <View style={styles.modalRateActions}>
-              <TouchableOpacity
-                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100], flex: 1, marginRight: 8 }]}
-                onPress={() => setShowRateModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
-                  Maybe Later
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalRateButton, { backgroundColor: colors.primary[500], flex: 1, marginLeft: 8 }]}
-                onPress={() => {
-                  setShowRateModal(false);
-                  openAppStore();
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalRateButtonText, { color: '#FFFFFF', textAlign: 'center' }]}>
-                  Rate App
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Delete Account Modal */}
-      <Modal
-        visible={showDeleteModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDeleteModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0] }]}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalDeleteIcon}>⚠️</Text>
-              <Text style={[styles.modalTitle, { color: colors.error[700] }]}>
-                Delete Account
-              </Text>
-              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>
-                This action cannot be undone
-              </Text>
-            </View>
-
-            {/* Warning Content */}
-            <View style={styles.modalDeleteContent}>
-              <View style={[styles.modalDeleteWarning, { backgroundColor: colors.error[50] }]}>
-                <Text style={[styles.modalDeleteWarningText, { color: colors.error[700] }]}>
-                  ⚠️ All your data will be permanently deleted:
-                </Text>
-                <View style={styles.modalDeleteList}>
-                  <Text style={[styles.modalDeleteItem, { color: colors.error[600] }]}>
-                    • Study progress and achievements
-                  </Text>
-                  <Text style={[styles.modalDeleteItem, { color: colors.error[600] }]}>
-                    • Personal information and preferences
-                  </Text>
-                  <Text style={[styles.modalDeleteItem, { color: colors.error[600] }]}>
-                    • Study schedules and reminders
-                  </Text>
+            {/* Stat row */}
+            <View style={styles.referralStats}>
+              {[
+                { val: referralStats.totalReferrals,      lbl: tp('invited', 'Invited') },
+                { val: referralStats.successfulReferrals, lbl: tp('subscribed', 'Subscribed') },
+                { val: referralStats.totalDaysEarned,     lbl: tp('days_earned', 'Days Earned') },
+              ].map((s, i) => (
+                <View key={i} style={[styles.refStat, i > 0 && styles.refStatBorder]}>
+                  <Text style={styles.refStatVal}>{s.val}</Text>
+                  <Text style={styles.refStatLbl}>{s.lbl}</Text>
                 </View>
-              </View>
-            </View>
-
-            {/* Modal Actions */}
-            <View style={styles.modalDeleteActions}>
-              <TouchableOpacity
-                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100], flex: 1, marginRight: 8 }]}
-                onPress={() => setShowDeleteModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalDeleteButton, { backgroundColor: colors.error[500], flex: 1, marginLeft: 8 }]}
-                onPress={() => {
-                  setShowDeleteModal(false);
-                  Alert.alert(
-                    'Final Confirmation',
-                    'Are you absolutely sure you want to delete your account? This action cannot be undone.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Delete Forever', style: 'destructive', onPress: performDeleteAccount }
-                    ]
-                  );
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalDeleteButtonText, { color: '#FFFFFF', textAlign: 'center' }]}>
-                  Delete Account
-                </Text>
-              </TouchableOpacity>
+              ))}
             </View>
           </View>
         </View>
-      </Modal>
 
-      {/* Study Time Modal */}
-      <Modal
-        visible={showStudyTimeModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowStudyTimeModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.neutral[0], maxHeight: '85%' }]}>  
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.neutral[900] }]}>⏰ Select Study Time</Text>
-              <Text style={[styles.modalSubtitle, { color: colors.neutral[600] }]}>Choose your preferred time for daily study reminders</Text>
-            </View>
-            {/* Time Grid */}
-            <ScrollView style={{ maxHeight: 320 }} contentContainerStyle={styles.timeGridContainer} showsVerticalScrollIndicator={false}>
-              <View style={styles.timeGridRowWrap}>
-                {allTimes.map((time) => (
+        {/* ── Study Preferences ── */}
+        <View style={styles.block}>
+          <SectionLabel title={tp('section_study_preferences', 'Study Preferences')} />
+          <View style={styles.settingsCard}>
+            <SettingRow
+              icon="options-outline"
+              title={tp('focus_weights', 'Focus Weights')}
+              subtitle={tp('focus_weights_sub', 'Adjust subject priority')}
+              onPress={() => router.push('/profile/focus')}
+            />
+            <SettingRow
+              icon="notifications-outline"
+              title={tp('daily_reminders', 'Study Reminders')}
+              subtitle={tp('daily_reminders_sub', 'Reminders before and at your study blocks')}
+              right={<Toggle value={notificationPrefs.studyReminders} onChange={v => updateNotificationPref('studyReminders', v)} />}
+            />
+            <SettingRow
+              icon="time-outline"
+              title={tp('study_time', 'Study Time')}
+              subtitle={tp('study_time_sub', 'Primary reminder time: {time}', { time: notificationPrefs.preferredStudyTime })}
+              onPress={() => { setPendingStudyTime(notificationPrefs.preferredStudyTime); setShowStudyTimeModal(true); }}
+              last
+            />
+          </View>
+        </View>
+
+        {/* ── Notifications ── */}
+        <View style={styles.block}>
+          <SectionLabel title={tp('section_notifications', 'Notifications')} />
+          <View style={styles.settingsCard}>
+            <SettingRow
+              icon="cafe-outline"
+              title={tp('break_reminders', 'Break Reminders')}
+              subtitle={tp('break_reminders_sub', 'Pomodoro break alerts')}
+              right={<Toggle value={notificationPrefs.breakReminders} onChange={v => updateNotificationPref('breakReminders', v)} />}
+            />
+            <SettingRow
+              icon="bar-chart-outline"
+              title={tp('weekly_reports', 'Plan Summaries')}
+              subtitle={tp('weekly_reports_sub', 'Daily wrap-ups and refreshed weekly schedule updates')}
+              right={<Toggle value={notificationPrefs.planSummaries} onChange={v => updateNotificationPref('planSummaries', v)} />}
+            />
+            <SettingRow
+              icon="star-outline"
+              title={tp('motivational_quotes', 'Progress Nudges')}
+              subtitle={tp('motivational_quotes_sub', 'Catch-up nudges when you drift off plan')}
+              right={<Toggle value={notificationPrefs.progressNudges} onChange={v => updateNotificationPref('progressNudges', v)} />}
+            />
+            <SettingRow
+              icon="card-outline"
+              title={tp('premium_updates', 'Premium Updates')}
+              subtitle={tp('premium_updates_sub', 'Trial, billing and subscription status')}
+              right={<Toggle value={notificationPrefs.premiumUpdates} onChange={v => updateNotificationPref('premiumUpdates', v)} />}
+            />
+            <SettingRow
+              icon="gift-outline"
+              title={tp('referral_updates', 'Referral Updates')}
+              subtitle={tp('referral_updates_sub', 'Rewards and referral status changes')}
+              right={<Toggle value={notificationPrefs.referralUpdates} onChange={v => updateNotificationPref('referralUpdates', v)} />}
+              last
+            />
+          </View>
+        </View>
+
+        {/* ── Privacy ── */}
+        <View style={styles.block}>
+          <SectionLabel title={tp('section_privacy', 'Privacy & Data')} />
+          <View style={styles.settingsCard}>
+            <SettingRow
+              icon="trending-up-outline"
+              title={tp('usage_analytics', 'Usage Analytics')}
+              subtitle={tp('usage_analytics_sub', 'Help improve the app')}
+              right={<Toggle value={privacySettings.analytics} onChange={v => updatePrivacy('analytics', v)} />}
+            />
+            <SettingRow
+              icon="people-outline"
+              title={tp('data_sharing', 'Data Sharing')}
+              subtitle={tp('data_sharing_sub', 'Share with partners')}
+              right={<Toggle value={privacySettings.dataSharing} onChange={v => updatePrivacy('dataSharing', v)} />}
+            />
+            <SettingRow
+              icon="mail-outline"
+              title={tp('marketing_emails', 'Marketing Emails')}
+              subtitle={tp('marketing_emails_sub', 'Tips and updates')}
+              right={<Toggle value={privacySettings.marketing} onChange={v => updatePrivacy('marketing', v)} />}
+              last
+            />
+          </View>
+        </View>
+
+        {/* ── Account ── */}
+        <View style={styles.block}>
+          <SectionLabel title={tp('section_account', 'Account')} />
+          <View style={styles.settingsCard}>
+            <SettingRow
+              icon="card-outline"
+              title={tp('manage_subscription', 'Manage Subscription')}
+              subtitle={tp('manage_subscription_sub', 'Update or cancel your plan')}
+              onPress={() => Linking.openURL(MANAGE_URL).catch(() => {})}
+            />
+            <SettingRow
+              icon="help-circle-outline"
+              title={tp('help_support', 'Help & Support')}
+              subtitle="callousity@gmail.com"
+              onPress={() => showAlert(
+                tp('support_title', 'Support'),
+                tp('support_body', 'Email us at callousity@gmail.com'),
+                [
+                  { text: tp('email', 'Email'), onPress: () => Linking.openURL('mailto:callousity@gmail.com').catch(() => {}) },
+                  { text: tp('cancel', 'Cancel'), style: 'cancel' },
+                ]
+              )}
+            />
+            <SettingRow
+              icon="star-half-outline"
+              title={tp('rate_studymap', 'Rate StudyMap')}
+              subtitle={tp('rate_studymap_sub', 'Share your feedback')}
+              onPress={() => showAlert(
+                tp('rate_studymap', 'Rate StudyMap'),
+                tp('rate_prompt', 'Enjoying the app?'),
+                [
+                  { text: tp('maybe_later', 'Maybe Later'), style: 'cancel' },
+                  { text: tp('rate_now', 'Rate Now'), onPress: () => Linking.openURL(APP_STORE_URL).catch(() => {}) },
+                ]
+              )}
+            />
+            {__DEV__ && (
+              <SettingRow
+                icon="refresh-circle-outline"
+                title={tp('reset_app_data_dev', 'Reset App Data (Dev)')}
+                onPress={async () => { await AsyncStorage.clear(); router.replace('/(onboarding-v2)/animated-splash'); }}
+              />
+            )}
+            <SettingRow
+              icon="trash-outline"
+              title={tp('delete_account', 'Delete Account')}
+              subtitle={tp('delete_account_sub', 'Permanently remove all data')}
+              onPress={() => setShowDeleteModal(true)}
+              danger
+              last
+            />
+          </View>
+        </View>
+
+        {/* ── App Info ── */}
+        <View style={styles.appInfoRow}>
+          <LinearGradient colors={[T.tealDk, T.tealMid]} style={styles.appLogo} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <Ionicons name="book" size={17} color="#fff" />
+          </LinearGradient>
+          <View>
+            <Text style={styles.appInfoName}>{tp('app_name', 'StudyMap')}</Text>
+            <Text style={styles.appInfoVer}>{tp('app_version', 'Version 1.0.0 · Build 1')}</Text>
+          </View>
+          <View style={styles.appInfoBadge}>
+            <Text style={styles.appInfoBadgeText}>{tp('latest', 'Latest')}</Text>
+          </View>
+        </View>
+
+        {/* ── Legal ── */}
+        <View style={styles.legalRow}>
+          <TouchableOpacity onPress={() => Linking.openURL(TERMS_URL).catch(() => {})}>
+            <Text style={styles.legalLink}>{tp('terms_of_use', 'Terms of Use')}</Text>
+          </TouchableOpacity>
+          <View style={styles.legalDot} />
+          <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_URL).catch(() => {})}>
+            <Text style={styles.legalLink}>{tp('privacy_policy', 'Privacy Policy')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.memberSince}>
+          {tp('member_since', 'Member since')} {new Date(programMetadata?.createdAt || Date.now()).toLocaleDateString(appLocale, { year: 'numeric', month: 'long' })}
+        </Text>
+
+        <View style={{ height: isIOS ? 110 : 92 }} />
+      </Animated.ScrollView>
+
+      {/* ── Study Time Modal ── */}
+      <Modal visible={showStudyTimeModal} transparent animationType="fade" onRequestClose={() => setShowStudyTimeModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowStudyTimeModal(false)}>
+          <Pressable style={[styles.sheet, { maxHeight: '76%' }]}>
+            <View style={styles.sheetPill} />
+            <Text style={styles.sheetTitle}>{tp('study_time', 'Study Time')}</Text>
+            <Text style={styles.sheetSub}>{tp('study_time_modal_sub', 'Choose your daily reminder time')}</Text>
+            <ScrollView style={{ maxHeight: 260, marginTop: 16 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.timeGrid}>
+                {allTimes.map(t => (
                   <TouchableOpacity
-                    key={time}
-                    style={[
-                      styles.timeGridCell,
-                      pendingStudyTime === time && { backgroundColor: colors.primary[500], borderColor: colors.primary[500] }
-                    ]}
-                    onPress={() => setPendingStudyTime(time)}
-                    activeOpacity={0.8}
+                    key={t}
+                    style={[styles.timeCell, pendingStudyTime === t && styles.timeCellSel]}
+                    onPress={() => setPendingStudyTime(t)}
                   >
-                    <Text style={{ color: pendingStudyTime === time ? '#fff' : colors.neutral[800], fontWeight: '600' }}>{time}</Text>
+                    <Text style={[styles.timeCellText, pendingStudyTime === t && { color: '#fff' }]}>{t}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </ScrollView>
-            {/* Modal Actions */}
-            <View style={[styles.modalActions, { flexDirection: 'row', gap: 12, marginTop: 8 }]}> 
-              <TouchableOpacity
-                style={[styles.modalCancelButton, { backgroundColor: colors.neutral[100], flex: 1 }]}
-                onPress={() => setShowStudyTimeModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalCancelText, { color: colors.neutral[700], textAlign: 'center' }]}>Cancel</Text>
+            <View style={styles.sheetBtns}>
+              <TouchableOpacity style={styles.sheetCancel2} onPress={() => setShowStudyTimeModal(false)}>
+                <Text style={styles.sheetCancelText}>{tp('cancel', 'Cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalCancelButton, { backgroundColor: colors.primary[500], flex: 1 }]}
-                onPress={handleStudyTimeSave}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.modalCancelText, { color: '#fff', textAlign: 'center', fontWeight: '700' }]}>Save</Text>
+              <TouchableOpacity style={styles.sheetSave} onPress={() => { void updateNotificationPref('preferredStudyTime', pendingStudyTime); setShowStudyTimeModal(false); }}>
+                <Text style={styles.sheetSaveText}>{tp('save', 'Save')}</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Delete Modal ── */}
+      <Modal visible={showDeleteModal} transparent animationType="fade" onRequestClose={() => setShowDeleteModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowDeleteModal(false)}>
+          <Pressable style={styles.sheet}>
+            <View style={styles.sheetPill} />
+            <View style={styles.deleteIcon}>
+              <Ionicons name="warning-outline" size={26} color="#E11D48" />
+            </View>
+            <Text style={[styles.sheetTitle, { color: '#E11D48', marginTop: 12 }]}>{tp('delete_account', 'Delete Account')}</Text>
+            <Text style={styles.sheetSub}>{tp('delete_modal_sub', 'This permanently removes all your data and cannot be undone.')}</Text>
+            <View style={styles.deleteList}>
+              {[
+                tp('delete_item_1', 'Study progress & achievements'),
+                tp('delete_item_2', 'Personal information'),
+                tp('delete_item_3', 'Schedules & reminders'),
+              ].map(item => (
+                <View key={item} style={styles.deleteListRow}>
+                  <View style={styles.deleteListDot} />
+                  <Text style={styles.deleteListText}>{item}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.sheetBtns}>
+              <TouchableOpacity style={styles.sheetCancel2} onPress={() => setShowDeleteModal(false)}>
+                <Text style={styles.sheetCancelText}>{tp('cancel', 'Cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={() => {
+                  setShowDeleteModal(false);
+                  showAlert(tp('final_confirmation', 'Final Confirmation'), tp('final_confirmation_sub', 'Are you absolutely sure?'), [
+                    { text: tp('cancel', 'Cancel'), style: 'cancel' },
+                    { text: tp('delete_forever', 'Delete Forever'), style: 'destructive', onPress: handleDeleteAccount },
+                  ]);
+                }}
+              >
+                <Text style={styles.deleteBtnText}>{tp('delete', 'Delete')}</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: isIOS ? 8 : 16,
-    paddingBottom: 16,
-  },
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  editButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-  },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  scrollContainer: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
+  container:  { flex: 1, backgroundColor: T.bg },
+  orbA: { position: 'absolute', width: 280, height: 280, borderRadius: 140, top: -100, right: -120, backgroundColor: 'rgba(19,181,162,0.10)' },
+  orbB: { position: 'absolute', width: 200, height: 200, borderRadius: 100, bottom: 160, left: -100, backgroundColor: 'rgba(15,157,140,0.07)' },
 
-  // User Header
-  userHeaderCard: {
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  userHeaderGradient: {
-    borderRadius: 12,
-    padding: 20,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#333333',
-  },
-  userDetails: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 2,
-  },
-  userExam: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  userStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    paddingVertical: 16,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  userStatValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  userStatLabel: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontWeight: '500',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  
-  // Settings Sections
-  settingsSection: {
-    borderRadius: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  settingsItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  settingsItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  settingsIcon: {
-    fontSize: 20,
-    marginRight: 16,
-    width: 24,
-    textAlign: 'center',
-  },
-  settingsIconContainer: {
-    marginRight: 16,
-    width: 24,
-    alignItems: 'center',
-  },
-  settingsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  settingsSubtitle: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  settingsItemRight: {
-    marginLeft: 16,
-  },
-  settingsValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  settingsArrow: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  legalLinks: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-    paddingTop: 24,
-    marginTop: 16,
-    borderTopWidth: 1,
-  },
-  legalLinkText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  legalSeparator: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  
-  // Member Since
-  memberSince: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    marginTop: 10,
-  },
-  memberSinceText: {
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
-  
-  // Loading States
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  loadingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  
-  // Stats Section
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-   
-   // AI Provider Section
-   section: {
-     padding: 16,
-   },
-  sectionSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  settingsCard: {
-    borderRadius: 12,
-    padding: 16,
-  },
-  providerOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 12,
-  },
-  providerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  providerIcon: {
-    fontSize: 20,
-    marginRight: 16,
-  },
-  providerDetails: {
-    flex: 1,
-  },
-  providerName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  providerDescription: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  providerStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  currentIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  currentText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  testButton: {
-    padding: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 12,
-  },
-  testButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  helpCard: {
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 20,
-  },
-  helpTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  helpText: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContainer: {
-    width: '90%',
-    maxWidth: 400,
-    padding: 24,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  modalHeader: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  modalOptionsContainer: {
-    marginBottom: 20,
-    gap: 12,
-  },
-  modalOptionCard: {
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 12,
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  modalOptionContent: {
-    paddingRight: 24,
-  },
-  modalOptionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  modalOptionIcon: {
-    fontSize: 18,
-    marginRight: 8,
-  },
-  modalOptionLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    flex: 1,
-  },
-  modalOptionFrequency: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  modalSelectedIndicator: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  modalCheckIcon: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#10B981',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  modalCancelButton: {
-    padding: 16,
-    borderRadius: 12,
-  },
-  modalCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalSupportOption: {
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 12,
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  modalLegalLinks: {
-    marginTop: 8,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-  },
-  modalLegalLinkText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modalLegalSeparator: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalSupportContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modalSupportIcon: {
-    fontSize: 20,
-    marginRight: 16,
-  },
-  modalSupportText: {
-    flex: 1,
-  },
-  modalSupportTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  modalSupportDesc: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  modalRateIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  modalRateContent: {
-    padding: 20,
-  },
-  modalRateText: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  modalRateActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  modalRateButton: {
-    padding: 16,
-    borderRadius: 12,
-  },
-  modalRateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  modalDeleteIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  modalDeleteContent: {
-    padding: 20,
-  },
-  modalDeleteWarning: {
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 12,
-  },
-  modalDeleteWarningText: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  modalDeleteList: {
-    marginLeft: 16,
-  },
-  modalDeleteItem: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  modalDeleteActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  modalDeleteButton: {
-    padding: 16,
-    borderRadius: 12,
-  },
-  modalDeleteButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Modern Toggle Styles
-  modernToggleContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modernToggleWrapper: {
-    padding: 4, // Increase touch target
-  },
-  modernToggle: {
-    width: 52,
-    height: 30,
-    borderRadius: 15,
-    padding: 3,
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  modernToggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  modernToggleCheck: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#10B981',
-  },
-  settingsTextContainer: {
-    flex: 1,
-  },
-  timeOptionsContainer: {
-    marginBottom: 20,
-    gap: 12,
-  },
-  timeOptionCard: {
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    borderRadius: 12,
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  timeOptionContent: {
-    paddingRight: 24,
-  },
-  timeOptionLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    flex: 1,
-  },
-  timeGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  timeGridRowWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  timeGridCell: {
-    width: 70,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: 4,
-  },
+  loadWrap:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadOrb:   { width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: T.teal, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.32, shadowRadius: 16, elevation: 10 },
+  loadTitle: { fontSize: 19, fontWeight: '700', color: T.ink, marginBottom: 4 },
+  loadSub:   { fontSize: 13, color: T.sub },
 
-  // Referral Section Styles
+  topBar: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 22, paddingTop: isIOS ? 6 : 14, paddingBottom: 12,
+  },
+  topKicker:    { fontSize: 10, fontWeight: '700', color: T.muted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 3 },
+  topTitle:     { fontSize: 24, fontWeight: '800', color: T.ink, letterSpacing: -0.4 },
+  editChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: T.tealLt, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: T.border,
+  },
+  editChipText: { fontSize: 13, fontWeight: '700', color: T.teal },
+
+  scroll:        { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 4 },
+
+  // Hero
+  heroCard: {
+    borderRadius: 24, overflow: 'hidden', marginBottom: 14,
+    shadowColor: T.tealDk, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.22, shadowRadius: 20, elevation: 14,
+  },
+  heroGrad: { padding: 22, paddingBottom: 0, overflow: 'hidden' },
+
+  heroRingA: { position: 'absolute', width: 220, height: 220, borderRadius: 110, top: -90, right: -70, borderWidth: 40, borderColor: 'rgba(255,255,255,0.06)' },
+  heroRingB: { position: 'absolute', width: 160, height: 160, borderRadius: 80, top: -30, right: 40, borderWidth: 20, borderColor: 'rgba(255,255,255,0.05)' },
+  heroRingC: { position: 'absolute', width: 100, height: 100, borderRadius: 50, bottom: 10, left: -20, borderWidth: 15, borderColor: 'rgba(255,255,255,0.07)' },
+
+  heroIdentity: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
+
+  avatarWrap:       { position: 'relative' },
+  avatarRingOuter:  { width: 66, height: 66, borderRadius: 33, padding: 3, backgroundColor: 'rgba(255,255,255,0.25)' },
+  avatarInner:      { flex: 1, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.94)', justifyContent: 'center', alignItems: 'center' },
+  avatarInitials:   { fontSize: 24, fontWeight: '800', color: T.tealDk },
+  avatarBadge:      { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#22C55E', borderWidth: 2.5, borderColor: T.tealDk, justifyContent: 'center', alignItems: 'center' },
+  avatarBadgeDot:   { width: 5, height: 5, borderRadius: 3, backgroundColor: '#fff' },
+
+  heroMeta:       { flex: 1, paddingTop: 4 },
+  heroName:       { fontSize: 19, fontWeight: '800', color: '#fff', marginBottom: 3, letterSpacing: -0.2 },
+  heroEmail:      { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 9 },
+  examChip:       { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', gap: 6 },
+  examChipDiv:    { width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.4)' },
+  examChipText:   { fontSize: 11, fontWeight: '700', color: '#fff' },
+
+  statsStrip: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.14)', paddingVertical: 14, paddingHorizontal: 6, marginHorizontal: -22, marginTop: 4 },
+  statsDiv:   { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  statTile:   { flex: 1, alignItems: 'center' },
+  statTileVal: { fontSize: 21, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
+  statTileLbl: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.68)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.4 },
+
+  // Trial banner
   trialBanner: {
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F0FDF4', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
+    marginBottom: 14, borderWidth: 1, borderColor: 'rgba(22,163,74,0.2)',
   },
-  trialBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  trialBannerIcon: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  trialBannerText: {
-    flex: 1,
-  },
-  trialBannerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  trialBannerSubtitle: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  trialIcon: { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+  trialText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#166534' },
+
+  // Block / sections
+  block: { marginBottom: 14 },
+
+  sectionLabelRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, marginBottom: 8 },
+  sectionLabelText: { fontSize: 11, fontWeight: '700', color: T.muted, textTransform: 'uppercase', letterSpacing: 0.9 },
+
+  // Referral card
   referralCard: {
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: T.border,
+    shadowColor: T.tealDk, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 12, elevation: 6,
   },
-  referralCardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 8,
-    textAlign: 'center',
+  referralGrad: { padding: 20, overflow: 'hidden' },
+  referralGradOrb: { position: 'absolute', width: 150, height: 150, borderRadius: 75, right: -40, top: -40, backgroundColor: 'rgba(255,255,255,0.07)' },
+  referralLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  referralCode:  { fontSize: 38, fontWeight: '900', color: '#fff', letterSpacing: 7, marginBottom: 6 },
+  referralHint:  { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 16, lineHeight: 17 },
+  referralActions: { flexDirection: 'row', gap: 10 },
+  referralBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 38, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.18)' },
+  referralBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+
+  referralStats: { flexDirection: 'row', backgroundColor: T.card },
+  refStat: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+  refStatBorder: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: T.border },
+  refStatVal: { fontSize: 20, fontWeight: '900', color: T.ink, marginBottom: 2 },
+  refStatLbl: { fontSize: 10, fontWeight: '600', color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+
+  // Settings card
+  settingsCard: {
+    backgroundColor: T.card, borderRadius: 18, borderWidth: 1, borderColor: T.border, overflow: 'hidden',
+    shadowColor: T.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
-  referralCodeContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginBottom: 12,
-    alignItems: 'center',
+  settingRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 13 },
+  settingIconWrap:  { width: 34, height: 34, borderRadius: 10, backgroundColor: T.tealLt, justifyContent: 'center', alignItems: 'center' },
+  settingIconDanger:{ backgroundColor: 'rgba(225,29,72,0.10)' },
+  settingBody:      { flex: 1 },
+  settingTitle:     { fontSize: 14, fontWeight: '700', color: T.ink },
+  settingSubtitle:  { fontSize: 12, color: T.muted, marginTop: 1.5, fontWeight: '500' },
+  rowLine:          { height: StyleSheet.hairlineWidth, backgroundColor: T.border, marginLeft: 63 },
+
+  // Toggle
+  toggle: { width: 48, height: 26, borderRadius: 13, justifyContent: 'center' },
+  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.16, shadowRadius: 2, elevation: 2 },
+
+  // App info
+  appInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.border, padding: 15, marginBottom: 12 },
+  appLogo: { width: 40, height: 40, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  appInfoName: { fontSize: 14, fontWeight: '800', color: T.ink, marginBottom: 2 },
+  appInfoVer:  { fontSize: 11, color: T.muted, fontWeight: '500' },
+  appInfoBadge: { marginLeft: 'auto', backgroundColor: T.tealLt, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 3, borderWidth: 1, borderColor: T.border },
+  appInfoBadgeText: { fontSize: 11, fontWeight: '700', color: T.teal },
+
+  // Legal
+  legalRow:    { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 8 },
+  legalLink:   { fontSize: 12, fontWeight: '600', color: T.muted },
+  legalDot:    { width: 3, height: 3, borderRadius: 2, backgroundColor: T.muted },
+  memberSince: { textAlign: 'center', fontSize: 12, color: T.muted, fontStyle: 'italic', marginBottom: 8 },
+
+  // Overlay / sheet
+  overlay: { flex: 1, backgroundColor: 'rgba(5,15,25,0.45)', justifyContent: 'flex-end', padding: 14 },
+  sheet: {
+    backgroundColor: '#fff', borderRadius: 24, padding: 22,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 14,
   },
-  referralCode: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 4,
-  },
-  referralCardSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  referralActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  referralActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    gap: 8,
-  },
-  referralActionText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  referralStatsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  referralStatCard: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  referralStatValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  referralStatLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-}); 
+  sheetPill:     { width: 34, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', alignSelf: 'center', marginBottom: 18 },
+  sheetTitle:    { fontSize: 18, fontWeight: '800', color: T.ink, textAlign: 'center', marginBottom: 4 },
+  sheetSub:      { fontSize: 13, color: T.sub, textAlign: 'center', lineHeight: 18 },
+  sheetCancel:   { marginTop: 12, height: 46, borderRadius: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  sheetCancelText: { fontSize: 14, fontWeight: '700', color: T.sub },
+  sheetBtns:     { flexDirection: 'row', gap: 10, marginTop: 16 },
+  sheetCancel2:  { flex: 1, height: 46, borderRadius: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  sheetSave:     { flex: 1, height: 46, borderRadius: 12, backgroundColor: T.teal, justifyContent: 'center', alignItems: 'center' },
+  sheetSaveText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+
+  // Freq options
+  freqOpt:      { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1.5, borderColor: T.border, backgroundColor: '#F8FAFC', padding: 14 },
+  freqOptSel:   { backgroundColor: T.teal, borderColor: T.teal },
+  freqOptLabel: { fontSize: 14, fontWeight: '700', color: T.ink },
+  freqOptSub:   { fontSize: 12, color: T.muted, marginTop: 1 },
+  freqSelPill:  { backgroundColor: 'rgba(255,255,255,0.20)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.30)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  freqSelText:  { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.3, textTransform: 'uppercase' },
+
+  // Time grid
+  timeGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', paddingVertical: 4 },
+  timeCell:      { width: 66, height: 36, borderRadius: 10, borderWidth: 1.5, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+  timeCellSel:   { backgroundColor: T.teal, borderColor: T.teal },
+  timeCellText:  { fontSize: 13, fontWeight: '600', color: T.ink },
+
+  // Delete
+  deleteIcon:     { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(225,29,72,0.10)', justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
+  deleteList:     { backgroundColor: '#FFF1F2', borderRadius: 12, padding: 14, marginTop: 14, gap: 7 },
+  deleteListRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  deleteListDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: '#E11D48' },
+  deleteListText: { fontSize: 13, color: '#9F1239', fontWeight: '500' },
+  deleteBtn:      { flex: 1, height: 46, borderRadius: 12, backgroundColor: '#E11D48', justifyContent: 'center', alignItems: 'center' },
+  deleteBtnText:  { fontSize: 14, fontWeight: '800', color: '#fff' },
+});

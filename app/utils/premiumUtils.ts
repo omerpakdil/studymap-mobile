@@ -1,6 +1,8 @@
 import Purchases from 'react-native-purchases';
-import { supabase } from './supabase';
+import { devLog, reportError } from './logger';
 import { hasActiveReferralTrial, getReferralTrialDaysRemaining } from './referralManager';
+import { isRevenueCatUninitializedError } from './revenueCatSafe';
+import { initializeRevenueCat } from './subscriptionManager';
 
 export type PremiumSource =
   | 'subscription'
@@ -24,7 +26,10 @@ const getCurrentUserId = async (): Promise<string> => {
     const customerInfo = await Purchases.getCustomerInfo();
     return customerInfo.originalAppUserId;
   } catch (error) {
-    console.error('❌ Error getting user ID:', error);
+    if (!isRevenueCatUninitializedError(error)) {
+      reportError('❌ Error getting user ID:', error);
+    }
+
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     return tempId;
   }
@@ -36,15 +41,16 @@ const getCurrentUserId = async (): Promise<string> => {
  */
 export const checkPremiumAccess = async (): Promise<PremiumStatus> => {
   try {
-    // 1. Check RevenueCat (App Store trial or active subscription)
-    const customerInfo = await Purchases.getCustomerInfo();
-    const hasRevenueCatAccess = customerInfo.entitlements.active['premium'] !== undefined;
+    // 1. Check RevenueCat (App Store trial or active subscription) when configured.
+    const revenueCatReady = await initializeRevenueCat();
+    const customerInfo = revenueCatReady ? await Purchases.getCustomerInfo() : null;
+    const hasRevenueCatAccess = customerInfo?.entitlements.active['premium'] !== undefined;
 
     if (hasRevenueCatAccess) {
-      const entitlement = customerInfo.entitlements.active['premium'];
+      const entitlement = customerInfo!.entitlements.active['premium'];
       const isInTrial = entitlement.periodType === 'trial';
 
-      console.log('✅ Premium access via RevenueCat:', isInTrial ? 'Trial' : 'Subscription');
+      devLog('✅ Premium access via RevenueCat:', isInTrial ? 'Trial' : 'Subscription');
 
       // Calculate days remaining if in trial
       let daysRemaining: number | undefined;
@@ -70,7 +76,7 @@ export const checkPremiumAccess = async (): Promise<PremiumStatus> => {
     if (hasReferralExtension) {
       const daysRemaining = await getReferralTrialDaysRemaining();
 
-      console.log('✅ Premium access via referral extension');
+      devLog('✅ Premium access via referral extension');
 
       return {
         hasAccess: true,
@@ -81,13 +87,26 @@ export const checkPremiumAccess = async (): Promise<PremiumStatus> => {
     }
 
     // 3. No premium access
-    console.log('❌ No premium access');
+    devLog('❌ No premium access');
     return {
       hasAccess: false,
       source: 'none',
     };
   } catch (error) {
-    console.error('❌ Error checking premium access:', error);
+    if (!isRevenueCatUninitializedError(error)) {
+      reportError('❌ Error checking premium access:', error);
+    }
+
+    const hasReferralExtension = await hasActiveReferralTrial();
+    if (hasReferralExtension) {
+      return {
+        hasAccess: true,
+        source: 'referral_extension',
+        daysRemaining: await getReferralTrialDaysRemaining(),
+        isInTrial: true,
+      };
+    }
+
     return {
       hasAccess: false,
       source: 'none',
@@ -128,7 +147,7 @@ export const getTrialStatus = async (): Promise<{
       showWarning,
     };
   } catch (error) {
-    console.error('❌ Error getting trial status:', error);
+    reportError('❌ Error getting trial status:', error);
     return {
       inTrial: false,
       trialType: null,
@@ -143,7 +162,7 @@ export const getTrialStatus = async (): Promise<{
  */
 export const shouldShowPaywall = async (): Promise<boolean> => {
   const status = await checkPremiumAccess();
-  console.log('🔍 shouldShowPaywall check:', {
+  devLog('🔍 shouldShowPaywall check:', {
     hasAccess: status.hasAccess,
     source: status.source,
     shouldShow: !status.hasAccess,

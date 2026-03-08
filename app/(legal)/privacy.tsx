@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
+import { resolveAppLanguage, t } from '@/app/i18n';
 import { useTheme } from '@/themes';
 
 export default function PrivacyScreen() {
   const { colors } = useTheme();
+  const appLang = resolveAppLanguage();
   const [uri, setUri] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export default function PrivacyScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Privacy Policy' }} />
+      <Stack.Screen options={{ title: t('legal.privacy_title', { lang: appLang, fallback: 'Privacy Policy' }) }} />
       {uri ? (
         <WebView
           originWhitelist={['*']}

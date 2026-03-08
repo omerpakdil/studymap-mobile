@@ -1,190 +1,190 @@
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
-import { Dimensions, Platform, StyleSheet, View } from 'react-native';
-
-import { useTheme } from '@/themes';
+import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
+import { resolveAppLanguage, type SupportedLanguage } from '@/app/i18n';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
 
+const TAB = {
+  active: '#0F9D8C',
+  inactive: '#6B7280',
+  label: '#64748B',
+  barBorder: 'rgba(15,157,140,0.16)',
+  barA: 'rgba(255,255,255,0.94)',
+  barB: 'rgba(244,253,250,0.92)',
+  itemA: 'rgba(15,157,140,0.16)',
+  itemB: 'rgba(45,212,191,0.10)',
+  marker: 'rgba(15,157,140,0.42)',
+};
+
+const TAB_LABELS: Record<SupportedLanguage, { dashboard: string; calendar: string; progress: string; profile: string }> = {
+  en: { dashboard: 'Dashboard', calendar: 'Calendar', progress: 'Progress', profile: 'Profile' },
+  tr: { dashboard: 'Pano', calendar: 'Takvim', progress: 'Ilerleme', profile: 'Profil' },
+  de: { dashboard: 'Dashboard', calendar: 'Kalender', progress: 'Fortschritt', profile: 'Profil' },
+  fr: { dashboard: 'Tableau', calendar: 'Calendrier', progress: 'Progres', profile: 'Profil' },
+  ar: { dashboard: 'الرئيسية', calendar: 'التقويم', progress: 'التقدم', profile: 'الملف' },
+  ja: { dashboard: 'ダッシュボード', calendar: 'カレンダー', progress: '進捗', profile: 'プロフィール' },
+  ko: { dashboard: '대시보드', calendar: '캘린더', progress: '진행', profile: '프로필' },
+  'pt-BR': { dashboard: 'Painel', calendar: 'Calendario', progress: 'Progresso', profile: 'Perfil' },
+  'zh-Hans': { dashboard: '仪表盘', calendar: '日历', progress: '进度', profile: '我的' },
+  id: { dashboard: 'Dasbor', calendar: 'Kalender', progress: 'Kemajuan', profile: 'Profil' },
+  hi: { dashboard: 'डैशबोर्ड', calendar: 'कैलेंडर', progress: 'प्रगति', profile: 'प्रोफाइल' },
+};
+
 export default function TabLayout() {
-  const { colors } = useTheme();
+  const lang = resolveAppLanguage();
+  const labels = TAB_LABELS[lang] ?? TAB_LABELS.en;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary[500],
-        tabBarInactiveTintColor: colors.neutral[400],
-        tabBarAllowFontScaling: false,
-        ...(Platform.OS === 'android' && {
-          tabBarHideOnKeyboard: true,
-          tabBarKeyboardHidesTabBar: true,
-        }),
+        tabBarHideOnKeyboard: true,
+        ...(Platform.OS === 'android' && { tabBarKeyboardHidesTabBar: true }),
         tabBarStyle: {
-          backgroundColor: Platform.OS === 'ios' ? 'rgba(255, 255, 255, 0.9)' : colors.neutral[0],
-          borderTopWidth: 0,
-          paddingBottom: Platform.OS === 'ios' ? (isTablet ? 40 : 28) : 16,
-          paddingHorizontal: isTablet ? 80 : 20,
-          height: Platform.OS === 'ios' ? (isTablet ? 100 : 88) : (isTablet ? 88 : 76),
           position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: -8 },
-          shadowOpacity: 0.12,
-          shadowRadius: 24,
-          elevation: 20,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-        },
-        tabBarItemStyle: {
-          paddingVertical: isTablet ? 10 : 6,
+          left: isTablet ? 80 : 14,
+          right: isTablet ? 80 : 14,
+          bottom: isTablet ? 20 : 10,
+          height: Platform.OS === 'ios' ? (isTablet ? 92 : 84) : (isTablet ? 86 : 78),
+          paddingTop: 8,
+          paddingBottom: Platform.OS === 'ios' ? (isTablet ? 24 : 18) : 12,
+          paddingHorizontal: isTablet ? 24 : 10,
+          borderTopWidth: 1,
+          borderTopColor: TAB.barBorder,
+          borderRadius: 26,
           backgroundColor: 'transparent',
-          borderRadius: 0,
-          margin: 0,
-          marginHorizontal: 0,
+          shadowColor: '#0F172A',
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.16,
+          shadowRadius: 18,
+          elevation: 12,
           overflow: 'hidden',
-          ...Platform.select({
-            android: {
-              rippleColor: 'transparent',
-              borderless: false,
-            },
-            ios: {
-              activeOpacity: 1,
-            },
-          }),
-        },
-        tabBarLabelStyle: {
-          fontSize: isTablet ? 13 : 10,
-          fontWeight: '600',
-          marginTop: isTablet ? 8 : 6,
-          letterSpacing: 0.3,
-        },
-        tabBarIconStyle: {
-          marginBottom: 0,
         },
         tabBarBackground: () => (
-          Platform.OS === 'ios' ? (
-            <BlurView 
-              intensity={80} 
-              tint="light" 
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null
+          <LinearGradient
+            colors={[TAB.barA, TAB.barB]}
+            locations={[0, 1]}
+            style={StyleSheet.absoluteFill}
+          />
         ),
+        tabBarItemStyle: {
+          paddingVertical: 0,
+        },
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ focused, color }) => (
-            <ModernTabIcon 
-              name="dashboard" 
-              focused={focused} 
-              color={color}
-              activeColor={colors.primary[500]}
-              inactiveColor={colors.neutral[400]}
-            />
-          ),
+          title: labels.dashboard,
+          tabBarIcon: ({ focused }) => <ModernTabIcon name="dashboard" focused={focused} />,
+          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.dashboard} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
-          tabBarIcon: ({ focused, color }) => (
-            <ModernTabIcon 
-              name="calendar" 
-              focused={focused} 
-              color={color}
-              activeColor={colors.primary[500]}
-              inactiveColor={colors.neutral[400]}
-            />
-          ),
+          title: labels.calendar,
+          tabBarIcon: ({ focused }) => <ModernTabIcon name="calendar" focused={focused} />,
+          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.calendar} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'Progress',
-          tabBarIcon: ({ focused, color }) => (
-            <ModernTabIcon 
-              name="progress" 
-              focused={focused} 
-              color={color}
-              activeColor={colors.primary[500]}
-              inactiveColor={colors.neutral[400]}
-            />
-          ),
+          title: labels.progress,
+          tabBarIcon: ({ focused }) => <ModernTabIcon name="progress" focused={focused} />,
+          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.progress} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ focused, color }) => (
-            <ModernTabIcon 
-              name="profile" 
-              focused={focused} 
-              color={color}
-              activeColor={colors.primary[500]}
-              inactiveColor={colors.neutral[400]}
-            />
-          ),
+          title: labels.profile,
+          tabBarIcon: ({ focused }) => <ModernTabIcon name="profile" focused={focused} />,
+          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.profile} focused={focused} />,
         }}
       />
     </Tabs>
   );
 }
 
-interface ModernTabIconProps {
-  name: string;
-  focused: boolean;
-  color: string;
-  activeColor: string;
-  inactiveColor: string;
+function ModernTabLabel({ label, focused }: { label: string; focused: boolean }) {
+  return (
+    <Text style={[styles.tabLabel, { color: focused ? TAB.active : TAB.label }]} numberOfLines={1}>
+      {label}
+    </Text>
+  );
 }
 
-function ModernTabIcon({ name, focused, color, activeColor, inactiveColor }: ModernTabIconProps) {
-  const getIconName = (): keyof typeof Ionicons.glyphMap => {
-    switch (name) {
-      case 'dashboard':
-        return focused ? 'home' : 'home-outline';
-      case 'calendar':
-        return focused ? 'calendar' : 'calendar-outline';
-      case 'progress':
-        return focused ? 'stats-chart' : 'stats-chart-outline';
-      case 'profile':
-        return focused ? 'person' : 'person-outline';
-      default:
-        return 'apps-outline';
-    }
-  };
+function ModernTabIcon({
+  name,
+  focused,
+}: {
+  name: 'dashboard' | 'calendar' | 'progress' | 'profile';
+  focused: boolean;
+}) {
+  const iconName: keyof typeof Ionicons.glyphMap =
+    name === 'dashboard'
+      ? focused
+        ? 'grid'
+        : 'grid-outline'
+      : name === 'calendar'
+        ? focused
+          ? 'calendar-clear'
+          : 'calendar-clear-outline'
+        : name === 'progress'
+          ? focused
+            ? 'stats-chart'
+            : 'stats-chart-outline'
+          : focused
+            ? 'person'
+            : 'person-outline';
 
   return (
-    <View style={styles.iconContainer}>
-      <Ionicons
-        name={getIconName()}
-        size={isTablet ? 28 : 24}
-        color={focused ? activeColor : inactiveColor}
-      />
+    <View style={styles.iconSlot}>
+      <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+        {focused && (
+          <LinearGradient
+            colors={[TAB.itemA, TAB.itemB]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+        <Ionicons name={iconName} size={isTablet ? 23 : 20} color={focused ? TAB.active : TAB.inactive} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  iconContainer: {
+  tabLabel: {
+    fontSize: isTablet ? 12 : 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    marginTop: 4,
+  },
+  iconSlot: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 24,
-    height: 24,
+    gap: 4,
   },
-  tabButton: {
-    backgroundColor: 'transparent !important' as any,
-    borderRadius: 0,
+  iconWrap: {
+    width: isTablet ? 38 : 34,
+    height: isTablet ? 38 : 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-}); 
+  iconWrapActive: {
+    borderWidth: 0,
+    shadowColor: 'rgba(15,157,140,0.30)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+});

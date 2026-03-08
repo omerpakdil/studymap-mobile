@@ -3,8 +3,8 @@
 ## 📱 App Information
 
 ### App Name (30 characters max)
-**Current:** StudyMap Pro
-**Optimized:** StudyMap - AI Study Planner
+**Current:** StudyMap
+**Optimized:** StudyMap
 
 ### Subtitle (30 characters max)
 **Recommended Option 1:** SAT, GRE, TOEFL Exam Prep

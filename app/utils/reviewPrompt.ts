@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { devLog, devWarn, reportError } from './logger';
 import * as StoreReview from 'expo-store-review';
 
 /**
@@ -54,19 +55,19 @@ export async function shouldPromptForReview(): Promise<boolean> {
 
     // Check 1: Don't exceed max prompts
     if (promptCountNum >= REVIEW_PROMPT_CONFIG.MAX_PROMPTS_TOTAL) {
-      console.log('📊 Review: Max prompts reached');
+      devLog('📊 Review: Max prompts reached');
       return false;
     }
 
     // Check 2: Minimum sessions requirement
     if (sessionsCountNum < REVIEW_PROMPT_CONFIG.MIN_SESSIONS_BEFORE_FIRST_PROMPT) {
-      console.log('📊 Review: Not enough sessions yet');
+      devLog('📊 Review: Not enough sessions yet');
       return false;
     }
 
     // Check 3: User must have completed at least one study session
     if (completedStudySessionsNum < REVIEW_PROMPT_CONFIG.MIN_COMPLETED_STUDY_SESSIONS) {
-      console.log('📊 Review: No completed study sessions yet');
+      devLog('📊 Review: No completed study sessions yet');
       return false;
     }
 
@@ -74,7 +75,7 @@ export async function shouldPromptForReview(): Promise<boolean> {
     if (firstSessionDate) {
       const daysSinceInstall = (Date.now() - parseInt(firstSessionDate, 10)) / (1000 * 60 * 60 * 24);
       if (daysSinceInstall < REVIEW_PROMPT_CONFIG.MIN_DAYS_BEFORE_FIRST_PROMPT) {
-        console.log('📊 Review: Too soon after install');
+        devLog('📊 Review: Too soon after install');
         return false;
       }
     }
@@ -83,15 +84,15 @@ export async function shouldPromptForReview(): Promise<boolean> {
     if (lastPromptDate) {
       const daysSinceLastPrompt = (Date.now() - parseInt(lastPromptDate, 10)) / (1000 * 60 * 60 * 24);
       if (daysSinceLastPrompt < REVIEW_PROMPT_CONFIG.MIN_DAYS_BETWEEN_PROMPTS) {
-        console.log('📊 Review: Too soon since last prompt');
+        devLog('📊 Review: Too soon since last prompt');
         return false;
       }
     }
 
-    console.log('✅ Review: All conditions met, will prompt');
+    devLog('✅ Review: All conditions met, will prompt');
     return true;
   } catch (error) {
-    console.error('❌ Error checking review prompt conditions:', error);
+    reportError('❌ Error checking review prompt conditions:', error);
     return false;
   }
 }
@@ -107,7 +108,7 @@ export async function requestReview(): Promise<void> {
       return;
     }
 
-    console.log('🌟 Requesting App Store review...');
+    devLog('🌟 Requesting App Store review...');
 
     // Request the review
     await StoreReview.requestReview();
@@ -121,9 +122,9 @@ export async function requestReview(): Promise<void> {
       AsyncStorage.setItem(REVIEW_PROMPT_KEYS.REVIEW_PROMPTED_COUNT, newCount.toString()),
     ]);
 
-    console.log(`✅ Review prompted (${newCount}/${REVIEW_PROMPT_CONFIG.MAX_PROMPTS_TOTAL} total)`);
+    devLog(`✅ Review prompted (${newCount}/${REVIEW_PROMPT_CONFIG.MAX_PROMPTS_TOTAL} total)`);
   } catch (error) {
-    console.error('❌ Error requesting review:', error);
+    reportError('❌ Error requesting review:', error);
   }
 }
 
@@ -145,9 +146,9 @@ export async function trackAppSession(): Promise<void> {
       await AsyncStorage.setItem(REVIEW_PROMPT_KEYS.FIRST_SESSION_DATE, Date.now().toString());
     }
 
-    console.log(`📊 App session tracked: ${newCount} total sessions`);
+    devLog(`📊 App session tracked: ${newCount} total sessions`);
   } catch (error) {
-    console.error('❌ Error tracking app session:', error);
+    reportError('❌ Error tracking app session:', error);
   }
 }
 
@@ -160,9 +161,9 @@ export async function trackCompletedStudySession(): Promise<void> {
     const newCount = parseInt(completedSessions || '0', 10) + 1;
     await AsyncStorage.setItem(REVIEW_PROMPT_KEYS.STUDY_SESSIONS_COMPLETED, newCount.toString());
 
-    console.log(`📚 Study session completed: ${newCount} total`);
+    devLog(`📚 Study session completed: ${newCount} total`);
   } catch (error) {
-    console.error('❌ Error tracking study session:', error);
+    reportError('❌ Error tracking study session:', error);
   }
 }
 
@@ -171,7 +172,7 @@ export async function trackCompletedStudySession(): Promise<void> {
  */
 export async function resetReviewPromptData(): Promise<void> {
   if (!__DEV__) {
-    console.warn('⚠️ Reset only allowed in development mode');
+    devWarn('⚠️ Reset only allowed in development mode');
     return;
   }
 
@@ -183,5 +184,5 @@ export async function resetReviewPromptData(): Promise<void> {
     AsyncStorage.removeItem(REVIEW_PROMPT_KEYS.STUDY_SESSIONS_COMPLETED),
   ]);
 
-  console.log('🔄 Review prompt data reset');
+  devLog('🔄 Review prompt data reset');
 }

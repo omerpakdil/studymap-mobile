@@ -1,0 +1,15 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#0F9D8C"/>
+
+  <!-- Minimal white S glyph -->
+  <path
+    d="M622 328H458C405.01 328 362 371.01 362 424C362 476.99 405.01 520 458 520H530C582.99 520 626 563.01 626 616C626 668.99 582.99 712 530 712H362"
+    stroke="#ECFDF5"
+    stroke-width="92"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <!-- Anchor dot -->
+  <circle cx="626" cy="616" r="30" fill="#ECFDF5"/>
+</svg>
