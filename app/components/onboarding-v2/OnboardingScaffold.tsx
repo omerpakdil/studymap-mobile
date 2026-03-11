@@ -24,6 +24,7 @@ import {
   onboardingV2Backgrounds,
   OnboardingV2BackgroundVariant,
 } from '@/app/components/onboarding-v2/designSystem';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 
 interface OnboardingScaffoldProps {
   title: string;
@@ -509,15 +510,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    paddingTop: 14,
-    paddingBottom: 28,
+    bottom:0,
+    paddingTop: FOOTER.paddingTop,
+    paddingBottom: FOOTER.paddingBottom,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
 
   primaryBtn: {
-    height: 54,
-    borderRadius: 14,
+    height: FOOTER.ctaHeight,
+    borderRadius: FOOTER.ctaRadius,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

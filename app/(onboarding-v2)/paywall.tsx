@@ -12,26 +12,27 @@
  */
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Animated,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { getCountryByCode } from '@/app/data/countries';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import { getLocalizedExamName } from '@/app/i18n/examNames';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepView,
-  trackOnboardingV2Event,
+    trackOnboardingStepBack,
+    trackOnboardingStepView,
+    trackOnboardingV2Event,
 } from '@/app/utils/onboardingV2Analytics';
 import { getSubscriptionOfferings, initializeRevenueCat } from '@/app/utils/subscriptionManager';
 
@@ -201,7 +202,7 @@ export default function OnboardingV2PaywallScreen() {
           </View>
         </View>
         <Text style={[s.stepLabel,{color:C.labelMuted}]}>
-          {t('common.step_of', { lang, params: { current: 11, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 12, total: 13 } })}
         </Text>
 
         {/* ── Hero headline ── */}
@@ -355,16 +356,16 @@ const s = StyleSheet.create({
   // Footer
   footer:{
     position:'absolute', left:0, right:0, bottom:0,
-    paddingHorizontal:22, paddingTop:10, paddingBottom:22,
+    paddingHorizontal:22, paddingTop:10, paddingBottom:18,
     borderTopWidth:StyleSheet.hairlineWidth, gap:8,
   },
-  footerTight:{ paddingTop:8, paddingBottom:16, gap:6 },
+  footerTight:{ paddingTop:8, paddingBottom:14, gap:6 },
   priceRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', gap:8 },
   priceRowNarrow:{ alignItems:'flex-start' },
   priceThen:{ fontSize:10, fontWeight:'400', flex:1 },
   priceFree:{ fontSize:11, fontWeight:'700', flexShrink:1, textAlign:'right' },
 
-  cta:{ height:52, borderRadius:13, flexDirection:'row', alignItems:'center', justifyContent:'center',
+  cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#14B8A6', shadowOffset:{width:0,height:8},
     shadowOpacity:0.36, shadowRadius:20, elevation:10 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.11)' },

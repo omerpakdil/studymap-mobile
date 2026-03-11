@@ -4,7 +4,7 @@ import { getBlueprintByExamCode, type ExamSubjectBlueprint, type SessionType } f
 import { resolveAppLanguage } from '@/app/i18n';
 import { getDateFormatByLanguage } from '@/app/utils/localeDate';
 import type { GoalMetricType } from '@/app/data/examGoalConfigs';
-import { ENABLE_TARGET_PRESSURE_ADJUSTMENTS } from '@/app/utils/planner/featureFlags';
+import { getIntensityCapacitySummary, type StudyIntensityId } from '@/app/utils/scheduleCapacity';
 import { resolveTargetModel } from '@/app/utils/targetMetric';
 
 import type { OnboardingSnapshotV2 } from '../onboardingV2';
@@ -23,6 +23,7 @@ export interface PlannerInput {
   targetMetricType: GoalMetricType;
   targetValueRaw: string;
   targetValueNormalized: number;
+  preferredSessionMinutes: 25 | 45 | 60 | 90;
   sessionTypes: SessionType[];
   recommendedSessionMinutes: [number, number];
   minReviewRatio: number;
@@ -114,20 +115,23 @@ const calculateWeeklyHours = (
   intensity: OnboardingSnapshotV2['studyIntensity'],
   targetPressure: number
 ): number => {
-  const totalSlots = Object.values(schedule).flat().length;
-  const multiplier = {
-    relaxed: 0.7,
-    moderate: 0.85,
-    intensive: 1.0,
-    extreme: 1.2,
-  };
-  // Higher target pressure increases recommended weekly load.
-  const effectivePressure = ENABLE_TARGET_PRESSURE_ADJUSTMENTS
-    ? Math.min(1, Math.max(0, targetPressure))
-    : 0;
-  const pressureMultiplier = 0.9 + effectivePressure * 0.4;
+  const summary = getIntensityCapacitySummary(
+    schedule,
+    intensity as StudyIntensityId,
+    45,
+    targetPressure
+  );
+  return Math.max(5, Math.min(60, Math.round(summary.weeklyHours)));
+};
 
-  return Math.max(5, Math.min(40, Math.round(totalSlots * (multiplier[intensity] || 0.85) * pressureMultiplier)));
+const getRecommendedSessionRange = (
+  preferredSessionMinutes: 25 | 45 | 60 | 90,
+  blueprintRange?: [number, number]
+): [number, number] => {
+  const defaultRange: [number, number] = blueprintRange ?? [45, 90];
+  const min = Math.max(defaultRange[0], preferredSessionMinutes - 10);
+  const max = Math.min(defaultRange[1], preferredSessionMinutes + 15);
+  return [Math.min(min, preferredSessionMinutes), Math.max(max, preferredSessionMinutes)];
 };
 
 const getNextStudyDay = (schedule: Record<string, string[]>, from: Date): Date => {
@@ -211,8 +215,12 @@ export const mapOnboardingV2ToPlannerInput = (snapshot: OnboardingSnapshotV2): P
     targetMetricType: snapshot.targetMetricType || target.metricType,
     targetValueRaw: snapshot.targetValueRaw || snapshot.targetScore || target.raw,
     targetValueNormalized,
+    preferredSessionMinutes: snapshot.preferredSessionMinutes,
     sessionTypes: blueprint?.sessionTypes ?? ['study', 'review', 'practice', 'quiz'],
-    recommendedSessionMinutes: blueprint?.weeklyRules.recommendedSessionMinutes ?? [45, 90],
+    recommendedSessionMinutes: getRecommendedSessionRange(
+      snapshot.preferredSessionMinutes,
+      blueprint?.weeklyRules.recommendedSessionMinutes
+    ),
     minReviewRatio: blueprint?.weeklyRules.minReviewRatio ?? 0.25,
     mockFrequencyDays: blueprint?.weeklyRules.mockFrequencyDays ?? 14,
   };

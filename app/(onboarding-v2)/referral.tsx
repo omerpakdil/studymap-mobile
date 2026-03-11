@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { getCountryByCode } from '@/app/data/countries';
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
 import { resolveAppLanguage, t } from '@/app/i18n';
@@ -200,8 +201,8 @@ const s = StyleSheet.create({
   errBox: { backgroundColor: C.errBg, borderWidth: 1, borderColor: C.errBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
   errTxt: { color: C.err, fontSize: 12, fontWeight: '600' },
 
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 22, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.tealBorder, backgroundColor: 'rgba(8,12,11,0.95)', gap: 8 },
-  cta: { height: 52, borderRadius: 13, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  footer: { position: 'absolute', left: 0, right: 0, bottom:0, paddingHorizontal: 22, paddingTop: FOOTER.paddingTop, paddingBottom: FOOTER.paddingBottom, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.tealBorder, backgroundColor: 'rgba(8,12,11,0.95)', gap: 8 },
+  cta: { height: FOOTER.ctaHeight, borderRadius: FOOTER.ctaRadius, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   ctaTxt: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.15 },
   skipBtn: { alignItems: 'center', paddingVertical: 2 },
   skipTxt: { color: C.muted, fontSize: 12, fontWeight: '500' },

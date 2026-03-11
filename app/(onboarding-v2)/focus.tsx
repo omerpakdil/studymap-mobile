@@ -17,27 +17,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    Animated,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { getCountryByCode } from '@/app/data/countries';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepValidationFail,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepValidationFail,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ const C = {
   cardBg:     '#FFFFFF', cardBorder: 'rgba(15,23,42,0.06)',
   backBg:     'rgba(0,0,0,0.04)', backBorder: 'rgba(0,0,0,0.06)',
   backArrow:  '#0F766E', brand: '#0D9488',
-  footer:     'rgba(240,253,251,0.97)', footerBorder: 'rgba(13,148,136,0.10)',
+  footer:     'transparent', footerBorder: 'rgba(13,148,136,0.10)',
 };
 
 // Level definitions — all teal-family, no multi-color
@@ -254,7 +255,7 @@ export default function OnboardingV2FocusScreen() {
           </View>
         </View>
         <Text style={[s.stepLabel,{color:C.labelMuted}]}>
-          {t('common.step_of', { lang, params: { current: 8, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 9, total: 13 } })}
         </Text>
 
         {/* Title row + presets */}
@@ -564,8 +565,8 @@ const s = StyleSheet.create({
   bottomHint:{ marginTop:8, fontSize:11, lineHeight:15, textAlign:'center' },
 
   // Footer
-  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:12, paddingBottom:32, borderTopWidth:StyleSheet.hairlineWidth },
-  cta:{ height:52, borderRadius:13, flexDirection:'row', alignItems:'center', justifyContent:'center',
+  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#0D9488', shadowOffset:{width:0,height:5}, shadowOpacity:0.24, shadowRadius:14, elevation:7 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },
   ctaTxt:{ color:'#fff', fontSize:15, fontWeight:'800', letterSpacing:0.1 },

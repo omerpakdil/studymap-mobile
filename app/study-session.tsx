@@ -7,6 +7,7 @@ import {
   Animated,
   AppState,
   Dimensions,
+  Easing,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -24,14 +25,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { resolveAppLanguage, t } from '@/app/i18n';
-import { getLocalizedTaskTitle } from '@/app/i18n/taskContent';
 import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
+import { getLocalizedTaskTitle } from '@/app/i18n/taskContent';
+import { formatMinutesCompact, getMinuteUnitShort } from '@/app/i18n/unitFormat';
+import { saveStudySessionFeedback } from '@/app/utils/focusSessionFeedback';
+import {
+  loadPreferredFocusDuration,
+  savePreferredFocusDuration,
+} from '@/app/utils/focusSessionPreferences';
 import NotificationService from '@/app/utils/notificationService';
 import { requestReview, trackCompletedStudySession } from '@/app/utils/reviewPrompt';
+import { useLofiPlayer } from '@/app/utils/lofiPlayer';
+import { playSessionEnd, playSessionStart, unloadSessionSound } from '@/app/utils/sessionSounds';
+import {
+  clearTaskCompletion,
+  markTaskComplete,
+  updateTaskProgress,
+} from '@/app/utils/studyProgramStorage';
+import type { SessionOutcome, StudyTask } from '@/app/utils/studyTypes';
 
 const { width, height } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
 const isTablet = width >= 768;
+const FOCUS_PRESETS = [
+  { minutes: 25, labelKey: 'preset_quick_25', fallback: 'Quick 25' },
+  { minutes: 45, labelKey: 'preset_standard_45', fallback: 'Focus 45' },
+  { minutes: 60, labelKey: 'preset_deep_60', fallback: 'Deep 60' },
+  { minutes: 90, labelKey: 'preset_deep_90', fallback: 'Deep 90' },
+] as const;
 
 // ─── Design tokens (mirrors dashboard palette) ──────────────────────────────
 const S = {
@@ -59,6 +80,9 @@ type TimerState = 'idle' | 'running' | 'paused' | 'completed';
 type SessionType = 'Practice' | 'Study' | 'Review';
 
 // ─── Animated Ring ────────────────────────────────────────────────────────────
+// Uses two half-clip technique for smooth continuous rotation:
+//   right clip: fills 0→50% by rotating top+right arc from -180° to 0°
+//   left  clip: fills 50→100% by rotating bottom+left arc from -180° to 0°
 function TimerRing({
   progress,
   size,
@@ -72,36 +96,129 @@ function TimerRing({
   color: string;
   children?: React.ReactNode;
 }) {
-  const clamp = Math.min(1, Math.max(0, progress));
-  const angle = clamp * 360;
+  const animProgress = useRef(new Animated.Value(progress)).current;
+
+  useEffect(() => {
+    Animated.timing(animProgress, {
+      toValue: progress,
+      duration: 950,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  }, [progress]);
+
+  const half = size / 2;
+  const innerSize = size - strokeWidth * 2 - 10;
+  const capRadius = half - strokeWidth / 2;
+  const capDotSize = strokeWidth + 2;
+
+  // Correct offset: borderTopColor starts at 315° (not 0°), so we shift by +45°
+  // Right arc (borderTop+Right covers 315°→135°):
+  //   at -135° rotation → arc lands at 180°→360° (left half) → invisible through right clip
+  //   at  +45° rotation → arc lands at 0°→180°   (right half) → fully visible ✓
+  const rightRotation = animProgress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['-135deg', '45deg', '45deg'],
+  });
+
+  // Left arc (borderBottom+Left covers 135°→315°):
+  //   at -135° rotation → arc lands at 0°→180°   (right half) → invisible through left clip
+  //   at  +45° rotation → arc lands at 180°→360° (left half)  → fully visible ✓
+  const leftRotation = animProgress.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['-135deg', '-135deg', '45deg'],
+  });
+
+  // Cap dot sweeps from 12 o'clock (0°) clockwise to full circle (360°)
+  const capRotation = animProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  // Fade in cap dot once progress starts
+  const capOpacity = animProgress.interpolate({
+    inputRange: [0, 0.008],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
-      {/* Track */}
+
+      {/* Track ring */}
       <View style={{
         position: 'absolute', width: size, height: size,
-        borderRadius: size / 2, borderWidth: strokeWidth,
+        borderRadius: half, borderWidth: strokeWidth,
         borderColor: 'rgba(148,163,184,0.18)',
       }} />
-      {/* Fill arc */}
+
+      {/* Right clip — draws arc from 12 o'clock to 6 o'clock (0→50%) */}
       <View style={{
+        position: 'absolute', left: half, top: 0,
+        width: half, height: size, overflow: 'hidden',
+      }}>
+        <Animated.View style={{
+          position: 'absolute', left: -half, top: 0,
+          width: size, height: size, borderRadius: half,
+          borderWidth: strokeWidth,
+          borderTopColor: color, borderRightColor: color,
+          borderBottomColor: 'transparent', borderLeftColor: 'transparent',
+          transform: [{ rotate: rightRotation }],
+        }} />
+      </View>
+
+      {/* Left clip — draws arc from 6 o'clock to 12 o'clock (50→100%) */}
+      <View style={{
+        position: 'absolute', left: 0, top: 0,
+        width: half, height: size, overflow: 'hidden',
+      }}>
+        <Animated.View style={{
+          position: 'absolute', left: 0, top: 0,
+          width: size, height: size, borderRadius: half,
+          borderWidth: strokeWidth,
+          borderBottomColor: color, borderLeftColor: color,
+          borderTopColor: 'transparent', borderRightColor: 'transparent',
+          transform: [{ rotate: leftRotation }],
+        }} />
+      </View>
+
+      {/* Cap dot — moves at the tip of the arc */}
+      <Animated.View style={{
         position: 'absolute', width: size, height: size,
-        borderRadius: size / 2, borderWidth: strokeWidth,
-        borderColor: 'transparent',
-        borderTopColor: color,
-        borderRightColor: angle >= 90 ? color : 'transparent',
-        borderBottomColor: angle >= 180 ? color : 'transparent',
-        borderLeftColor: angle >= 270 ? color : 'transparent',
-        transform: [{ rotate: '-90deg' }],
-      }} />
-      {/* Inner glow ring — decoration only, no background fill */}
+        alignItems: 'center', opacity: capOpacity,
+        transform: [{ rotate: capRotation }],
+      }}>
+        <View style={{
+          width: capDotSize, height: capDotSize,
+          borderRadius: capDotSize / 2,
+          backgroundColor: color,
+          marginTop: half - capRadius - capDotSize / 2,
+          shadowColor: '#fff',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.7,
+          shadowRadius: 3,
+        }} />
+      </Animated.View>
+
+      {/* Start dot — fixed at 12 o'clock */}
       <View style={{
-        position: 'absolute', width: size - strokeWidth * 2 - 10,
-        height: size - strokeWidth * 2 - 10,
-        borderRadius: (size - strokeWidth * 2 - 10) / 2,
+        position: 'absolute',
+        width: capDotSize, height: capDotSize,
+        borderRadius: capDotSize / 2,
+        backgroundColor: 'rgba(255,255,255,0.4)',
+        top: half - capRadius - capDotSize / 2,
+        left: half - capDotSize / 2,
+      }} />
+
+      {/* Inner glow ring */}
+      <View style={{
+        position: 'absolute', width: innerSize, height: innerSize,
+        borderRadius: innerSize / 2,
         borderWidth: 1, borderColor: `${color}30`,
         backgroundColor: 'transparent',
       }} />
-      {/* Children sit on top */}
+
+      {/* Children */}
       <View style={{ position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
         {children}
       </View>
@@ -133,8 +250,12 @@ export default function StudySessionScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showOutcomeModal, setShowOutcomeModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'timer' | 'notes'>('timer');
+  const [lastOutcome, setLastOutcome] = useState<SessionOutcome | null>(null);
+
+  const { isPlaying: lofiPlaying, isLoading: lofiLoading, toggle: toggleLofi, stop: stopLofi } = useLofiPlayer();
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const backgroundTimeRef = useRef<number | null>(null);
@@ -154,7 +275,8 @@ export default function StudySessionScreen() {
       Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.spring(headerSlide, { toValue: 0, useNativeDriver: true, tension: 80 }),
     ]).start();
-    loadSessionData();
+    void loadSessionData();
+    return () => { void unloadSessionSound(); void stopLofi(); };
   }, []);
 
   useEffect(() => {
@@ -215,9 +337,22 @@ export default function StudySessionScreen() {
   const loadSessionData = async () => {
     try {
       const keys = getStorageKeys();
-      const [n, c] = await Promise.all([AsyncStorage.getItem(keys.notes), AsyncStorage.getItem(keys.completed)]);
+      const [n, c, preferredDuration] = await Promise.all([
+        AsyncStorage.getItem(keys.notes),
+        AsyncStorage.getItem(keys.completed),
+        loadPreferredFocusDuration({
+          examCode: typeof params?.examCode === 'string' ? params.examCode : undefined,
+          subject: params?.subject,
+          type: typeof params?.type === 'string' ? params.type : undefined,
+        }),
+      ]);
       if (n) setNotes(n);
       if (c === 'true') setIsSessionCompleted(true);
+      const validPresetMinutes = FOCUS_PRESETS.map((p) => p.minutes);
+      if (preferredDuration && validPresetMinutes.includes(preferredDuration as typeof FOCUS_PRESETS[number]['minutes']) && preferredDuration !== focusDuration) {
+        setFocusDuration(preferredDuration);
+        setTimeLeft(preferredDuration * 60);
+      }
     } catch {}
   };
 
@@ -233,11 +368,21 @@ export default function StudySessionScreen() {
     } catch {}
   };
 
+  const clearCompletion = async () => {
+    try {
+      const keys = getStorageKeys();
+      await AsyncStorage.multiRemove([keys.completed, keys.completionTime]);
+    } catch {}
+  };
+
   const startTimer = () => {
     if (timerState === 'completed') return;
     setTimerState('running');
     isRunningRef.current = true;
-    if (timerState === 'idle') NotificationService.startBreakReminders?.();
+    if (timerState === 'idle') {
+      playSessionStart();
+      NotificationService.startBreakReminders?.();
+    }
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) { completeTimer(); return 0; }
@@ -261,13 +406,48 @@ export default function StudySessionScreen() {
   const completeTimer = () => {
     pauseTimer();
     setTimerState('completed');
-    showAlert(ts('time_up_title', 'Time is up!'), ts('time_up_body', 'Great focus session!'));
+    stopLofi().then(() => {
+      playSessionEnd();
+      showAlert(ts('time_up_title', 'Time is up!'), ts('time_up_body', 'Great focus session!'));
+    });
   };
 
   const handleSessionComplete = async () => {
     pauseTimer();
-    setIsSessionCompleted(true);
-    await saveCompletion();
+    setShowOutcomeModal(true);
+  };
+
+  const handleOutcomeSelect = async (outcome: SessionOutcome) => {
+    const actualMinutes = Math.max(1, Math.round((focusDuration * 60 - timeLeft) / 60));
+    const partialProgress = Math.min(95, Math.max(15, Math.round((actualMinutes / Math.max(1, focusDuration)) * 100)));
+
+    await saveStudySessionFeedback({
+      taskId: params?.taskId || 'default',
+      sessionId: `${params?.taskId || 'default'}_${Date.now()}`,
+      subject: params?.subject || 'Study Session',
+      examCode: typeof params?.examCode === 'string' ? params.examCode : undefined,
+      outcome,
+      plannedMinutes: focusDuration,
+      actualMinutes,
+      completed: outcome !== 'incomplete',
+      noteLength: notes.trim().length,
+      createdAt: new Date().toISOString(),
+    });
+
+    if (params?.taskId) {
+      if (outcome === 'incomplete') {
+        await clearTaskCompletion(params.taskId, partialProgress);
+        await updateTaskProgress(params.taskId, partialProgress);
+        await clearCompletion();
+      } else {
+        await markTaskComplete(params.taskId, focusDuration);
+        await saveCompletion();
+      }
+    }
+
+    setShowOutcomeModal(false);
+    setLastOutcome(outcome);
+    setIsSessionCompleted(outcome !== 'incomplete');
     Animated.parallel([
       Animated.spring(completionScale, { toValue: 1, useNativeDriver: true, tension: 70, friction: 8 }),
       Animated.timing(completionOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
@@ -282,6 +462,14 @@ export default function StudySessionScreen() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     isRunningRef.current = false;
     setShowDurationModal(false);
+    void savePreferredFocusDuration(
+      {
+        examCode: typeof params?.examCode === 'string' ? params.examCode : undefined,
+        subject: params?.subject,
+        type: typeof params?.type === 'string' ? params.type : undefined,
+      },
+      mins
+    );
   };
 
   const switchTab = (next: 'timer' | 'notes') => {
@@ -330,6 +518,21 @@ export default function StudySessionScreen() {
   const timerColor = timerState === 'completed' ? S.teal
     : timerState === 'paused' ? S.amber
     : sessionType.color;
+  const localizedPresets = FOCUS_PRESETS.map((preset) => ({
+    ...preset,
+    label: ts(preset.labelKey, preset.fallback),
+  }));
+  const activePreset = localizedPresets.find((preset) => preset.minutes === focusDuration);
+  const completionIsPartial = lastOutcome === 'incomplete';
+  const completionMessage = completionIsPartial
+    ? ts('completion_msg_partial', 'Partial progress saved. The planner will shorten or repeat this work if needed.')
+    : lastOutcome === 'hard'
+      ? ts('completion_msg_hard', 'Marked hard. The planner will bring this subject back sooner with extra review.')
+      : lastOutcome === 'easy'
+        ? ts('completion_msg_easy', 'Marked easy. The planner can keep your next review a little lighter.')
+        : notes.length > 20
+          ? ts('completion_msg_notes', 'Good session. Your notes will help the next review land faster.')
+          : ts('completion_msg_no_notes', 'Session saved. Add a few notes next time to improve recall.');
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'left', 'right']}>
@@ -406,6 +609,19 @@ export default function StudySessionScreen() {
                     <View style={styles.ringBlob1} />
                     <View style={styles.ringBlob2} />
 
+                    {/* Lofi music toggle */}
+                    <TouchableOpacity
+                      style={[styles.lofiBtn, lofiPlaying && styles.lofiBtnActive]}
+                      onPress={() => void toggleLofi()}
+                      activeOpacity={0.75}
+                    >
+                      <Ionicons
+                        name={lofiLoading ? 'ellipsis-horizontal' : lofiPlaying ? 'musical-notes' : 'musical-note-outline'}
+                        size={16}
+                        color={lofiPlaying ? '#0F9D8C' : 'rgba(255,255,255,0.85)'}
+                      />
+                    </TouchableOpacity>
+
                     <Animated.View style={{ transform: [{ scale: ringPulse }] }}>
                       <TimerRing
                         progress={progress}
@@ -454,12 +670,31 @@ export default function StudySessionScreen() {
                 <View style={styles.metaRow}>
                   <View style={styles.metaChip}>
                     <Ionicons name="time-outline" size={14} color={S.teal} />
-                    <Text style={styles.metaChipText}>{ts('planned_minutes', '{minutes}m planned', { minutes: focusDuration })}</Text>
+                    <Text style={styles.metaChipText}>{`${formatMinutesCompact(focusDuration, appLang)} ${ts('focus_duration', 'Focus Duration').toLowerCase()}`}</Text>
                   </View>
                   <View style={styles.metaChip}>
                     <Ionicons name="book-outline" size={14} color={S.teal} />
                     <Text style={styles.metaChipText}>{subjectLabel}</Text>
                   </View>
+                </View>
+
+                <View style={styles.presetRow}>
+                  {localizedPresets.map((preset) => {
+                    const selected = preset.minutes === focusDuration;
+                    return (
+                      <TouchableOpacity
+                        key={preset.minutes}
+                        style={[styles.presetChip, selected && styles.presetChipActive]}
+                        onPress={() => changeDuration(preset.minutes)}
+                        activeOpacity={0.82}
+                      >
+                        <Text
+                          style={[styles.presetChipText, selected && styles.presetChipTextActive]}
+                          numberOfLines={1}
+                        >{preset.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
                 {/* Controls */}
@@ -489,7 +724,7 @@ export default function StudySessionScreen() {
                   {/* Duration */}
                   <TouchableOpacity style={styles.ctrlSecondary} onPress={() => setShowDurationModal(true)}>
                     <Ionicons name="timer-outline" size={18} color={S.teal} />
-                    <Text style={[styles.ctrlSecondaryText, { color: S.teal }]}>{focusDuration}m</Text>
+                    <Text style={[styles.ctrlSecondaryText, { color: S.teal }]}>{formatMinutesCompact(focusDuration, appLang)}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -608,28 +843,65 @@ export default function StudySessionScreen() {
               </View>
               <View>
                 <Text style={styles.modalTitle}>{ts('focus_duration', 'Focus Duration')}</Text>
-                <Text style={styles.modalSub}>{ts('select_focus_duration', 'Select how long to focus')}</Text>
+                <Text style={styles.modalSub}>{ts('select_focus_duration', 'Pick the block that matches your energy and workload')}</Text>
               </View>
             </View>
             <View style={styles.durationGrid}>
-              {[[5,15,25],[30,45,60]].map((row, ri) => (
+              {[[15,25],[45,60],[90]].map((row, ri) => (
                 <View key={ri} style={styles.durationRow}>
-                  {row.map((d) => (
+                  {row.map((d) => {
+                    const preset = localizedPresets.find((item) => item.minutes === d);
+                    return (
                     <TouchableOpacity
                       key={d}
                       style={[styles.durationCell, d === focusDuration && styles.durationCellActive]}
                       onPress={() => changeDuration(d)}
                     >
                       <Text style={[styles.durationNum, d === focusDuration && { color: '#fff' }]}>{d}</Text>
-                      <Text style={[styles.durationUnit, d === focusDuration && { color: 'rgba(255,255,255,0.75)' }]}>{ts('min_short', 'min')}</Text>
+                      <Text style={[styles.durationUnit, d === focusDuration && { color: 'rgba(255,255,255,0.75)' }]}>{getMinuteUnitShort(appLang)}</Text>
+                      {preset ? (
+                        <Text style={[styles.durationPresetLabel, d === focusDuration && { color: 'rgba(255,255,255,0.82)' }]}>{preset.label}</Text>
+                      ) : null}
                     </TouchableOpacity>
-                  ))}
+                  );})}
                 </View>
               ))}
             </View>
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setShowDurationModal(false)}>
               <Text style={styles.modalCloseBtnText}>{ts('cancel', 'Cancel')}</Text>
             </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ── Completion Modal ── */}
+      <Modal visible={showOutcomeModal} transparent animationType="fade" onRequestClose={() => setShowOutcomeModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowOutcomeModal(false)}>
+          <Pressable style={styles.outcomeCard}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.outcomeEyebrow}>{ts('feedback_upper', 'SESSION FEEDBACK')}</Text>
+            <Text style={styles.outcomeTitle}>{ts('feedback_title', 'How did this session feel?')}</Text>
+            <Text style={styles.outcomeSub}>
+              {ts('feedback_sub', 'Your answer adjusts review timing and future session load.')}
+            </Text>
+
+            <View style={styles.outcomeGrid}>
+              {([
+                { id: 'easy',       label: ts('feedback_easy',       'Easy'),          color: S.teal },
+                { id: 'okay',       label: ts('feedback_okay',       'Okay'),          color: '#64748B' },
+                { id: 'hard',       label: ts('feedback_hard',       'Hard'),          color: S.amber },
+                { id: 'incomplete', label: ts('feedback_incomplete', "Didn't finish"), color: S.rose },
+              ] as const).map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.outcomeBtn, { borderColor: `${item.color}35`, backgroundColor: `${item.color}0C` }]}
+                  onPress={() => void handleOutcomeSelect(item.id)}
+                  activeOpacity={0.82}
+                >
+                  <Text style={[styles.outcomeBtnText, { color: item.color }]}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -645,9 +917,15 @@ export default function StudySessionScreen() {
             <View style={styles.completionBody}>
               {/* Title block */}
               <View style={styles.completionTitleBlock}>
-                <Text style={styles.completionEyebrow}>{ts('session_complete_upper', 'SESSION COMPLETE')}</Text>
+                <Text style={styles.completionEyebrow}>
+                  {completionIsPartial
+                    ? ts('session_saved_upper', 'SESSION SAVED')
+                    : ts('session_complete_upper', 'SESSION COMPLETE')}
+                </Text>
                 <Text style={styles.completionTitle}>{subjectLabel}</Text>
-                <Text style={styles.completionSub}>{sessionType.label} · {ts('planned_minutes', '{minutes}m planned', { minutes: focusDuration })}</Text>
+                <Text style={styles.completionSub}>
+                  {sessionType.label} · {activePreset?.label ?? `${formatMinutesCompact(focusDuration, appLang)} ${ts('focus_duration', 'Focus Duration').toLowerCase()}`}
+                </Text>
               </View>
 
               {/* Divider */}
@@ -673,7 +951,7 @@ export default function StudySessionScreen() {
 
               {/* Message */}
               <Text style={styles.completionMsg}>
-                {notes.length > 20 ? ts('completion_msg_notes', 'Great note-taking - review soon to lock in retention.') : ts('completion_msg_no_notes', 'Try taking notes next time to boost recall.')}
+                {completionMessage}
               </Text>
 
               {/* Actions */}
@@ -685,8 +963,10 @@ export default function StudySessionScreen() {
                   style={styles.completionPrimBtn}
                   onPress={async () => {
                     setShowCompletionModal(false);
-                    await trackCompletedStudySession();
-                    await requestReview();
+                    if (!completionIsPartial) {
+                      await trackCompletedStudySession();
+                      await requestReview();
+                    }
                     router.back();
                   }}
                   activeOpacity={0.82}
@@ -706,9 +986,6 @@ export default function StudySessionScreen() {
         <Pressable style={styles.overlay} onPress={() => setShowExitModal(false)}>
           <Pressable style={styles.exitCard}>
             <View style={styles.modalHandle} />
-            <View style={[styles.exitIconBox, { backgroundColor: isSessionCompleted ? S.tealLt : S.amberLt }]}>
-              <Ionicons name={isSessionCompleted ? 'checkmark-circle' : 'warning-outline'} size={28} color={isSessionCompleted ? S.teal : S.amber} />
-            </View>
             <Text style={styles.exitTitle}>{isSessionCompleted ? ts('session_complete', 'Session Complete') : ts('exit_session', 'Exit Session?')}</Text>
             <Text style={styles.exitMsg}>
               {isSessionCompleted ? ts('exit_msg_completed', 'Your session is saved. Return to dashboard?') : ts('exit_msg', 'Your notes are auto-saved. Exit anytime.')}
@@ -805,6 +1082,17 @@ const styles = StyleSheet.create({
   ringGradient: { paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center' },
   ringBlob1: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.07)', top: -50, right: -40 },
   ringBlob2: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 40 },
+  lofiBtn: {
+    position: 'absolute', top: 12, right: 12,
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  lofiBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderColor: 'rgba(255,255,255,0.95)',
+  },
   ringInner: { alignItems: 'center', justifyContent: 'center' },
   ringTime: { fontSize: isTablet ? 48 : 42, fontWeight: '900', color: '#FFFFFF', letterSpacing: -2, textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   ringStateBadge: {
@@ -827,6 +1115,16 @@ const styles = StyleSheet.create({
     shadowColor: S.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1,
   },
   metaChipText: { fontSize: 12, fontWeight: '600', color: S.sub, flexShrink: 1 },
+  presetRow: { flexDirection: 'row', gap: 5 },
+  presetChip: {
+    flex: 1,
+    paddingHorizontal: 4, paddingVertical: 11, borderRadius: 12,
+    borderWidth: 1, borderColor: S.cardBorder, backgroundColor: S.card,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  presetChipActive: { backgroundColor: S.tealLt, borderColor: `${S.teal}40` },
+  presetChipText: { fontSize: 11, fontWeight: '700', color: S.sub, textAlign: 'center' },
+  presetChipTextActive: { color: S.tealDk },
 
   // Controls
   controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginVertical: 4 },
@@ -883,6 +1181,20 @@ const styles = StyleSheet.create({
   notesCompleteBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 16 },
   notesCompleteBtnText: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
 
+  outcomeCard: {
+    width: '90%', alignSelf: 'center', backgroundColor: S.card, borderRadius: 28,
+    paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18, borderWidth: 1, borderColor: S.cardBorder,
+  },
+  outcomeEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: S.teal, marginTop: 6 },
+  outcomeTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: S.ink, marginTop: 8 },
+  outcomeSub: { fontSize: 13, lineHeight: 20, color: S.sub, marginTop: 6 },
+  outcomeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+  outcomeBtn: {
+    width: '48%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 18,
+    borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+  },
+  outcomeBtnText: { fontSize: 15, fontWeight: '700', color: S.ink, textAlign: 'center' },
+
   // Modals overlay
   overlay: { flex: 1, backgroundColor: 'rgba(2,6,23,0.42)', justifyContent: 'flex-end', padding: 16 },
 
@@ -908,6 +1220,7 @@ const styles = StyleSheet.create({
   durationCellActive: { backgroundColor: S.teal, borderColor: S.teal },
   durationNum: { fontSize: 22, fontWeight: '900', color: S.ink },
   durationUnit: { fontSize: 11, fontWeight: '600', color: S.muted, marginTop: 2 },
+  durationPresetLabel: { fontSize: 11, fontWeight: '700', color: S.sub, marginTop: 6 },
   modalCloseBtn: {
     height: 46, borderRadius: 13, backgroundColor: S.bg1,
     borderWidth: 1, borderColor: S.cardBorder, alignItems: 'center', justifyContent: 'center',

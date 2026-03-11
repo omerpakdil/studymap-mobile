@@ -27,6 +27,7 @@ export interface OnboardingSnapshotV2 {
   targetValueRaw: string;
   targetValueNormalized: number;
   targetScore: string;
+  preferredSessionMinutes: 25 | 45 | 60 | 90;
   studyIntensity: StudyIntensity;
   reminderFrequency: string;
   motivation: string;
@@ -85,6 +86,11 @@ export const migrateLegacyOnboardingToV2 = (legacy: OnboardingData): OnboardingS
     targetValueRaw: targetModel.raw,
     targetValueNormalized: targetModel.normalized,
     targetScore: legacyTarget,
+    preferredSessionMinutes: legacy.learningStyleData?.preferences?.sessionLength === 'short'
+      ? 25
+      : legacy.learningStyleData?.preferences?.sessionLength === 'long'
+        ? 90
+        : 45,
     studyIntensity,
     reminderFrequency: legacy.goalsData?.reminderFrequency || 'moderate',
     motivation: legacy.goalsData?.motivation || '',
@@ -97,6 +103,10 @@ export const migrateLegacyOnboardingToV2 = (legacy: OnboardingData): OnboardingS
 
 export const toLegacyOnboardingData = (snapshot: OnboardingSnapshotV2): OnboardingData => {
   const selectedExam = availableExams.find((exam) => exam.id === snapshot.examId);
+  const sessionLength =
+    snapshot.preferredSessionMinutes <= 25 ? 'short' :
+    snapshot.preferredSessionMinutes >= 90 ? 'long' :
+    'medium';
 
   return {
     examData: {
@@ -114,7 +124,15 @@ export const toLegacyOnboardingData = (snapshot: OnboardingSnapshotV2): Onboardi
       motivation: snapshot.motivation,
     },
     scheduleData: snapshot.weeklyAvailability,
-    learningStyleData: snapshot.learningStyle || null,
+    learningStyleData: snapshot.learningStyle
+      ? {
+          ...snapshot.learningStyle,
+          preferences: {
+            ...snapshot.learningStyle.preferences,
+            sessionLength,
+          },
+        }
+      : null,
     completedAt: snapshot.createdAt || new Date().toISOString(),
     isComplete: true,
   };
@@ -143,7 +161,16 @@ export const persistOnboardingV2ToLegacyStorage = async (
   });
 
   if (snapshot.learningStyle) {
-    await saveLearningStyleData(snapshot.learningStyle);
+    await saveLearningStyleData({
+      ...snapshot.learningStyle,
+      preferences: {
+        ...snapshot.learningStyle.preferences,
+        sessionLength:
+          snapshot.preferredSessionMinutes <= 25 ? 'short' :
+          snapshot.preferredSessionMinutes >= 90 ? 'long' :
+          'medium',
+      },
+    });
   }
 
   await markOnboardingComplete();

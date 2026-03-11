@@ -11,22 +11,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { getCountryByCode } from '@/app/data/countries';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -45,11 +46,11 @@ const C = {
   backBorder: 'rgba(0,0,0,0.06)',
   backArrow:  '#64748B',
   brand:      '#0F9D8C',
-  footer:     'rgba(250,251,252,0.97)',
+  footer:     'transparent',
   footerBorder: 'rgba(15,23,42,0.07)',
 };
 
-type StepId = 'primary_style' | 'reminder_frequency' | 'session_length' | 'break_frequency' | 'study_environment';
+type StepId = 'primary_style' | 'reminder_frequency' | 'break_frequency' | 'study_environment';
 
 interface Option { id: string; label: string; desc: string }
 interface Step { id: StepId; title: string; question: string; options: Option[] }
@@ -73,16 +74,6 @@ const STEPS: Step[] = [
       { id: 'minimal',   label: 'Minimal',   desc: 'Only essential reminders. You self-direct.' },
       { id: 'moderate',  label: 'Moderate',  desc: 'Balanced daily check-ins.' },
       { id: 'frequent',  label: 'Frequent',  desc: 'High-frequency accountability prompts.' },
-    ],
-  },
-  {
-    id: 'session_length',
-    title: 'Session Length',
-    question: 'What study block length works best for you?',
-    options: [
-      { id: 'short',  label: 'Short',    desc: '20–30 min blocks with frequent resets.' },
-      { id: 'medium', label: 'Balanced', desc: '45–60 min sessions with steady load.' },
-      { id: 'long',   label: 'Deep',     desc: '90 min+ focused blocks for depth.' },
     ],
   },
   {
@@ -110,7 +101,6 @@ const STEPS: Step[] = [
 const SUMMARY_LABELS: Record<string, string> = {
   visual:'Visual', auditory:'Auditory', kinesthetic:'Kinesthetic',
   minimal:'Minimal', moderate:'Moderate', frequent:'Frequent',
-  short:'Short', medium:'Balanced', long:'Deep',
   low:'Fewer', normal:'Standard', high:'More',
   quiet:'Silent', mixed:'Mixed', ambient:'Ambient',
 };
@@ -161,7 +151,6 @@ export default function OnboardingV2LearningStyleScreen() {
   const getValue = (id: StepId): string => {
     if (id === 'primary_style')      return draft.learningStyle?.primaryStyle ?? '';
     if (id === 'reminder_frequency') return draft.reminderFrequency ?? '';
-    if (id === 'session_length')     return draft.learningStyle?.preferences?.sessionLength ?? '';
     if (id === 'break_frequency')    return draft.learningStyle?.preferences?.breakFrequency ?? '';
     return draft.learningStyle?.preferences?.studyEnvironment ?? '';
   };
@@ -174,7 +163,6 @@ export default function OnboardingV2LearningStyleScreen() {
       updateDraft({ reminderFrequency: val as any });
     else
       updateDraft({ learningStyle: { ...ls, preferences: { ...ls.preferences, [
-        id === 'session_length' ? 'sessionLength' :
         id === 'break_frequency' ? 'breakFrequency' : 'studyEnvironment'
       ]: val } } });
   };
@@ -238,7 +226,7 @@ export default function OnboardingV2LearningStyleScreen() {
           </View>
         </View>
         <Text style={[s.stepLabel,{color:C.labelMuted}]}>
-          {t('common.step_of', { lang, params: { current: 9, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 10, total: 13 } })}
         </Text>
 
         {/* ── Title ── */}
@@ -460,8 +448,8 @@ const s = StyleSheet.create({
   summaryChipVal:{ fontSize:12, fontWeight:'700' },
 
   // Footer
-  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:12, paddingBottom:32, borderTopWidth:StyleSheet.hairlineWidth },
-  cta:{ height:52, borderRadius:13, flexDirection:'row', alignItems:'center', justifyContent:'center',
+  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#0F9D8C', shadowOffset:{width:0,height:5}, shadowOpacity:0.24, shadowRadius:14, elevation:7 },
   ctaDisabled:{ backgroundColor:'rgba(148,163,184,0.18)', shadowOpacity:0, elevation:0 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },

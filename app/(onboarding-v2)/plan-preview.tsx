@@ -16,40 +16,42 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    ActivityIndicator,
+    Animated,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { getCountryByCode } from '@/app/data/countries';
-import { resolveAppLanguage, t } from '@/app/i18n';
-import { getLocalizedTaskTypeLabel } from '@/app/i18n/taskContent';
+import type { SupportedLanguage } from '@/app/i18n';
+import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
+import { getHourUnitShort } from '@/app/i18n/unitFormat';
 import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
+import { getLocalizedTaskTypeLabel } from '@/app/i18n/taskContent';
 import {
-  persistOnboardingV2ToLegacyStorage,
-  toLegacyOnboardingData,
-  type OnboardingSnapshotV2,
+    persistOnboardingV2ToLegacyStorage,
+    toLegacyOnboardingData,
+    type OnboardingSnapshotV2,
 } from '@/app/utils/onboardingV2';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepValidationFail,
-  trackOnboardingStepView,
-  trackOnboardingV2Event,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepValidationFail,
+    trackOnboardingStepView,
+    trackOnboardingV2Event,
 } from '@/app/utils/onboardingV2Analytics';
 import { generateStudyProgramWithRules } from '@/app/utils/planner/ruleBasedStudyGenerator';
 import { syncRemoteNotificationState } from '@/app/utils/remoteNotificationService';
 import { saveDailyTasks, saveStudyProgram } from '@/app/utils/studyProgramStorage';
 import type { StudyProgram } from '@/app/utils/studyTypes';
-import type { SupportedLanguage } from '@/app/i18n';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -204,19 +206,6 @@ const EXPLAIN_COPY: Record<SupportedLanguage, {
   },
 };
 
-const HOUR_UNIT: Record<SupportedLanguage, string> = {
-  en: 'h',
-  tr: 'sa',
-  de: 'Std',
-  fr: 'h',
-  ja: '時間',
-  ko: '시간',
-  'zh-Hans': '小时',
-  ar: 'س',
-  hi: 'घं',
-  id: 'jam',
-  'pt-BR': 'h',
-};
 
 const toSnapshot = (draft: ReturnType<typeof useOnboardingV2>['draft']): OnboardingSnapshotV2 => ({
   countryCode:       draft.countryCode,
@@ -228,6 +217,7 @@ const toSnapshot = (draft: ReturnType<typeof useOnboardingV2>['draft']): Onboard
   targetValueRaw:    draft.targetValueRaw,
   targetValueNormalized: draft.targetValueNormalized,
   targetScore:       draft.targetScore,
+  preferredSessionMinutes: draft.preferredSessionMinutes,
   studyIntensity:    draft.studyIntensity,
   reminderFrequency: draft.reminderFrequency,
   motivation:        draft.motivation,
@@ -480,7 +470,15 @@ export default function OnboardingV2PlanPreviewScreen() {
     [draft.examId, lang]
   );
   const explainCopy = EXPLAIN_COPY[lang] ?? EXPLAIN_COPY.en;
-  const hourUnit = HOUR_UNIT[lang] ?? HOUR_UNIT.en;
+  const hourUnit = getHourUnitShort(lang);
+  const formatHourValue = useCallback((value: number) => {
+    const normalized = Math.round(value * 10) / 10;
+    const hasFraction = Math.abs(normalized - Math.round(normalized)) >= 0.05;
+    return new Intl.NumberFormat(getLocaleTagForLanguage(lang), {
+      minimumFractionDigits: hasFraction ? 1 : 0,
+      maximumFractionDigits: hasFraction ? 1 : 0,
+    }).format(normalized);
+  }, [lang]);
   const localizedExplainability = useMemo(() => {
     if (!explainabilityTask?.explainability) return null;
     const signals = explainabilityTask.explainability.signals;
@@ -566,7 +564,7 @@ export default function OnboardingV2PlanPreviewScreen() {
           </View>
         </View>
         <Text style={[s.stepLabel,{color:C.labelMuted}]}>
-          {t('common.step_of', { lang, params: { current: 10, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 11, total: 13 } })}
         </Text>
 
         {/* Title */}
@@ -624,7 +622,7 @@ export default function OnboardingV2PlanPreviewScreen() {
                 {/* KPIs */}
                 <View style={s.kpiCol}>
                   {[
-                    { val:`${program.weeklyHours}${hourUnit}`, lbl:t('onboarding.plan_preview.kpi_weekly_load', { lang, fallback: 'weekly load' }) },
+                    { val:`${formatHourValue(program.weeklyHours)}${hourUnit}`, lbl:t('onboarding.plan_preview.kpi_weekly_load', { lang, fallback: 'weekly load' }) },
                     { val:`${program.dailyTasks.length}`,  lbl:t('onboarding.plan_preview.kpi_total_tasks', { lang, fallback: 'total tasks' }) },
                     { val:`${activeDays}`, lbl:t('onboarding.plan_preview.kpi_study_days', { lang, fallback: 'study days' }) },
                   ].map((k,i)=>(
@@ -658,7 +656,7 @@ export default function OnboardingV2PlanPreviewScreen() {
                     <View key={name} style={s.subjectRow}>
                       <Text style={[s.subjectName,{color:C.sub}, isNarrow && s.subjectNameNarrow]} numberOfLines={1}>{subjectLabel(name)}</Text>
                       <BarFill fill={hours/maxSubjectHours} delay={300+i*80}/>
-                      <Text style={[s.subjectHrs,{color:C.teal}]}>{hours}{hourUnit}</Text>
+                      <Text style={[s.subjectHrs,{color:C.teal}]}>{formatHourValue(hours)}{hourUnit}</Text>
                     </View>
                   ))}
                 </View>
@@ -762,10 +760,10 @@ const s = StyleSheet.create({
   root:{ flex:1, backgroundColor:'#080C0B' },
   orbA:{ position:'absolute', width:280, height:280, borderRadius:999, top:-80, right:-110 },
   orbB:{ position:'absolute', width:180, height:180, borderRadius:999, bottom:160, left:-80 },
-  inner:{ flex:1, paddingHorizontal:22, paddingTop:8, paddingBottom:98 },
-  innerTight:{ paddingTop:4, paddingBottom:92 },
+  inner:{ flex:1, paddingHorizontal:22, paddingTop:6, paddingBottom:88 },
+  innerTight:{ paddingTop:4, paddingBottom:84 },
 
-  headerRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:10 },
+  headerRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 },
   backBtn:{ width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
   backArrow:{ fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
   brandRow:{ flexDirection:'row', alignItems:'center', gap:6 },
@@ -775,38 +773,38 @@ const s = StyleSheet.create({
   progressTrack:{ height:3, borderRadius:99, overflow:'hidden', marginBottom:6 },
   progressFill:{ height:'100%', borderRadius:99, overflow:'hidden' },
   progressSheen:{ position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.20)' },
-  stepLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:10, opacity:0.65 },
+  stepLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:8, opacity:0.65 },
 
-  title:{ fontSize:25, fontWeight:'900', lineHeight:30, letterSpacing:-0.5, marginBottom:6 },
-  titleNarrow:{ fontSize:23, lineHeight:28 },
+  title:{ fontSize:22, fontWeight:'900', lineHeight:27, letterSpacing:-0.4, marginBottom:4 },
+  titleNarrow:{ fontSize:20, lineHeight:24 },
 
   // Loading
-  loadCard:{ borderWidth:1, borderRadius:16, padding:16, gap:10, alignItems:'center' },
+  loadCard:{ borderWidth:1, borderRadius:16, padding:14, gap:9, alignItems:'center' },
   loadCopy:{ alignItems:'center', gap:4 },
-  loadTitle:{ fontSize:16, fontWeight:'800', letterSpacing:-0.2 },
-  loadPhase:{ fontSize:12, fontWeight:'400', textAlign:'center' },
+  loadTitle:{ fontSize:15, fontWeight:'800', letterSpacing:-0.2 },
+  loadPhase:{ fontSize:11, fontWeight:'400', textAlign:'center' },
   phaseDots:{ flexDirection:'row', gap:6 },
   phaseDot:{ width:6, height:6, borderRadius:3 },
   retryBtn:{ borderRadius:10, paddingHorizontal:16, paddingVertical:8 },
   retryTxt:{ fontSize:13, fontWeight:'700' },
 
   // Success
-  successWrap:{ gap:4 },
+  successWrap:{ gap:3 },
 
   // Hero card
   heroCard:{ borderWidth:1, borderRadius:14, overflow:'hidden' },
   heroBar:{ height:3 },
-  heroInner:{ flexDirection:'row', alignItems:'center', padding:9, gap:9 },
-  kpiCol:{ flex:1, gap:3 },
+  heroInner:{ flexDirection:'row', alignItems:'center', padding:8, gap:8 },
+  kpiCol:{ flex:1, gap:2 },
   kpiItem:{ flexDirection:'row', alignItems:'baseline', gap:6 },
-  kpiVal:{ fontSize:16, fontWeight:'900', letterSpacing:-0.4 },
+  kpiVal:{ fontSize:15, fontWeight:'900', letterSpacing:-0.3 },
   kpiLbl:{ fontSize:9, fontWeight:'400', flex:1 },
   feasRow:{ flexDirection:'row', alignItems:'flex-start', gap:8, paddingHorizontal:9, paddingVertical:6, borderTopWidth:1 },
   feasDot:{ width:6, height:6, borderRadius:3, marginTop:4, flexShrink:0 },
   feasTxt:{ flex:1, fontSize:10, fontWeight:'400', lineHeight:15 },
 
   // Generic card
-  card:{ borderWidth:1, borderRadius:13, padding:7, gap:4 },
+  card:{ borderWidth:1, borderRadius:13, padding:6, gap:4 },
   cardTitle:{ fontSize:10, fontWeight:'600', letterSpacing:0.7, textTransform:'uppercase' },
 
   // Subjects
@@ -840,9 +838,9 @@ const s = StyleSheet.create({
   targetSummary:{ fontSize:9, fontWeight:'500', marginTop:-1, marginBottom:0, lineHeight:13 },
 
   // Footer
-  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:18, borderTopWidth:StyleSheet.hairlineWidth },
-  footerTight:{ paddingTop:5, paddingBottom:14 },
-  cta:{ height:48, borderRadius:12, flexDirection:'row', alignItems:'center', justifyContent:'center',
+  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  footerTight:{ paddingTop:FOOTER.tightPaddingTop, paddingBottom:FOOTER.tightPaddingBottom },
+  cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#14B8A6', shadowOffset:{width:0,height:6}, shadowOpacity:0.32, shadowRadius:16, elevation:8 },
   ctaDisabled:{ backgroundColor:'rgba(100,116,139,0.14)', shadowOpacity:0, elevation:0 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.10)' },

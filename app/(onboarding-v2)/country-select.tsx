@@ -2,26 +2,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  Animated,
-  ImageStyle,
-  SafeAreaView,
-  StyleProp,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    ImageStyle,
+    SafeAreaView,
+    StatusBar,
+    StyleProp,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { getCountryByCode, getInitialCountry, getInitialLanguage, supportedCountries } from '@/app/data/countries';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepValidationFail,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepValidationFail,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 import CountryFlag from 'react-native-country-flag';
 
@@ -218,7 +219,7 @@ export default function OnboardingV2CountrySelectScreen() {
           </View>
         </View>
         <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
-          {t('common.step_of', { lang, params: { current: 2, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 2, total: 13 } })}
         </Text>
         <Text style={[styles.title, { color: C.title }]}>{t('onboarding.country_select.title', { lang })}</Text>
         <Text style={[styles.sub, { color: C.sub }]}>{t('onboarding.country_select.subtitle', { lang })}</Text>
@@ -472,11 +473,11 @@ const styles = StyleSheet.create({
   // ── Footer
   footer: {
     position:'absolute', left:0, right:0, bottom:0,
-    paddingHorizontal:18, paddingTop:12, paddingBottom:29,
+    paddingHorizontal:18, paddingTop:6, paddingBottom:36,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   cta: {
-    height:54, borderRadius:14, flexDirection:'row',
+    height:48, borderRadius:FOOTER.ctaRadius, flexDirection:'row',
     alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8,
     shadowColor:'#0D9488', shadowOffset:{width:0,height:6},

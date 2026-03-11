@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
 import { getLocalizedTaskTitle } from '@/app/i18n/taskContent';
 import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
+import { formatMinutesCompact, getMinuteUnitShort } from '@/app/i18n/unitFormat';
 import { getProgramMetadata, loadDailyTasks } from '@/app/utils/studyProgramStorage';
 import { StudyTask } from '@/app/utils/studyTypes';
 
@@ -193,7 +194,7 @@ function AnimatedTaskCard({ task, isCompleted, onPress, index, subjectLabel, app
             <View style={styles.taskMetaDivider} />
             <View style={styles.taskMetaItem}>
               <Ionicons name="timer-outline" size={12} color={C.muted} />
-              <Text style={styles.taskMetaText}>{task.duration}m</Text>
+              <Text style={styles.taskMetaText}>{formatMinutesCompact(task.duration, appLang)}</Text>
             </View>
           </View>
         </View>
@@ -497,7 +498,7 @@ export default function CalendarScreen() {
                   </View>
                   <View style={styles.heroStatDivider} />
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatVal}>{mins}m</Text>
+                    <Text style={styles.heroStatVal}>{mins}{getMinuteUnitShort(appLang)}</Text>
                     <Text style={styles.heroStatLbl}>{t('tabs.calendar.total', { lang: appLang, fallback: 'Total' })}</Text>
                   </View>
                 </View>
@@ -600,7 +601,7 @@ export default function CalendarScreen() {
                     activeOpacity={0.78}
                   >
                     <Text style={[styles.peekTaskSubject, { color: C.tealDk }, done && styles.strikeText]}>{subjectLabel(task.subject)}</Text>
-                    <Text style={[styles.peekTaskDuration, { color: C.tealDk }]}>{task.duration}m</Text>
+                    <Text style={[styles.peekTaskDuration, { color: C.tealDk }]}>{formatMinutesCompact(task.duration, appLang)}</Text>
                     {done && <Ionicons name="checkmark-circle" size={14} color={C.teal} />}
                   </TouchableOpacity>
                 );
@@ -731,7 +732,7 @@ export default function CalendarScreen() {
                   {t('tabs.calendar.day_progress', {
                     lang: appLang,
                     params: { completed: completedCount, total: tasks.length, minutes: totalMins },
-                    fallback: `${completedCount} of ${tasks.length} complete · ${totalMins}m total`,
+                    fallback: `${completedCount} of ${tasks.length} complete · ${formatMinutesCompact(totalMins, appLang)} total`,
                   })}
                 </Text>
               </View>

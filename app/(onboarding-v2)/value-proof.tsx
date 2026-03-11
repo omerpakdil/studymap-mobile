@@ -9,21 +9,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
-import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepView,
-} from '@/app/utils/onboardingV2Analytics';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { resolveAppLanguage, t } from '@/app/i18n';
+import {
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepView,
+} from '@/app/utils/onboardingV2Analytics';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -188,7 +189,7 @@ export default function OnboardingV2ValueProofScreen() {
           </View>
         </View>
         <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
-          {t('common.step_of', { lang, params: { current: 1, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 1, total: 13 } })}
         </Text>
 
         {/* Title */}
@@ -353,11 +354,11 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     position:'absolute', left:0, right:0, bottom:0,
-    paddingHorizontal:21, paddingTop:12, paddingBottom:29,
+    paddingHorizontal:21, paddingTop:6, paddingBottom:36,
     borderTopWidth:StyleSheet.hairlineWidth,
   },
   cta: {
-    height:53, borderRadius:13, flexDirection:'row',
+    height:48, borderRadius:FOOTER.ctaRadius, flexDirection:'row',
     alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8,
     shadowColor:'#10B981', shadowOffset:{width:0,height:6},

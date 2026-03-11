@@ -7,7 +7,7 @@
  */
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   Animated,
   SafeAreaView,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 6,
     left: 0,
     right: 0,
     paddingHorizontal: 19,

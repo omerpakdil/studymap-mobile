@@ -18,33 +18,34 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Linking,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
+    ActivityIndicator,
+    Animated,
+    Easing,
+    Linking,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
 } from 'react-native';
 import { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
-import { getLocaleTagForLanguage, resolveAppLanguage, t, type SupportedLanguage } from '@/app/i18n';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { getExamGoalConfig, type GoalMetricType } from '@/app/data/examGoalConfigs';
+import { getLocaleTagForLanguage, resolveAppLanguage, t, type SupportedLanguage } from '@/app/i18n';
 import { trackEvent } from '@/app/utils/analytics';
 import { getBaseExamId } from '@/app/utils/examTrackUtils';
 import { trackOnboardingV2Event } from '@/app/utils/onboardingV2Analytics';
 import {
-  checkIntroEligibility,
-  getSubscriptionOfferings,
-  initializeRevenueCat,
-  restorePurchases,
+    checkIntroEligibility,
+    getSubscriptionOfferings,
+    initializeRevenueCat,
+    restorePurchases,
 } from '@/app/utils/subscriptionManager';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -313,105 +314,120 @@ function getCompactExamLabel(examName?: string, examId?: string): string {
   return compact || 'Exam';
 }
 
-function getScoreGainLabel(lang: SupportedLanguage, examLabel: string): string {
+function getScoreGainLabel(lang: SupportedLanguage): string {
   switch (lang) {
     case 'tr':
-      return `ortalama ${examLabel} puan artışı`;
+      return 'ortalama puan artışı';
     case 'de':
-      return `Ø ${examLabel} Punkteplus`;
+      return 'Ø Punkteplus';
     case 'fr':
-      return `gain moyen en score ${examLabel}`;
+      return 'gain moyen en score';
     case 'ar':
-      return `متوسط زيادة درجة ${examLabel}`;
+      return 'متوسط زيادة الدرجات';
     case 'ja':
-      return `平均${examLabel}スコア向上`;
+      return '平均スコア向上';
     case 'ko':
-      return `평균 ${examLabel} 점수 상승`;
+      return '평균 점수 상승';
     case 'pt-BR':
-      return `ganho médio de pontuação em ${examLabel}`;
+      return 'ganho médio de pontuação';
     case 'zh-Hans':
-      return `${examLabel} 平均分提升`;
+      return '平均分提升';
     case 'id':
-      return `rata-rata kenaikan skor ${examLabel}`;
+      return 'rata-rata kenaikan skor';
     case 'hi':
-      return `${examLabel} में औसत स्कोर वृद्धि`;
+      return 'औसत स्कोर वृद्धि';
     case 'en':
     default:
-      return `avg ${examLabel} score gain`;
+      return 'avg score gain';
   }
 }
 
-function getMetricLiftLabel(lang: SupportedLanguage, examLabel: string, metricType: GoalMetricType): string {
+function getMetricLiftLabel(lang: SupportedLanguage, _examLabel: string, metricType: GoalMetricType): string {
   switch (metricType) {
     case 'rank':
       switch (lang) {
-        case 'tr': return `ortalama ${examLabel} sıralama iyileşmesi`;
-        case 'de': return `Ø ${examLabel} Rangverbesserung`;
-        case 'fr': return `amélioration moyenne du classement ${examLabel}`;
-        case 'ar': return `متوسط تحسن ترتيب ${examLabel}`;
-        case 'ja': return `平均${examLabel}順位改善`;
-        case 'ko': return `평균 ${examLabel} 순위 개선`;
-        case 'pt-BR': return `melhora média de ranking em ${examLabel}`;
-        case 'zh-Hans': return `${examLabel} 平均排名提升`;
-        case 'id': return `rata-rata peningkatan peringkat ${examLabel}`;
-        case 'hi': return `${examLabel} में औसत रैंक सुधार`;
+        case 'tr': return 'ortalama sıralama iyileşmesi';
+        case 'de': return 'Ø Rangverbesserung';
+        case 'fr': return 'amélioration moyenne du classement';
+        case 'ar': return 'متوسط تحسن الترتيب';
+        case 'ja': return '平均順位改善';
+        case 'ko': return '평균 순위 개선';
+        case 'pt-BR': return 'melhora média de ranking';
+        case 'zh-Hans': return '平均排名提升';
+        case 'id': return 'rata-rata peningkatan peringkat';
+        case 'hi': return 'औसत रैंक सुधार';
         case 'en':
         default:
-          return `avg ${examLabel} rank improvement`;
+          return 'avg rank improvement';
       }
     case 'band':
       switch (lang) {
-        case 'tr': return `ortalama ${examLabel} band artışı`;
-        case 'de': return `Ø ${examLabel} Bandanstieg`;
-        case 'fr': return `progression moyenne de bande ${examLabel}`;
-        case 'ar': return `متوسط ارتفاع مستوى ${examLabel}`;
-        case 'ja': return `平均${examLabel}バンド上昇`;
-        case 'ko': return `평균 ${examLabel} 밴드 상승`;
-        case 'pt-BR': return `ganho médio de banda em ${examLabel}`;
-        case 'zh-Hans': return `${examLabel} 平均分段提升`;
-        case 'id': return `kenaikan band rata-rata ${examLabel}`;
-        case 'hi': return `${examLabel} में औसत बैंड वृद्धि`;
+        case 'tr': return 'ortalama band artışı';
+        case 'de': return 'Ø Bandanstieg';
+        case 'fr': return 'progression moyenne de bande';
+        case 'ar': return 'متوسط ارتفاع الباند';
+        case 'ja': return '平均バンド上昇';
+        case 'ko': return '평균 밴드 상승';
+        case 'pt-BR': return 'ganho médio de banda';
+        case 'zh-Hans': return '平均分段提升';
+        case 'id': return 'kenaikan band rata-rata';
+        case 'hi': return 'औसत बैंड वृद्धि';
         case 'en':
         default:
-          return `avg ${examLabel} band increase`;
+          return 'avg band increase';
       }
     case 'level':
     case 'grade':
-    case 'pass':
       switch (lang) {
-        case 'tr': return `ortalama ${examLabel} hazır olma artışı`;
-        case 'de': return `Ø ${examLabel} Bereitschaftsanstieg`;
-        case 'fr': return `hausse moyenne de préparation ${examLabel}`;
-        case 'ar': return `متوسط ارتفاع الجاهزية لـ ${examLabel}`;
-        case 'ja': return `平均${examLabel}到達度向上`;
-        case 'ko': return `평균 ${examLabel} 준비도 상승`;
-        case 'pt-BR': return `aumento médio de prontidão em ${examLabel}`;
-        case 'zh-Hans': return `${examLabel} 平均准备度提升`;
-        case 'id': return `kenaikan kesiapan rata-rata ${examLabel}`;
-        case 'hi': return `${examLabel} में औसत तैयारी वृद्धि`;
+        case 'tr': return 'ortalama seviye artışı';
+        case 'de': return 'Ø Niveauanstieg';
+        case 'fr': return 'hausse moyenne de niveau';
+        case 'ar': return 'متوسط ارتفاع المستوى';
+        case 'ja': return '平均レベル向上';
+        case 'ko': return '평균 레벨 상승';
+        case 'pt-BR': return 'aumento médio de nível';
+        case 'zh-Hans': return '平均等级提升';
+        case 'id': return 'kenaikan level rata-rata';
+        case 'hi': return 'औसत स्तर वृद्धि';
         case 'en':
         default:
-          return `avg ${examLabel} readiness lift`;
+          return 'avg level improvement';
+      }
+    case 'pass':
+      switch (lang) {
+        case 'tr': return 'ortalama başarı oranı artışı';
+        case 'de': return 'Ø Bestehensquote-Anstieg';
+        case 'fr': return 'hausse moyenne du taux de réussite';
+        case 'ar': return 'متوسط ارتفاع معدل النجاح';
+        case 'ja': return '平均合格率上昇';
+        case 'ko': return '평균 합격률 상승';
+        case 'pt-BR': return 'aumento médio na taxa de aprovação';
+        case 'zh-Hans': return '平均通过率提升';
+        case 'id': return 'kenaikan rata-rata tingkat kelulusan';
+        case 'hi': return 'औसत पास दर वृद्धि';
+        case 'en':
+        default:
+          return 'avg pass-rate lift';
       }
     case 'percentile':
       switch (lang) {
-        case 'tr': return `ortalama ${examLabel} yüzdelik artışı`;
-        case 'de': return `Ø ${examLabel} Perzentil-Anstieg`;
-        case 'fr': return `hausse moyenne du percentile ${examLabel}`;
-        case 'ar': return `متوسط ارتفاع النسبة المئوية في ${examLabel}`;
-        case 'ja': return `平均${examLabel}パーセンタイル上昇`;
-        case 'ko': return `평균 ${examLabel} 백분위 상승`;
-        case 'pt-BR': return `ganho médio de percentil em ${examLabel}`;
-        case 'zh-Hans': return `${examLabel} 平均百分位提升`;
-        case 'id': return `kenaikan persentil rata-rata ${examLabel}`;
-        case 'hi': return `${examLabel} में औसत परसेंटाइल वृद्धि`;
+        case 'tr': return 'ortalama yüzdelik artışı';
+        case 'de': return 'Ø Perzentil-Anstieg';
+        case 'fr': return 'hausse moyenne du percentile';
+        case 'ar': return 'متوسط ارتفاع النسبة المئوية';
+        case 'ja': return '平均パーセンタイル上昇';
+        case 'ko': return '평균 백분위 상승';
+        case 'pt-BR': return 'ganho médio de percentil';
+        case 'zh-Hans': return '平均百分位提升';
+        case 'id': return 'kenaikan persentil rata-rata';
+        case 'hi': return 'औसत परसेंटाइल वृद्धि';
         case 'en':
         default:
-          return `avg ${examLabel} percentile gain`;
+          return 'avg percentile gain';
       }
     case 'score':
     default:
-      return getScoreGainLabel(lang, examLabel);
+      return getScoreGainLabel(lang);
   }
 }
 
@@ -1367,13 +1383,13 @@ const s = StyleSheet.create({
   errTxt:{ fontSize:12, fontWeight:'500', textAlign:'center' },
   retryBtn:{ borderWidth:1, borderRadius:12, paddingHorizontal:24, paddingVertical:12 },
 
-  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:10, paddingBottom:20, borderTopWidth:StyleSheet.hairlineWidth, gap:7 },
-  footerTight:{ paddingTop:6, paddingBottom:18, gap:5 },
+  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:10, paddingBottom:18, borderTopWidth:StyleSheet.hairlineWidth, gap:7 },
+  footerTight:{ paddingTop:8, paddingBottom:14, gap:5 },
   priceCtxRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', gap:8 },
   priceCtxRowCompact:{ alignItems:'flex-start' },
   priceCtxMain:{ fontSize:11, fontWeight:'400', flex:1, marginRight:8 },
   priceCtxFree:{ fontSize:12, fontWeight:'700', flexShrink:1, textAlign:'right' },
-  cta:{ height:50, borderRadius:13, flexDirection:'row', alignItems:'center', justifyContent:'center',
+  cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:C.amber, shadowOffset:{width:0,height:8}, shadowOpacity:0.38, shadowRadius:20, elevation:10 },
   ctaDim:{ backgroundColor:'rgba(100,80,40,0.18)', shadowOpacity:0, elevation:0 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.12)' },

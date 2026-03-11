@@ -15,6 +15,7 @@ export interface OnboardingV2Draft {
   targetValueRaw: string;
   targetValueNormalized: number;
   targetScore: string;
+  preferredSessionMinutes: 25 | 45 | 60 | 90;
   studyIntensity: 'relaxed' | 'moderate' | 'intensive' | 'extreme';
   reminderFrequency: 'minimal' | 'moderate' | 'frequent';
   motivation: string;
@@ -41,6 +42,7 @@ const defaultDraft: OnboardingV2Draft = {
   targetValueRaw: '',
   targetValueNormalized: 0,
   targetScore: '',
+  preferredSessionMinutes: 45,
   studyIntensity: 'moderate',
   reminderFrequency: 'moderate',
   motivation: '',

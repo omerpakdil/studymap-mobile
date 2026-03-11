@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { getCountryByCode } from '@/app/data/countries';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import { trackOnboardingStepBack, trackOnboardingStepContinue, trackOnboardingStepView } from '@/app/utils/onboardingV2Analytics';
@@ -225,7 +226,7 @@ const s = StyleSheet.create({
   },
   errText: { color: C.err, fontSize: 12, fontWeight: '600', marginTop: 4 },
 
-  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 22, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.tealBorder, backgroundColor: 'rgba(8,12,11,0.95)' },
-  cta: { height: 52, borderRadius: 13, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  footer: { position: 'absolute', left: 0, right: 0, bottom:0, paddingHorizontal: 22, paddingTop: FOOTER.paddingTop, paddingBottom: FOOTER.paddingBottom, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.tealBorder, backgroundColor: 'rgba(8,12,11,0.95)' },
+  cta: { height: FOOTER.ctaHeight, borderRadius: FOOTER.ctaRadius, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   ctaTxt: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.15 },
 });

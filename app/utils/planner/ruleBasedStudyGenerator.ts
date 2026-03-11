@@ -1,5 +1,6 @@
 import type { OnboardingData } from '../onboardingData';
 import { migrateLegacyOnboardingToV2, validateOnboardingV2 } from '../onboardingV2';
+import { loadStudySessionFeedback } from '../focusSessionFeedback';
 import { getSubjectFocusMultiplier, loadSubjectFocusOverrides, type SubjectFocusOverrides } from '../subjectFocusManager';
 import { getLocalDateKey } from '../localDate';
 import { getTaskCompletions, loadDailyTasks } from '../studyProgramStorage';
@@ -18,6 +19,8 @@ type TaskCandidate = {
   score: number;
   rebalanceBoost?: number;
   overdueCarry?: number;
+  reviewPressureBoost?: number;
+  shorterBlockBias?: number;
 };
 type RebalanceProfile = {
   completionRate: number;
@@ -29,6 +32,20 @@ type RebalanceProfile = {
       recentTotal: number;
       overdueCarry: number;
       boost: number;
+    }
+  >;
+};
+type ReviewPressureProfile = {
+  subjectStats: Record<
+    string,
+    {
+      easyCount: number;
+      okayCount: number;
+      hardCount: number;
+      incompleteCount: number;
+      recentOutcomeScore: number;
+      shortTermReviewBoost: number;
+      shorterBlockBias: number;
     }
   >;
 };
@@ -154,11 +171,11 @@ const SLOT_DURATION_TARGET: Record<string, number> = {
 };
 
 const SLOT_DAILY_CAPACITY: Record<string, number> = {
-  early_morning: 35,
-  morning: 70,
-  afternoon: 70,
-  evening: 75,
-  night: 45,
+  early_morning: 180,
+  morning: 180,
+  afternoon: 180,
+  evening: 180,
+  night: 180,
 };
 
 const SLOT_TYPE_MULTIPLIER: Record<string, Record<StudyTask['type'], number>> = {
@@ -269,6 +286,47 @@ const getDailyCapacityMinutes = (slots: string[]): number => {
   return slots.reduce((sum, slot) => sum + (SLOT_DAILY_CAPACITY[slot] ?? SLOT_DAILY_CAPACITY.morning), 0);
 };
 
+const getWeeklyTargetSessionCount = (input: PlannerInput): number =>
+  Math.max(1, Math.round((input.weeklyHours * 60) / input.preferredSessionMinutes));
+
+const allocateSessionsAcrossDays = (
+  dayCapacities: number[],
+  targetSessions: number,
+  preferredSessionMinutes: number
+): number[] => {
+  if (!dayCapacities.length || targetSessions <= 0) {
+    return dayCapacities.map(() => 0);
+  }
+
+  const sessionCapacityWeights = dayCapacities.map((minutes) =>
+    Math.max(0, minutes / Math.max(25, preferredSessionMinutes))
+  );
+  const totalWeight = sessionCapacityWeights.reduce((sum, value) => sum + value, 0);
+
+  if (totalWeight <= 0) {
+    const fallback = new Array(dayCapacities.length).fill(0);
+    fallback[0] = targetSessions;
+    return fallback;
+  }
+
+  const rawAllocation = sessionCapacityWeights.map((weight) => (weight / totalWeight) * targetSessions);
+  const allocated = rawAllocation.map((value) => Math.floor(value));
+  let remaining = targetSessions - allocated.reduce((sum, value) => sum + value, 0);
+
+  const remainders = rawAllocation
+    .map((value, idx) => ({ idx, remainder: value - Math.floor(value) }))
+    .sort((a, b) => b.remainder - a.remainder);
+
+  let cursor = 0;
+  while (remaining > 0 && remainders.length > 0) {
+    allocated[remainders[cursor % remainders.length].idx] += 1;
+    remaining -= 1;
+    cursor += 1;
+  }
+
+  return allocated;
+};
+
 const getDateKey = (date: Date): string => getLocalDateKey(date);
 
 const getPlannerRebalanceProfile = async (): Promise<RebalanceProfile> => {
@@ -328,6 +386,57 @@ const getPlannerRebalanceProfile = async (): Promise<RebalanceProfile> => {
     return { completionRate, overloadRisk, subjectStats: bySubject };
   } catch {
     return { completionRate: 0.7, overloadRisk: 0, subjectStats: {} };
+  }
+};
+
+const getReviewPressureProfile = async (): Promise<ReviewPressureProfile> => {
+  try {
+    const feedback = await loadStudySessionFeedback();
+    if (!feedback.length) return { subjectStats: {} };
+
+    const lookbackStart = new Date();
+    lookbackStart.setDate(lookbackStart.getDate() - 21);
+    const recent = feedback.filter((entry) => new Date(entry.createdAt) >= lookbackStart);
+    if (!recent.length) return { subjectStats: {} };
+
+    const bySubject: ReviewPressureProfile['subjectStats'] = {};
+    const outcomeWeights = {
+      easy: -0.15,
+      okay: 0,
+      hard: 0.45,
+      incomplete: 0.7,
+    } as const;
+
+    for (const entry of recent) {
+      const key = entry.subject;
+      if (!bySubject[key]) {
+        bySubject[key] = {
+          easyCount: 0,
+          okayCount: 0,
+          hardCount: 0,
+          incompleteCount: 0,
+          recentOutcomeScore: 0,
+          shortTermReviewBoost: 0,
+          shorterBlockBias: 0,
+        };
+      }
+
+      bySubject[key][`${entry.outcome}Count` as 'easyCount' | 'okayCount' | 'hardCount' | 'incompleteCount'] += 1;
+      bySubject[key].recentOutcomeScore += outcomeWeights[entry.outcome];
+    }
+
+    Object.values(bySubject).forEach((stats) => {
+      const hardPressure = stats.hardCount * 0.22;
+      const incompletePressure = stats.incompleteCount * 0.34;
+      const easyRelief = stats.easyCount * 0.06;
+
+      stats.shortTermReviewBoost = Math.max(0, Math.min(1.4, hardPressure + incompletePressure - easyRelief));
+      stats.shorterBlockBias = Math.max(0, Math.min(12, stats.incompleteCount * 4));
+    });
+
+    return { subjectStats: bySubject };
+  } catch {
+    return { subjectStats: {} };
   }
 };
 
@@ -424,7 +533,8 @@ const buildTaskCandidates = (
   focusOverrides: SubjectFocusOverrides,
   usageCount: Record<string, number>,
   lastScheduledDay: Record<string, number>,
-  rebalanceProfile: RebalanceProfile
+  rebalanceProfile: RebalanceProfile,
+  reviewPressureProfile: ReviewPressureProfile
 ): TaskCandidate[] => {
   const family = getExamFamily(input.examId);
   const subjectScores = new Map(
@@ -445,7 +555,10 @@ const buildTaskCandidates = (
     const lastDay = lastScheduledDay[subject] ?? -7;
     const daysSinceLast = Math.max(0, dayIndex - lastDay);
     const subjectRebalance = rebalanceProfile.subjectStats[subject];
+    const reviewPressure = reviewPressureProfile.subjectStats[subject];
     const rebalanceBoost = subjectRebalance?.boost ?? 0;
+    const reviewPressureBoost = reviewPressure?.shortTermReviewBoost ?? 0;
+    const shorterBlockBias = reviewPressure?.shorterBlockBias ?? 0;
 
     return allowedTypes.map((type) => {
       const phaseWeight = getTypeWeight(phase, type);
@@ -466,6 +579,14 @@ const buildTaskCandidates = (
         (subjectRebalance?.overdueCarry ?? 0) > 0 && (type === 'review' || type === 'practice')
           ? Math.min(0.7, (subjectRebalance?.overdueCarry ?? 0) * 0.14)
           : 0;
+      const reviewPressureTypeBoost =
+        type === 'review'
+          ? reviewPressureBoost * 0.9
+          : type === 'practice'
+            ? reviewPressureBoost * 0.45
+            : type === 'study'
+              ? -shorterBlockBias * 0.03
+              : 0;
       const overloadTypeAdjust =
         rebalanceProfile.overloadRisk > 0.3
           ? type === 'study'
@@ -484,6 +605,7 @@ const buildTaskCandidates = (
         + freshnessBoost
         + rebalanceBoost
         + carryTypeBoost
+        + reviewPressureTypeBoost
         + overloadTypeAdjust
         - repetitionPenalty
         - consecutiveTypePenalty;
@@ -494,6 +616,8 @@ const buildTaskCandidates = (
         score,
         rebalanceBoost,
         overdueCarry: subjectRebalance?.overdueCarry ?? 0,
+        reviewPressureBoost,
+        shorterBlockBias,
       };
     });
   });
@@ -508,6 +632,7 @@ const pickTaskCandidate = (
   usageCount: Record<string, number>,
   lastScheduledDay: Record<string, number>,
   rebalanceProfile: RebalanceProfile,
+  reviewPressureProfile: ReviewPressureProfile,
   seed: number
 ): TaskCandidate => {
   const candidates = buildTaskCandidates(
@@ -519,7 +644,8 @@ const pickTaskCandidate = (
     usageCount,
     lastScheduledDay
     ,
-    rebalanceProfile
+    rebalanceProfile,
+    reviewPressureProfile
   ).sort((a, b) => b.score - a.score);
 
   if (candidates.length === 0) {
@@ -548,6 +674,10 @@ const buildTaskExplainability = (
 
   if ((candidate.overdueCarry ?? 0) > 0) {
     reasons.push(`There are missed or delayed ${candidate.subject} tasks to absorb back into the plan.`);
+  }
+
+  if ((candidate.reviewPressureBoost ?? 0) > 0.2) {
+    reasons.push(`Recent hard or incomplete ${candidate.subject} sessions increased short-term review pressure.`);
   }
 
   if (rebalanceProfile.overloadRisk > 0.3) {
@@ -594,10 +724,12 @@ const pickModule = (
 
 const getTaskDuration = (
   input: PlannerInput,
+  subject: string,
   type: StudyTask['type'],
   timeSlot: string,
   phase: PlanningPhase,
-  durationBias: number
+  durationBias: number,
+  reviewPressureProfile: ReviewPressureProfile
 ): number => {
   const [minRecommended, maxRecommended] = input.recommendedSessionMinutes;
   const baseByType: Record<StudyTask['type'], number> = {
@@ -613,12 +745,13 @@ const getTaskDuration = (
   const slotTarget = SLOT_DURATION_TARGET[timeSlot] ?? 60;
   const slotMultiplier = SLOT_TYPE_MULTIPLIER[timeSlot]?.[type] ?? 1;
   const examFamily = getExamFamily(input.examId);
+  const shorterBlockBias = reviewPressureProfile.subjectStats[subject]?.shorterBlockBias ?? 0;
   const familyAdjust =
     examFamily === 'language' && type === 'practice' ? -5
       : examFamily === 'professional' && type === 'review' ? 5
         : examFamily === 'admissions' && type === 'practice' ? 5
           : 0;
-  const desired = Math.round((baseByType[type] + phaseAdjust + durationBias + familyAdjust) * slotMultiplier);
+  const desired = Math.round((baseByType[type] + phaseAdjust + durationBias + familyAdjust - shorterBlockBias) * slotMultiplier);
   const raw = Math.min(slotCap, Math.max(slotFloor, Math.min(slotTarget, desired)));
   return nearestStandardDuration(raw);
 };
@@ -729,18 +862,59 @@ const createMilestones = (input: PlannerInput) => {
 
 const createSubjectBreakdown = (input: PlannerInput, allTasks: StudyTask[]): StudyProgram['subjectBreakdown'] => {
   const bySubject: StudyProgram['subjectBreakdown'] = {};
+  const subjectMinutesMap = Object.fromEntries(
+    input.subjects.map((subject) => [
+      subject,
+      allTasks.filter((task) => task.subject === subject).reduce((acc, task) => acc + task.duration, 0),
+    ])
+  );
+  const totalMinutes = Object.values(subjectMinutesMap).reduce((acc, minutes) => acc + minutes, 0);
+  const totalIntensityWeight = Math.max(
+    1,
+    input.subjects.reduce((acc, subject) => acc + getIntensityDisplayWeight(input.subjectIntensity[subject] ?? 1), 0)
+  );
+  const subjectShares: { subject: string; share: number }[] = [];
 
   input.subjects.forEach((subject) => {
-    const subjectTasks = allTasks.filter((task) => task.subject === subject);
-    const totalHours = Math.round(subjectTasks.reduce((acc, task) => acc + task.duration, 0) / 60);
+    const subjectMinutes = subjectMinutesMap[subject] ?? 0;
+    const intensityLevel = input.subjectIntensity[subject] ?? 1;
+    const actualShare = totalMinutes > 0 ? subjectMinutes / totalMinutes : 1 / Math.max(1, input.subjects.length);
+    const targetShare = getIntensityDisplayWeight(intensityLevel) / totalIntensityWeight;
+    const blendedShare = subjectMinutes > 0 ? actualShare * 0.68 + targetShare * 0.32 : targetShare;
+    subjectShares.push({ subject, share: blendedShare });
 
     bySubject[subject] = {
-      totalHours,
-      weeklyHours: Math.max(1, Math.round(totalHours / Math.max(1, input.totalDays / 7))),
-      intensityLevel: input.subjectIntensity[subject] ?? 1,
-      priority: (input.subjectIntensity[subject] ?? 1) + 1,
+      totalHours: roundBreakdownHours(subjectMinutes / 60),
+      weeklyHours: 0,
+      intensityLevel,
+      priority: intensityLevel + 1,
       currentProgress: 0,
     };
+  });
+
+  const totalShare = subjectShares.reduce((sum, item) => sum + item.share, 0) || 1;
+  const normalizedWeeklyHoursRaw = subjectShares.map((item) => ({
+    subject: item.subject,
+    rawHours: (item.share / totalShare) * input.weeklyHours,
+  }));
+  const roundedBase = normalizedWeeklyHoursRaw.map((item) => ({
+    subject: item.subject,
+    base: Math.floor(item.rawHours * 10) / 10,
+    remainder: item.rawHours * 10 - Math.floor(item.rawHours * 10),
+  }));
+  const targetTenths = Math.round(input.weeklyHours * 10);
+  let currentTenths = roundedBase.reduce((sum, item) => sum + Math.round(item.base * 10), 0);
+  const byRemainder = [...roundedBase].sort((a, b) => b.remainder - a.remainder);
+
+  let cursor = 0;
+  while (currentTenths < targetTenths && byRemainder.length > 0) {
+    byRemainder[cursor % byRemainder.length].base += 0.1;
+    currentTenths += 1;
+    cursor += 1;
+  }
+
+  roundedBase.forEach((item) => {
+    bySubject[item.subject].weeklyHours = Math.max(0.1, Math.round(item.base * 10) / 10);
   });
 
   return bySubject;
@@ -766,6 +940,24 @@ const createWeeklySchedule = (tasks: StudyTask[]): StudyProgram['weeklySchedule'
 };
 
 const STANDARD_DURATION_BLOCKS = [25, 30, 45, 60, 90] as const;
+
+const roundBreakdownHours = (hours: number): number => {
+  if (hours <= 0) return 0;
+  return Math.max(0.5, Math.round(hours * 10) / 10);
+};
+
+const getIntensityDisplayWeight = (intensityLevel: number): number => {
+  switch (Math.max(0, Math.round(intensityLevel))) {
+    case 3:
+      return 1.62;
+    case 2:
+      return 1.38;
+    case 1:
+      return 1.18;
+    default:
+      return 1;
+  }
+};
 
 const nearestStandardDuration = (value: number): number => {
   return STANDARD_DURATION_BLOCKS.reduce((best, cur) =>
@@ -836,6 +1028,7 @@ const generateTasks = (
   input: PlannerInput,
   focusOverrides: SubjectFocusOverrides,
   rebalanceProfile: RebalanceProfile,
+  reviewPressureProfile: ReviewPressureProfile,
   onProgress?: ProgressCallback
 ): StudyTask[] => {
   const tasks: StudyTask[] = [];
@@ -843,14 +1036,21 @@ const generateTasks = (
 
   const studyDays = Object.keys(input.schedule).filter((day) => (input.schedule[day] || []).length > 0);
   const fallbackStudyDays = studyDays.length > 0 ? studyDays : ['monday', 'wednesday', 'friday'];
-  const baseTasksPerDay = Math.max(1, Math.round(input.weeklyHours / fallbackStudyDays.length));
+  const weeklyTargetSessions = getWeeklyTargetSessionCount(input);
+  const fullWeekCapacityMinutes = Array.from({ length: 7 }, (_, offset) => {
+    const probeDate = new Date(input.startDate);
+    probeDate.setDate(probeDate.getDate() + offset);
+    const probeDayName = getDayName(probeDate);
+    const probeSlots = (input.schedule[probeDayName] || []).length > 0
+      ? input.schedule[probeDayName] || []
+      : (fallbackStudyDays.includes(probeDayName) ? ['morning'] : []);
+    return probeSlots.length > 0 ? getDailyCapacityMinutes(probeSlots) : 0;
+  }).reduce((sum, value) => sum + value, 0);
   const targetPressure = ENABLE_TARGET_PRESSURE_ADJUSTMENTS
     ? Math.max(0, Math.min(1, input.targetValueNormalized || 0))
     : 0;
   const pressureLookaheadDays = Math.round(targetPressure * 6);
-  const extraTaskBias = targetPressure >= 0.7 ? 1 : 0;
   const durationBias = Math.round(targetPressure * 8 - rebalanceProfile.overloadRisk * 6);
-  const overloadTaskReduction = rebalanceProfile.overloadRisk >= 0.35 ? 1 : 0;
   const subjectBlueprintMap = buildSubjectBlueprintMap(input);
   const moduleCursor: Record<string, number> = {};
 
@@ -863,6 +1063,32 @@ const generateTasks = (
 
   for (let week = 1; week <= totalWeeks; week += 1) {
     if (onProgress) onProgress(`Building week ${week}...`, week - 1, totalWeeks);
+
+    const weekDates: Date[] = [];
+    const weekDayCapacities: number[] = [];
+    for (let offset = 0; offset < 7; offset += 1) {
+      const probeDate = new Date(currentDate);
+      probeDate.setDate(currentDate.getDate() + offset);
+      if (probeDate > input.examDate) break;
+
+      const probeDayName = getDayName(probeDate);
+      const probeTimeSlots = input.schedule[probeDayName] || [];
+      const probeIsStudyDay = probeTimeSlots.length > 0 || fallbackStudyDays.includes(probeDayName);
+      const probeSlots = probeTimeSlots.length > 0 ? probeTimeSlots : (probeIsStudyDay ? ['morning'] : []);
+
+      weekDates.push(probeDate);
+      weekDayCapacities.push(probeSlots.length > 0 ? getDailyCapacityMinutes(probeSlots) : 0);
+    }
+
+    const actualWeekCapacityMinutes = weekDayCapacities.reduce((sum, value) => sum + value, 0);
+    const scaledWeekTargetSessions = actualWeekCapacityMinutes > 0 && fullWeekCapacityMinutes > 0
+      ? Math.max(1, Math.round(weeklyTargetSessions * (actualWeekCapacityMinutes / fullWeekCapacityMinutes)))
+      : weeklyTargetSessions;
+    const weekSessionAllocation = allocateSessionsAcrossDays(
+      weekDayCapacities,
+      scaledWeekTargetSessions,
+      input.preferredSessionMinutes
+    );
 
     for (let day = 0; day < 7; day += 1) {
       if (tasks.length > 0 && currentDate > input.examDate) break;
@@ -879,16 +1105,8 @@ const generateTasks = (
         );
         const phase = getPhaseForDay(Math.max(0, remainingDays - pressureLookaheadDays), input.totalDays);
         const config = PHASE_CONFIG[phase];
-        const dailyCapacityMinutes = getDailyCapacityMinutes(slots);
-        const expectedTaskDuration = Math.max(
-          25,
-          Math.min(input.recommendedSessionMinutes[1], Math.round(dailyCapacityMinutes / Math.max(1, slots.length)))
-        );
-        const dailyCapacityFromSlots = Math.max(1, Math.round(dailyCapacityMinutes / expectedTaskDuration));
-        const tasksForDay = Math.min(
-          dailyCapacityFromSlots,
-          Math.max(1, baseTasksPerDay + config.extraTasks + extraTaskBias - overloadTaskReduction)
-        );
+        const targetTasksForDay = weekSessionAllocation[day] ?? 0;
+        const tasksForDay = targetTasksForDay;
         const allowedTypes = getAllowedTaskTypes(input, phase, dayIndex);
 
         for (let i = 0; i < tasksForDay; i += 1) {
@@ -902,13 +1120,14 @@ const generateTasks = (
             usageCount,
             lastScheduledDay,
             rebalanceProfile,
+            reviewPressureProfile,
             seed
           );
           const subject = candidate.subject;
           const type = candidate.type;
           const timeSlot = slots[i % slots.length];
           const { moduleId, moduleLabel } = pickModule(subject, subjectBlueprintMap, moduleCursor, type);
-          const duration = getTaskDuration(input, type, timeSlot, phase, durationBias);
+          const duration = getTaskDuration(input, subject, type, timeSlot, phase, durationBias, reviewPressureProfile);
           const subjectBlueprint = subjectBlueprintMap.get(subject);
           const taskContent = buildTaskContent(input, subject, subjectBlueprint, moduleLabel, type, phase, input.examName);
           const explainability = buildTaskExplainability(phase, candidate, moduleLabel, rebalanceProfile);
@@ -963,11 +1182,12 @@ export const generateStudyProgramWithRules = async (
     }
 
     const input = mapOnboardingV2ToPlannerInput(v2);
-    const [focusOverrides, rebalanceProfile] = await Promise.all([
+    const [focusOverrides, rebalanceProfile, reviewPressureProfile] = await Promise.all([
       loadSubjectFocusOverrides(),
       getPlannerRebalanceProfile(),
+      getReviewPressureProfile(),
     ]);
-    const tasks = generateTasks(input, focusOverrides, rebalanceProfile, onProgress);
+    const tasks = generateTasks(input, focusOverrides, rebalanceProfile, reviewPressureProfile, onProgress);
 
     return {
       id: `rule_program_${Date.now()}`,

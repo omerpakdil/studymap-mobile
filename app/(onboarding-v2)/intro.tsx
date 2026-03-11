@@ -5,20 +5,20 @@
  * Colors are hardcoded so nothing can override them.
  * Dark teal-ink background, crisp white headline, teal accents.
  */
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
-import {
-  Animated,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
 import { resolveAppLanguage, t } from '@/app/i18n';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import {
+    Animated,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 // ── Hardcoded palette (no theme dependency) ──────────────────────────────────
 const C = {

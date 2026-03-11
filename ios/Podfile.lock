@@ -1,6 +1,9 @@
 PODS:
   - EXApplication (7.0.7):
     - ExpoModulesCore
+  - EXAV (16.0.8):
+    - ExpoModulesCore
+    - ReactCommon/turbomodule/core
   - EXConstants (18.0.8):
     - ExpoModulesCore
   - EXNotifications (0.32.11):
@@ -57,6 +60,8 @@ PODS:
   - ExpoLinearGradient (15.0.7):
     - ExpoModulesCore
   - ExpoLinking (8.0.8):
+    - ExpoModulesCore
+  - ExpoLocalization (17.0.8):
     - ExpoModulesCore
   - ExpoModulesCore (3.0.15):
     - hermes-engine
@@ -2094,6 +2099,51 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNSVG (15.12.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNSVG/common (= 15.12.1)
+    - Yoga
+  - RNSVG/common (15.12.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNWorklets (0.5.1):
     - hermes-engine
     - RCTRequired
@@ -2180,6 +2230,7 @@ PODS:
 
 DEPENDENCIES:
   - EXApplication (from `../node_modules/expo-application/ios`)
+  - EXAV (from `../node_modules/expo-av/ios`)
   - EXConstants (from `../node_modules/expo-constants/ios`)
   - EXNotifications (from `../node_modules/expo-notifications/ios`)
   - Expo (from `../node_modules/expo`)
@@ -2194,6 +2245,7 @@ DEPENDENCIES:
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
   - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
+  - ExpoLocalization (from `../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - ExpoStoreReview (from `../node_modules/expo-store-review/ios`)
@@ -2278,6 +2330,7 @@ DEPENDENCIES:
   - RNPurchases (from `../node_modules/react-native-purchases`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
+  - RNSVG (from `../node_modules/react-native-svg`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -2296,6 +2349,8 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   EXApplication:
     :path: "../node_modules/expo-application/ios"
+  EXAV:
+    :path: "../node_modules/expo-av/ios"
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
   EXNotifications:
@@ -2324,6 +2379,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-linear-gradient/ios"
   ExpoLinking:
     :path: "../node_modules/expo-linking/ios"
+  ExpoLocalization:
+    :path: "../node_modules/expo-localization/ios"
   ExpoModulesCore:
     :path: "../node_modules/expo-modules-core"
   ExpoSplashScreen:
@@ -2491,6 +2548,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../node_modules/react-native-screens"
+  RNSVG:
+    :path: "../node_modules/react-native-svg"
   RNWorklets:
     :path: "../node_modules/react-native-worklets"
   Yoga:
@@ -2498,6 +2557,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   EXApplication: 296622817d459f46b6c5fe8691f4aac44d2b79e7
+  EXAV: b60fcf142fae6684d295bc28cd7cfcb3335570ea
   EXConstants: 7e4654405af367ff908c863fe77a8a22d60bd37d
   EXNotifications: 7a2975f4e282b827a0bc78bb1d232650cb569bbd
   Expo: 48988f1bdffef40c512a193867d4dbbc8267f044
@@ -2512,6 +2572,7 @@ SPEC CHECKSUMS:
   ExpoKeepAwake: 1a2e820692e933c94a565ec3fbbe38ac31658ffe
   ExpoLinearGradient: a464898cb95153125e3b81894fd479bcb1c7dd27
   ExpoLinking: f051f28e50ea9269ff539317c166adec81d9342d
+  ExpoLocalization: d9168d5300a5b03e5e78b986124d11fb6ec3ebbd
   ExpoModulesCore: 9281d8f1cda9d0c37dbce34c26014212b22eb8c0
   ExpoSplashScreen: cbb839de72110dea1851dd3e85080b7923af2540
   ExpoStoreReview: 15f19e0d6cb6e00330ba1b356485bf47ef19c39a
@@ -2600,6 +2661,7 @@ SPEC CHECKSUMS:
   RNPurchases: f465d1bc4cc84c2ea46c528930ac602275e047b6
   RNReanimated: 8d3a14606ad49f022c17d9e12a2d339e9e5ad9b0
   RNScreens: d8d6f1792f6e7ac12b0190d33d8d390efc0c1845
+  RNSVG: 31d6639663c249b7d5abc9728dde2041eb2a3c34
   RNWorklets: 76fce72926e28e304afb44f0da23b2d24f2c1fa0
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
@@ -2607,6 +2669,6 @@ SPEC CHECKSUMS:
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
   Yoga: 051f086b5ccf465ff2ed38a2cf5a558ae01aaaa1
 
-PODFILE CHECKSUM: ca92cdafe9337acff573bcc74acbf7c9d0ed51f4
+PODFILE CHECKSUM: 12414d3e9a1535125c3307a8dc345fae399ec63a
 
 COCOAPODS: 1.16.2

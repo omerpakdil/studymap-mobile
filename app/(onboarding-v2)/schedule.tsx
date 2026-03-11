@@ -9,27 +9,28 @@
  */
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { getCountryByCode } from '@/app/data/countries';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepValidationFail,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepValidationFail,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 
 const C = {
@@ -50,7 +51,7 @@ const C = {
   backBorder: 'rgba(0,0,0,0.06)',
   backArrow:  '#64748B',
   brand:      '#0F9D8C',
-  footer:     'rgba(250,251,252,0.97)',
+  footer:     'transparent',
   footerBorder: 'rgba(15,23,42,0.07)',
 };
 
@@ -173,7 +174,7 @@ export default function OnboardingV2ScheduleScreen() {
       return;
     }
     void trackOnboardingStepContinue('schedule');
-    router.push('/(onboarding-v2)/focus');
+    router.push('/(onboarding-v2)/session-length');
   };
 
   const pressIn  = () => Animated.spring(ctaScale, { toValue: 0.97, damping: 20, stiffness: 400, useNativeDriver: true }).start();
@@ -212,7 +213,7 @@ export default function OnboardingV2ScheduleScreen() {
           </View>
         </View>
         <Text style={[s.stepLabel,{color:C.labelMuted}]}>
-          {t('common.step_of', { lang, params: { current: 7, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 6, total: 13 } })}
         </Text>
 
         {/* Title + quick fill */}
@@ -445,8 +446,8 @@ const s = StyleSheet.create({
 
   note:{ marginTop:12, fontSize:11, textAlign:'center', fontWeight:'400' },
 
-  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:12, paddingBottom:32, borderTopWidth:StyleSheet.hairlineWidth },
-  cta:{ height:52, borderRadius:13, flexDirection:'row', alignItems:'center', justifyContent:'center',
+  footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#0F9D8C', shadowOffset:{width:0,height:5}, shadowOpacity:0.24, shadowRadius:14, elevation:7 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },
   ctaTxt:{ color:'#fff', fontSize:15, fontWeight:'800', letterSpacing:0.1 },

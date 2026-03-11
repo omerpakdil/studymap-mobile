@@ -59,9 +59,9 @@ const enExamNames: Record<string, string> = {
   cpns: 'CPNS',
   ukmppd: 'UKMPPD',
   cpa_id: 'CPA Indonesia',
-  baccalaureat: 'Baccalaureat',
-  baccalaureat_science: 'Baccalaureat (Science)',
-  baccalaureat_humanities: 'Baccalaureat (Humanities)',
+  baccalaureat: 'Baccalauréat',
+  baccalaureat_science: 'Baccalauréat (Science)',
+  baccalaureat_humanities: 'Baccalauréat (Humanities)',
   concours_ge: 'Concours Grandes Ecoles',
   polytechnique_track: 'Ecole Polytechnique Entrance Exam',
   insp_ena: 'INSP (ex-ENA) Competition',
@@ -73,20 +73,20 @@ const enExamNames: Record<string, string> = {
   tyt: 'TYT',
   ayt: 'AYT',
   tyt_ayt: 'TYT + AYT',
-  ayt_sayisal: 'AYT (Sayisal)',
-  ayt_ea: 'AYT (Esit Agirlik)',
-  ayt_sozel: 'AYT (Sozel)',
-  tyt_ayt_sayisal: 'TYT + AYT (Sayisal)',
-  tyt_ayt_ea: 'TYT + AYT (Esit Agirlik)',
-  tyt_ayt_sozel: 'TYT + AYT (Sozel)',
+  ayt_sayisal: 'AYT (Sayısal)',
+  ayt_ea: 'AYT (Eşit Ağırlık)',
+  ayt_sozel: 'AYT (Sözel)',
+  tyt_ayt_sayisal: 'TYT + AYT (Sayısal)',
+  tyt_ayt_ea: 'TYT + AYT (Eşit Ağırlık)',
+  tyt_ayt_sozel: 'TYT + AYT (Sözel)',
   ydt_tr: 'YDT',
   kpss: 'KPSS',
-  kpss_gygk: 'KPSS (GY-GK)',
-  kpss_egitim: 'KPSS (Egitim Bilimleri)',
-  kpss_oabt: 'KPSS (OABT)',
+  kpss_gygk: 'KPSS (Genel Kültür-Genel Yetenek)',
+  kpss_egitim: 'KPSS (Eğitim Bilimleri)',
+  kpss_oabt: 'KPSS (ÖABT)',
   kpss_a: 'KPSS (A Grubu)',
   ales: 'ALES',
-  yds: 'YDS/YOKDIL',
+  yds: 'YDS/YÖKDİL',
   dus: 'DUS',
   tus: 'TUS',
   qudrat: 'Qudrat',
@@ -101,38 +101,38 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     tyt: 'TYT',
     ayt: 'AYT',
     tyt_ayt: 'TYT + AYT',
-    ayt_sayisal: 'AYT (Sayisal)',
-    ayt_ea: 'AYT (Esit Agirlik)',
-    ayt_sozel: 'AYT (Sozel)',
-    tyt_ayt_sayisal: 'TYT + AYT (Sayisal)',
-    tyt_ayt_ea: 'TYT + AYT (Esit Agirlik)',
-    tyt_ayt_sozel: 'TYT + AYT (Sozel)',
+    ayt_sayisal: 'AYT (Sayısal)',
+    ayt_ea: 'AYT (Eşit Ağırlık)',
+    ayt_sozel: 'AYT (Sözel)',
+    tyt_ayt_sayisal: 'TYT + AYT (Sayısal)',
+    tyt_ayt_ea: 'TYT + AYT (Eşit Ağırlık)',
+    tyt_ayt_sozel: 'TYT + AYT (Sözel)',
     ydt_tr: 'YDT',
     kpss: 'KPSS',
-    kpss_gygk: 'KPSS (GY-GK)',
-    kpss_egitim: 'KPSS (Egitim Bilimleri)',
-    kpss_oabt: 'KPSS (OABT)',
+    kpss_gygk: 'KPSS (Genel Kültür-Genel Yetenek)',
+    kpss_egitim: 'KPSS (Eğitim Bilimleri)',
+    kpss_oabt: 'KPSS (ÖABT)',
     kpss_a: 'KPSS (A Grubu)',
-    common_test_jp: 'Universite Girisi Ortak Sinavi',
-    todai_exam: 'Tokyo Universitesi Giris Sinavi',
-    civil_service_jp: 'Ulusal Kamu Hizmeti Sinavi',
-    med_lic_jp: 'Ulusal Tip Pratisyenlik Sinavi',
-    bar_cn: 'Ulusal Hukuk Meslegi Yeterlilik Sinavi',
+    common_test_jp: 'Üniversite Girişi Ortak Sınavı',
+    todai_exam: 'Tokyo Üniversitesi Giriş Sınavı',
+    civil_service_jp: 'Ulusal Kamu Hizmeti Sınavı',
+    med_lic_jp: 'Ulusal Tıp Pratisyenlik Sınavı',
+    bar_cn: 'Ulusal Hukuk Mesleği Yeterlilik Sınavı',
     nc_track: 'Numerus Clausus (NC)',
-    polytechnique_track: 'Ecole Polytechnique Giris Sinavi',
-    insp_ena: 'INSP (eski ENA) Yarismasi',
-    nca_bar: 'NCA Sinavlari + Bar Kabulu',
+    polytechnique_track: 'École Polytechnique Giriş Sınavı',
+    insp_ena: 'INSP (eski ENA) Yarışması',
+    nca_bar: 'NCA Sınavları + Bar Kabulü',
     suneung: 'Suneung (CSAT)',
     suneung_science: 'Suneung (Science)',
     suneung_humanities: 'Suneung (Humanities)',
     psat_kr: 'Kore PSAT',
-    med_lic_kr: 'Kore Tip Lisans Sinavi',
-    baccalaureat: 'Baccalaureat',
-    baccalaureat_science: 'Baccalaureat (Sayisal)',
-    baccalaureat_humanities: 'Baccalaureat (Sozel)',
+    med_lic_kr: 'Kore Tıp Lisans Sınavı',
+    baccalaureat: 'Baccalauréat',
+    baccalaureat_science: 'Baccalauréat (Sayısal)',
+    baccalaureat_humanities: 'Baccalauréat (Sözel)',
     a_levels: 'A-Levels',
-    a_levels_science: 'A-Levels (Sayisal)',
-    a_levels_humanities: 'A-Levels (Sozel)',
+    a_levels_science: 'A-Levels (Sayısal)',
+    a_levels_humanities: 'A-Levels (Sözel)',
   },
   ar: {
     common_test_jp: 'اختبار القبول الجامعي الموحد',
@@ -147,9 +147,9 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     suneung: 'Suneung (CSAT)',
     psat_kr: 'PSAT الكوري',
     med_lic_kr: 'اختبار الترخيص الطبي الكوري',
-    baccalaureat: 'Baccalaureat',
-    baccalaureat_science: 'Baccalaureat (Science)',
-    baccalaureat_humanities: 'Baccalaureat (Humanities)',
+    baccalaureat: 'Baccalauréat',
+    baccalaureat_science: 'Baccalauréat (Science)',
+    baccalaureat_humanities: 'Baccalauréat (Humanities)',
     a_levels: 'A-Levels',
     a_levels_science: 'A-Levels (Science)',
     a_levels_humanities: 'A-Levels (Humanities)',
@@ -165,9 +165,9 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     nca_bar: 'NCA-Pruefungen + Zulassung',
     psat_kr: 'Koreanischer PSAT',
     med_lic_kr: 'Koreanische medizinische Zulassungspruefung',
-    baccalaureat: 'Baccalaureat',
-    baccalaureat_science: 'Baccalaureat (Wissenschaften)',
-    baccalaureat_humanities: 'Baccalaureat (Geisteswissenschaften)',
+    baccalaureat: 'Baccalauréat',
+    baccalaureat_science: 'Baccalauréat (Wissenschaften)',
+    baccalaureat_humanities: 'Baccalauréat (Geisteswissenschaften)',
     a_levels: 'A-Levels',
     a_levels_science: 'A-Levels (Wissenschaften)',
     a_levels_humanities: 'A-Levels (Geisteswissenschaften)',
@@ -189,7 +189,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     suneung: '修能（CSAT）',
     psat_kr: '韓国PSAT',
     med_lic_kr: '韓国医師国家試験',
-    baccalaureat: 'Baccalaureat',
+    baccalaureat: 'Baccalauréat',
     baccalaureat_science: 'バカロレア（理系）',
     baccalaureat_humanities: 'バカロレア（文系）',
     a_levels: 'A-Levels',
@@ -197,9 +197,9 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     a_levels_humanities: 'A-Levels（文系）',
   },
   fr: {
-    baccalaureat: 'Baccalaureat',
-    baccalaureat_science: 'Baccalaureat (Scientifique)',
-    baccalaureat_humanities: 'Baccalaureat (Humanites)',
+    baccalaureat: 'Baccalauréat',
+    baccalaureat_science: 'Baccalauréat (Scientifique)',
+    baccalaureat_humanities: 'Baccalauréat (Humanites)',
     a_levels: 'A-Levels',
     a_levels_science: 'A-Levels (Scientifique)',
     a_levels_humanities: 'A-Levels (Humanites)',
@@ -221,9 +221,9 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     suneung_humanities: '수능 (문과)',
     psat_kr: '한국형 PSAT',
     med_lic_kr: '한국 의사국가시험',
-    baccalaureat: 'Baccalaureat',
-    baccalaureat_science: 'Baccalaureat (이과)',
-    baccalaureat_humanities: 'Baccalaureat (문과)',
+    baccalaureat: 'Baccalauréat',
+    baccalaureat_science: 'Baccalauréat (이과)',
+    baccalaureat_humanities: 'Baccalauréat (문과)',
     a_levels: 'A-Levels',
     a_levels_science: 'A-Levels (이과)',
     a_levels_humanities: 'A-Levels (문과)',
@@ -241,9 +241,9 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     suneung: 'Suneung (CSAT)',
     psat_kr: 'PSAT Coreano',
     med_lic_kr: 'Exame Coreano de Licenciamento Medico',
-    baccalaureat: 'Baccalaureat',
-    baccalaureat_science: 'Baccalaureat (Ciencias)',
-    baccalaureat_humanities: 'Baccalaureat (Humanidades)',
+    baccalaureat: 'Baccalauréat',
+    baccalaureat_science: 'Baccalauréat (Ciencias)',
+    baccalaureat_humanities: 'Baccalauréat (Humanidades)',
     a_levels: 'A-Levels',
     a_levels_science: 'A-Levels (Ciencias)',
     a_levels_humanities: 'A-Levels (Humanidades)',
@@ -262,23 +262,52 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     suneung_humanities: '修能（文科）',
     psat_kr: '韩国 PSAT',
     med_lic_kr: '韩国医师执照考试',
-    baccalaureat: 'Baccalaureat',
-    baccalaureat_science: 'Baccalaureat（理科）',
-    baccalaureat_humanities: 'Baccalaureat（文科）',
+    baccalaureat: 'Baccalauréat',
+    baccalaureat_science: 'Baccalauréat（理科）',
+    baccalaureat_humanities: 'Baccalauréat（文科）',
     a_levels: 'A-Levels',
     a_levels_science: 'A-Levels（理科）',
     a_levels_humanities: 'A-Levels（文科）',
   },
 };
 
-const examNameToCode = Object.entries(enExamNames).reduce<Record<string, string>>((acc, [code, name]) => {
-  acc[name.toLowerCase()] = code;
+const normalizeExamKey = (value: string) =>
+  value
+    .trim()
+    .toLocaleLowerCase('en-US')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[ı]/g, 'i')
+    .replace(/[ş]/g, 's')
+    .replace(/[ğ]/g, 'g')
+    .replace(/[ç]/g, 'c')
+    .replace(/[ö]/g, 'o')
+    .replace(/[ü]/g, 'u')
+    .replace(/[（]/g, '(')
+    .replace(/[）]/g, ')');
+
+const examNameToCode = (() => {
+  const acc: Record<string, string> = {};
+
+  for (const [code, name] of Object.entries(enExamNames)) {
+    acc[normalizeExamKey(code)] = code;
+    acc[normalizeExamKey(name)] = code;
+  }
+
+  for (const localizedMap of Object.values(localizedOverrides)) {
+    if (!localizedMap) continue;
+    for (const [code, name] of Object.entries(localizedMap)) {
+      acc[normalizeExamKey(code)] = code;
+      acc[normalizeExamKey(name)] = code;
+    }
+  }
+
   return acc;
-}, {});
+})();
 
 const resolveExamCode = (examCodeOrName?: string | null): string | null => {
   if (!examCodeOrName) return null;
-  const normalized = examCodeOrName.trim().toLowerCase();
+  const normalized = normalizeExamKey(examCodeOrName);
   if (!normalized) return null;
   if (enExamNames[normalized]) return normalized;
   return examNameToCode[normalized] ?? null;

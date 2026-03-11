@@ -10,29 +10,30 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { getCountryByCode } from '@/app/data/countries';
 import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
 import { formatDateInput, formatDateValue, getDateFormatByLanguage, getDateTokens, parseDate } from '@/app/utils/localeDate';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepValidationFail,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepValidationFail,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -203,7 +204,7 @@ export default function OnboardingV2GoalDateScreen() {
             </View>
           </View>
           <Text style={[styles.stepLabel,{color:C.labelMuted}]}>
-            {t('common.step_of', { lang, params: { current: 4, total: 12 } })}
+            {t('common.step_of', { lang, params: { current: 4, total: 13 } })}
           </Text>
 
           {/* Title */}
@@ -413,8 +414,8 @@ const styles = StyleSheet.create({
   tipText:{fontSize:12,lineHeight:18,fontWeight:'500'},
 
   // Footer
-  footer:{position:'absolute',left:0,right:0,bottom:0,paddingHorizontal:22,paddingTop:14,paddingBottom:32,borderTopWidth:StyleSheet.hairlineWidth},
-  cta:{height:54,borderRadius:14,flexDirection:'row',alignItems:'center',justifyContent:'center',overflow:'hidden',gap:8,
+  footer:{position:'absolute',left:0,right:0,bottom:0,paddingHorizontal:22,paddingTop:16,paddingBottom:12,borderTopWidth:StyleSheet.hairlineWidth,backgroundColor:C.footer,borderTopColor:C.footerBorder},
+  cta:{height:FOOTER.ctaHeight,borderRadius:FOOTER.ctaRadius,flexDirection:'row',alignItems:'center',justifyContent:'center',overflow:'hidden',gap:8,
     shadowColor:'#0D9488',shadowOffset:{width:0,height:6},shadowOpacity:0.26,shadowRadius:16,elevation:8},
   ctaDisabled:{backgroundColor:'rgba(148,163,184,0.18)',shadowOpacity:0,elevation:0},
   ctaSheen:{position:'absolute',top:0,left:0,right:0,height:'44%',backgroundColor:'rgba(255,255,255,0.13)'},

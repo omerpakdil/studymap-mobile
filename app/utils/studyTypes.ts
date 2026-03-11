@@ -10,6 +10,21 @@ export interface StudyTaskExplainability {
   };
 }
 
+export type SessionOutcome = 'easy' | 'okay' | 'hard' | 'incomplete';
+
+export interface StudySessionFeedback {
+  taskId: string;
+  sessionId: string;
+  subject: string;
+  examCode?: string;
+  outcome: SessionOutcome;
+  plannedMinutes: number;
+  actualMinutes: number;
+  completed: boolean;
+  noteLength?: number;
+  createdAt: string;
+}
+
 export interface StudyTask {
   id: string;
   title: string;

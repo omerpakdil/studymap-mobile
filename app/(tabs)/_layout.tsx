@@ -1,8 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
 import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
+import {
+  AttachStep,
+  SpotlightTourProvider,
+  type TourStep,
+  flip,
+  offset,
+  shift,
+} from 'react-native-spotlight-tour';
+import { TourCard } from '@/app/components/walkthrough/TourCard';
 import { resolveAppLanguage, type SupportedLanguage } from '@/app/i18n';
+import { hasSeenWalkthrough } from '@/app/utils/walkthroughState';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -16,7 +27,6 @@ const TAB = {
   barB: 'rgba(244,253,250,0.92)',
   itemA: 'rgba(15,157,140,0.16)',
   itemB: 'rgba(45,212,191,0.10)',
-  marker: 'rgba(15,157,140,0.42)',
 };
 
 const TAB_LABELS: Record<SupportedLanguage, { dashboard: string; calendar: string; progress: string; profile: string }> = {
@@ -24,8 +34,8 @@ const TAB_LABELS: Record<SupportedLanguage, { dashboard: string; calendar: strin
   tr: { dashboard: 'Pano', calendar: 'Takvim', progress: 'Ilerleme', profile: 'Profil' },
   de: { dashboard: 'Dashboard', calendar: 'Kalender', progress: 'Fortschritt', profile: 'Profil' },
   fr: { dashboard: 'Tableau', calendar: 'Calendrier', progress: 'Progres', profile: 'Profil' },
-  ar: { dashboard: 'الرئيسية', calendar: 'التقويم', progress: 'التقدم', profile: 'الملف' },
-  ja: { dashboard: 'ダッシュボード', calendar: 'カレンダー', progress: '進捗', profile: 'プロフィール' },
+  ar: { dashboard: 'الرئيسية', calendar: 'التقويم', progress: 'التقدم', profile: 'الملف' },
+  ja: { dashboard: 'ダッシュボード', calendar: 'カレンダー', progress: '進捗', profile: 'プロフィール' },
   ko: { dashboard: '대시보드', calendar: '캘린더', progress: '진행', profile: '프로필' },
   'pt-BR': { dashboard: 'Painel', calendar: 'Calendario', progress: 'Progresso', profile: 'Perfil' },
   'zh-Hans': { dashboard: '仪表盘', calendar: '日历', progress: '进度', profile: '我的' },
@@ -33,81 +43,160 @@ const TAB_LABELS: Record<SupportedLanguage, { dashboard: string; calendar: strin
   hi: { dashboard: 'डैशबोर्ड', calendar: 'कैलेंडर', progress: 'प्रगति', profile: 'प्रोफाइल' },
 };
 
+function TourAutoStart({ start }: { start: () => void }) {
+  useEffect(() => {
+    hasSeenWalkthrough().then((seen) => {
+      if (!seen) {
+        const timer = setTimeout(start, 600);
+        return () => clearTimeout(timer);
+      }
+    });
+  }, [start]);
+  return null;
+}
+
 export default function TabLayout() {
   const lang = resolveAppLanguage();
   const labels = TAB_LABELS[lang] ?? TAB_LABELS.en;
 
+  const tourSteps: TourStep[] = [
+    {
+      motion: 'bounce',
+      shape: { type: 'circle', padding: 10 },
+      floatingProps: {
+        middleware: [offset(16), flip(), shift({ padding: 8 })],
+        placement: 'top',
+      },
+      render: (props) => <TourCard {...props} lang={lang} />,
+    },
+    {
+      motion: 'bounce',
+      shape: { type: 'circle', padding: 10 },
+      floatingProps: {
+        middleware: [offset(16), flip(), shift({ padding: 8 })],
+        placement: 'top',
+      },
+      render: (props) => <TourCard {...props} lang={lang} />,
+    },
+    {
+      motion: 'bounce',
+      shape: { type: 'circle', padding: 10 },
+      floatingProps: {
+        middleware: [offset(16), flip(), shift({ padding: 8 })],
+        placement: 'top',
+      },
+      render: (props) => <TourCard {...props} lang={lang} />,
+    },
+    {
+      motion: 'bounce',
+      shape: { type: 'circle', padding: 10 },
+      floatingProps: {
+        middleware: [offset(16), flip(), shift({ padding: 8 })],
+        placement: 'top',
+      },
+      render: (props) => <TourCard {...props} lang={lang} />,
+    },
+  ];
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarHideOnKeyboard: true,
-        ...(Platform.OS === 'android' && { tabBarKeyboardHidesTabBar: true }),
-        tabBarStyle: {
-          position: 'absolute',
-          left: isTablet ? 80 : 14,
-          right: isTablet ? 80 : 14,
-          bottom: isTablet ? 20 : 10,
-          height: Platform.OS === 'ios' ? (isTablet ? 92 : 84) : (isTablet ? 86 : 78),
-          paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? (isTablet ? 24 : 18) : 12,
-          paddingHorizontal: isTablet ? 24 : 10,
-          borderTopWidth: 1,
-          borderTopColor: TAB.barBorder,
-          borderRadius: 26,
-          backgroundColor: 'transparent',
-          shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.16,
-          shadowRadius: 18,
-          elevation: 12,
-          overflow: 'hidden',
-        },
-        tabBarBackground: () => (
-          <LinearGradient
-            colors={[TAB.barA, TAB.barB]}
-            locations={[0, 1]}
-            style={StyleSheet.absoluteFill}
-          />
-        ),
-        tabBarItemStyle: {
-          paddingVertical: 0,
-        },
-      }}
+    <SpotlightTourProvider
+      steps={tourSteps}
+      overlayColor="#051412"
+      overlayOpacity={0.78}
+      onBackdropPress="continue"
     >
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: labels.dashboard,
-          tabBarIcon: ({ focused }) => <ModernTabIcon name="dashboard" focused={focused} />,
-          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.dashboard} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          title: labels.calendar,
-          tabBarIcon: ({ focused }) => <ModernTabIcon name="calendar" focused={focused} />,
-          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.calendar} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="progress"
-        options={{
-          title: labels.progress,
-          tabBarIcon: ({ focused }) => <ModernTabIcon name="progress" focused={focused} />,
-          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.progress} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: labels.profile,
-          tabBarIcon: ({ focused }) => <ModernTabIcon name="profile" focused={focused} />,
-          tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.profile} focused={focused} />,
-        }}
-      />
-    </Tabs>
+      {({ start }) => (
+        <>
+          <TourAutoStart start={start} />
+          <Tabs
+            screenOptions={{
+              headerShown: false,
+              tabBarHideOnKeyboard: true,
+              ...(Platform.OS === 'android' && { tabBarKeyboardHidesTabBar: true }),
+              tabBarStyle: {
+                position: 'absolute',
+                left: isTablet ? 80 : 14,
+                right: isTablet ? 80 : 14,
+                bottom: isTablet ? 20 : 10,
+                height: Platform.OS === 'ios' ? (isTablet ? 92 : 84) : (isTablet ? 86 : 78),
+                paddingTop: 8,
+                paddingBottom: Platform.OS === 'ios' ? (isTablet ? 24 : 18) : 12,
+                paddingHorizontal: isTablet ? 24 : 10,
+                borderTopWidth: 1,
+                borderTopColor: TAB.barBorder,
+                borderRadius: 26,
+                backgroundColor: 'transparent',
+                shadowColor: '#0F172A',
+                shadowOffset: { width: 0, height: 10 },
+                shadowOpacity: 0.16,
+                shadowRadius: 18,
+                elevation: 12,
+                overflow: 'hidden',
+              },
+              tabBarBackground: () => (
+                <LinearGradient
+                  colors={[TAB.barA, TAB.barB]}
+                  locations={[0, 1]}
+                  style={StyleSheet.absoluteFill}
+                />
+              ),
+              tabBarItemStyle: {
+                paddingVertical: 0,
+              },
+            }}
+          >
+            <Tabs.Screen
+              name="dashboard"
+              options={{
+                title: labels.dashboard,
+                tabBarIcon: ({ focused }) => (
+                  <AttachStep index={0}>
+                    <ModernTabIcon name="dashboard" focused={focused} />
+                  </AttachStep>
+                ),
+                tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.dashboard} focused={focused} />,
+              }}
+            />
+            <Tabs.Screen
+              name="calendar"
+              options={{
+                title: labels.calendar,
+                tabBarIcon: ({ focused }) => (
+                  <AttachStep index={1}>
+                    <ModernTabIcon name="calendar" focused={focused} />
+                  </AttachStep>
+                ),
+                tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.calendar} focused={focused} />,
+              }}
+            />
+            <Tabs.Screen
+              name="progress"
+              options={{
+                title: labels.progress,
+                tabBarIcon: ({ focused }) => (
+                  <AttachStep index={2}>
+                    <ModernTabIcon name="progress" focused={focused} />
+                  </AttachStep>
+                ),
+                tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.progress} focused={focused} />,
+              }}
+            />
+            <Tabs.Screen
+              name="profile"
+              options={{
+                title: labels.profile,
+                tabBarIcon: ({ focused }) => (
+                  <AttachStep index={3}>
+                    <ModernTabIcon name="profile" focused={focused} />
+                  </AttachStep>
+                ),
+                tabBarLabel: ({ focused }) => <ModernTabLabel label={labels.profile} focused={focused} />,
+              }}
+            />
+          </Tabs>
+        </>
+      )}
+    </SpotlightTourProvider>
   );
 }
 
@@ -128,20 +217,12 @@ function ModernTabIcon({
 }) {
   const iconName: keyof typeof Ionicons.glyphMap =
     name === 'dashboard'
-      ? focused
-        ? 'grid'
-        : 'grid-outline'
+      ? focused ? 'grid' : 'grid-outline'
       : name === 'calendar'
-        ? focused
-          ? 'calendar-clear'
-          : 'calendar-clear-outline'
+        ? focused ? 'calendar-clear' : 'calendar-clear-outline'
         : name === 'progress'
-          ? focused
-            ? 'stats-chart'
-            : 'stats-chart-outline'
-          : focused
-            ? 'person'
-            : 'person-outline';
+          ? focused ? 'stats-chart' : 'stats-chart-outline'
+          : focused ? 'person' : 'person-outline';
 
   return (
     <View style={styles.iconSlot}>

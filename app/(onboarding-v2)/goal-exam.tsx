@@ -9,31 +9,32 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  Animated,
-  Dimensions,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { availableExams } from '@/app/data';
-import { getGlobalExamCatalogForCountry, getPrimaryExamCatalogForCountry } from '@/app/data/examCatalogByCountry';
-import { getBlueprintByExamCode } from '@/app/data/examBlueprints';
 import { getCountryByCode } from '@/app/data/countries';
-import { getLocalizedExamName } from '@/app/i18n/examNames';
+import { getBlueprintByExamCode } from '@/app/data/examBlueprints';
+import { getGlobalExamCatalogForCountry, getPrimaryExamCatalogForCountry } from '@/app/data/examCatalogByCountry';
 import { resolveAppLanguage, t } from '@/app/i18n';
+import { getLocalizedExamName } from '@/app/i18n/examNames';
 import { examRequiresTrack, getBaseExamId, getExamTrackConfig, getTrackFromExamId } from '@/app/utils/examTrackUtils';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepValidationFail,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepValidationFail,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -298,7 +299,7 @@ export default function OnboardingV2GoalExamScreen() {
           </View>
         </View>
         <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
-          {t('common.step_of', { lang, params: { current: 3, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 3, total: 13 } })}
         </Text>
 
         {/* Title */}
@@ -474,7 +475,6 @@ export default function OnboardingV2GoalExamScreen() {
                     <Text style={[styles.detailCheckText, { color: C.teal }]}>✓</Text>
                   </View>
                 </View>
-                <Text style={[styles.detailFull, { color: C.sub }]}>{selectedExam.fullName}</Text>
                 <Text style={[styles.detailNote, { color: C.labelMuted }]}>
                   {examRequiresTrack(selectedExam.id)
                     ? t(selectedTrackConfig?.subtitleKey ?? 'onboarding.goal_exam.track_subtitle_ayt', { lang })
@@ -484,7 +484,7 @@ export default function OnboardingV2GoalExamScreen() {
             </Animated.View>
           )}
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: FOOTER.ctaHeight + FOOTER.paddingTop + FOOTER.paddingBottom + 8 }} />
         </ScrollView>
       </Animated.View>
 
@@ -628,11 +628,11 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     position:'absolute', left:0, right:0, bottom:0,
-    paddingHorizontal:21, paddingTop:8, paddingBottom:18,
+    paddingHorizontal:21, paddingTop:6, paddingBottom:36,
     borderTopWidth:StyleSheet.hairlineWidth,
   },
   cta: {
-    height:48, borderRadius:13, flexDirection:'row',
+    height:48, borderRadius:FOOTER.ctaRadius, flexDirection:'row',
     alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8,
     shadowColor:'#0D9488', shadowOffset:{width:0,height:6},
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
     shadowOpacity:0, elevation:0,
   },
   ctaSheen: { position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },
-  ctaText: { color:'#fff', fontSize:14, fontWeight:'800', letterSpacing:0.2 },
+  ctaText: { color:'#fff', fontSize:16, fontWeight:'800', letterSpacing:0.2 },
   ctaTextDisabled: { color:'rgba(100,116,139,0.55)' },
   ctaArrow: { color:'rgba(255,255,255,0.78)', fontSize:17 },
 });

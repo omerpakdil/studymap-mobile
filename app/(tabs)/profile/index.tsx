@@ -24,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
 import { getLocalizedExamName } from '@/app/i18n/examNames';
+import { formatHoursCompact } from '@/app/i18n/unitFormat';
 import NotificationService from '@/app/utils/notificationService';
 import { NotificationPreferences } from '@/app/utils/notifications';
 import { clearOnboardingData, loadCompleteOnboardingData } from '@/app/utils/onboardingData';
@@ -302,6 +303,24 @@ export default function ProfileScreen() {
   })();
   const examType = getLocalizedExamName(programMetadata?.examType, appLang, programMetadata?.examType || 'EXAM');
   const daysLeft   = programMetadata?.daysRemaining || 0;
+  const examStatusText = (() => {
+    const passed: Record<string, string> = {
+      en: 'Exam passed',
+      tr: 'Sınav geçti',
+      de: 'Prüfung vorbei',
+      fr: 'Examen passé',
+      ja: '試験終了',
+      ko: '시험 종료',
+      'zh-Hans': '考试已过',
+      ar: 'انتهى الاختبار',
+      hi: 'परीक्षा गुजर गई',
+      id: 'Ujian lewat',
+      'pt-BR': 'Prova passada',
+    };
+
+    if (daysLeft < 0) return passed[appLang] ?? passed.en;
+    return tp('days_left_short', `${daysLeft}d left`, { days: daysLeft });
+  })();
   const totalTasks = programMetadata?.completedTasks || 0;
   // Header parallax
   const heroScale = scrollY.interpolate({ inputRange: [-60, 0, 60], outputRange: [1.08, 1, 0.94], extrapolate: 'clamp' });
@@ -367,12 +386,13 @@ export default function ProfileScreen() {
                 <View style={styles.heroMeta}>
                   <Text style={styles.heroName}>{userInfo?.fullName || tp('study_buddy', 'Study Buddy')}</Text>
                   <Text style={styles.heroEmail}>{userInfo?.email || ''}</Text>
-                  <View style={styles.examChip}>
-                    <Text style={styles.examChipText}>{examType}</Text>
-                    <View style={styles.examChipDiv} />
-                    <Text style={styles.examChipText}>
-                      {tp('days_left_short', '{days}d left', { days: daysLeft })}
-                    </Text>
+                  <View style={styles.examChipRow}>
+                    <View style={[styles.examChip, styles.examChipPrimary]}>
+                      <Text style={styles.examChipText} numberOfLines={2}>{examType}</Text>
+                    </View>
+                    <View style={styles.examChip}>
+                      <Text style={styles.examChipText}>{examStatusText}</Text>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -383,7 +403,7 @@ export default function ProfileScreen() {
                 <View style={styles.statsDiv} />
                 <StatTile value={`${totalTasks}`}                    label={tp('sessions', 'Sessions')} delay={80} />
                 <View style={styles.statsDiv} />
-                <StatTile value={`${Math.round(weeklyProgress.hours)}h`} label={tp('this_week', 'This week')} delay={160} />
+                <StatTile value={formatHoursCompact(Math.round(weeklyProgress.hours), appLang)} label={tp('this_week', 'This week')} delay={160} />
               </View>
             </LinearGradient>
           </View>
@@ -757,9 +777,10 @@ const styles = StyleSheet.create({
   heroMeta:       { flex: 1, paddingTop: 4 },
   heroName:       { fontSize: 19, fontWeight: '800', color: '#fff', marginBottom: 3, letterSpacing: -0.2 },
   heroEmail:      { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 9 },
-  examChip:       { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', gap: 6 },
-  examChipDiv:    { width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.4)' },
-  examChipText:   { fontSize: 11, fontWeight: '700', color: '#fff' },
+  examChipRow:    { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
+  examChip:       { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', maxWidth: '100%' },
+  examChipPrimary:{ maxWidth: '100%' },
+  examChipText:   { fontSize: 11, fontWeight: '700', color: '#fff', flexShrink: 1 },
 
   statsStrip: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.14)', paddingVertical: 14, paddingHorizontal: 6, marginHorizontal: -22, marginTop: 4 },
   statsDiv:   { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },

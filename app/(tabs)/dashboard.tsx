@@ -26,6 +26,8 @@ import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import { getLocalizedExamName } from '@/app/i18n/examNames';
 import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
+import { formatDaysCompact, formatMinutesCompact, getMinuteUnitShort } from '@/app/i18n/unitFormat';
+import { getAdaptiveReviewSignal, type AdaptiveReviewSignal } from '@/app/utils/focusSessionFeedback';
 import { getLocalDateKey } from '@/app/utils/localDate';
 import NotificationService from '@/app/utils/notificationService';
 import { checkPremiumAccess, getTrialStatus } from '@/app/utils/premiumUtils';
@@ -159,10 +161,10 @@ function SubjectBar({
 
 // ─── Task Card ───────────────────────────────────────────────────────────────
 function TaskCard({
-  task, isCompleted, onPress, typeColor, typeIcon, typeLabel, index, subjectLabel, doneLabel,
+  task, isCompleted, onPress, typeColor, typeIcon, typeLabel, index, subjectLabel, doneLabel, appLang,
 }: {
   task: StudyTask; isCompleted: boolean; onPress: () => void;
-  typeColor: string; typeIcon: string; typeLabel: string; index: number; subjectLabel: string; doneLabel: string;
+  typeColor: string; typeIcon: string; typeLabel: string; index: number; subjectLabel: string; doneLabel: string; appLang: ReturnType<typeof resolveAppLanguage>;
 }) {
   const translateY = useRef(new Animated.Value(18)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -204,7 +206,7 @@ function TaskCard({
               <Ionicons name={typeIcon as any} size={11} color={typeColor} />
               <Text style={[styles.taskBadgeText, { color: typeColor }]}>{typeLabel}</Text>
             </View>
-            <Text style={styles.taskDuration}>{task.duration}m</Text>
+            <Text style={styles.taskDuration}>{formatMinutesCompact(task.duration, appLang)}</Text>
           </View>
         </View>
 
@@ -246,6 +248,7 @@ export default function DashboardScreen() {
   const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   const [showTrialWarning, setShowTrialWarning] = useState(false);
+  const [adaptiveReviewSignal, setAdaptiveReviewSignal] = useState<AdaptiveReviewSignal | null>(null);
   const [activeTab, setActiveTab] = useState<'tasks' | 'subjects'>('tasks');
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [metricSheet, setMetricSheet] = useState<{ visible: boolean; title: string; value: string; lines: string[] }>({
@@ -360,13 +363,14 @@ export default function DashboardScreen() {
         await AsyncStorage.setItem('last_focus_adapt_week', isoWeekKey);
       }
 
-      const [metadata, tasks, progress, dailyProg] = await Promise.all([
-        getProgramMetadata(), getTasksForDate(today), getSubjectProgress(), calculateDailyProgress(today),
+      const [metadata, tasks, progress, dailyProg, adaptiveSignal] = await Promise.all([
+        getProgramMetadata(), getTasksForDate(today), getSubjectProgress(), calculateDailyProgress(today), getAdaptiveReviewSignal(),
       ]);
       setProgramMetadata(metadata);
       setTodayTasks(tasks);
       setSubjectProgress(progress);
       setDailyProgress(dailyProg);
+      setAdaptiveReviewSignal(adaptiveSignal);
       if (metadata) {
         const lastStudySessionAt = await getLatestStudyActivityAt();
         void syncRemoteNotificationState({
@@ -540,10 +544,25 @@ export default function DashboardScreen() {
   const daysRemaining = programMetadata?.daysRemaining || 0;
   const currentStreak = programMetadata?.currentStreak || 0;
   const subjectEntries = Object.entries(subjectProgress);
-  const canCollapseTasks = todayTasks.length > 2;
-  const visibleTasks = canCollapseTasks && !showAllTasks ? todayTasks.slice(0, 2) : todayTasks;
+  const initialVisibleTaskCount = adaptiveReviewSignal?.active ? 1 : 2;
+  const canCollapseTasks = todayTasks.length > initialVisibleTaskCount;
+  const visibleTasks = canCollapseTasks && !showAllTasks ? todayTasks.slice(0, initialVisibleTaskCount) : todayTasks;
   const hiddenTaskCount = Math.max(0, todayTasks.length - visibleTasks.length);
   const isEmptyTasksState = activeTab === 'tasks' && todayTasks.length === 0;
+  const adaptiveSubjects = (adaptiveReviewSignal?.affectedSubjects || []).map((subject) => subjectLabel(subject));
+  const adaptiveReviewLine = adaptiveReviewSignal?.active
+    ? adaptiveSubjects.length <= 1
+      ? t('tabs.dashboard.adaptive_review_line_one', {
+          lang: appLang,
+          params: { subject: adaptiveSubjects[0] || t('tabs.dashboard.adaptive_review_subject_generic', { lang: appLang, fallback: 'A subject' }) },
+          fallback: '{subject} is getting extra short-term review after recent friction.',
+        })
+      : t('tabs.dashboard.adaptive_review_line_multi', {
+          lang: appLang,
+          params: { subjects: adaptiveSubjects.slice(0, 2).join(' · ') },
+          fallback: '{subjects} are getting extra short-term review after recent friction.',
+        })
+    : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top','left','right']}>
@@ -573,7 +592,7 @@ export default function DashboardScreen() {
           <View style={styles.streakPill}>
             <View style={styles.streakDot} />
             <Text style={styles.streakTxt}>{t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' })}</Text>
-            <Text style={styles.streakNum}>{currentStreak}d</Text>
+            <Text style={styles.streakNum}>{formatDaysCompact(currentStreak, appLang)}</Text>
           </View>
           <TouchableOpacity
             style={styles.notifBtn}
@@ -638,12 +657,12 @@ export default function DashboardScreen() {
                 <Text style={styles.heroStatsTitle}>{t('tabs.dashboard.todays_progress', { lang: appLang, fallback: "Today's Progress" })}</Text>
                 <View style={styles.heroStatRow}>
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatVal}>{dailyProgress.minutes}<Text style={styles.heroStatUnit}>m</Text></Text>
+                    <Text style={styles.heroStatVal}>{dailyProgress.minutes}<Text style={styles.heroStatUnit}>{getMinuteUnitShort(appLang)}</Text></Text>
                     <Text style={styles.heroStatLbl}>{t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' })}</Text>
                   </View>
                   <View style={styles.heroStatSep} />
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatVal}>{todayGoalMins}<Text style={styles.heroStatUnit}>m</Text></Text>
+                    <Text style={styles.heroStatVal}>{todayGoalMins}<Text style={styles.heroStatUnit}>{getMinuteUnitShort(appLang)}</Text></Text>
                     <Text style={styles.heroStatLbl}>{t('tabs.dashboard.goal', { lang: appLang, fallback: 'Goal' })}</Text>
                   </View>
                   <View style={styles.heroStatSep} />
@@ -674,8 +693,8 @@ export default function DashboardScreen() {
         <View style={styles.metricsBoard}>
           {[
             { label: t('tabs.dashboard.metric_tasks', { lang: appLang, fallback: 'Tasks' }), value: `${completedTasks}/${todayTasks.length}` },
-            { label: t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' }), value: `${dailyProgress.minutes}m` },
-            { label: t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' }), value: `${currentStreak}d` },
+            { label: t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' }), value: formatMinutesCompact(dailyProgress.minutes, appLang) },
+            { label: t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' }), value: formatDaysCompact(currentStreak, appLang) },
             { label: t('tabs.dashboard.metric_done', { lang: appLang, fallback: 'Done' }), value: `${taskPct}%` },
           ].map((m, i) => (
             <TouchableOpacity
@@ -684,7 +703,14 @@ export default function DashboardScreen() {
               onPress={() => openMetricSheet(m.label, m.value)}
               activeOpacity={0.78}
             >
-              <Text style={styles.metricLabel}>{m.label}</Text>
+              <Text
+                style={styles.metricLabel}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.72}
+              >
+                {m.label}
+              </Text>
               <Text style={styles.metricValue}>{m.value}</Text>
             </TouchableOpacity>
           ))}
@@ -749,10 +775,23 @@ export default function DashboardScreen() {
                   )}
                 </View>
               </View>
-              <View style={styles.goalTrack}>
-                <View style={[styles.goalFill, { width: `${Math.min(progressPct, 100)}%` as any }]} />
-              </View>
+            <View style={styles.goalTrack}>
+              <View style={[styles.goalFill, { width: `${Math.min(progressPct, 100)}%` as any }]} />
             </View>
+          </View>
+
+            {adaptiveReviewSignal?.active && adaptiveReviewLine ? (
+              <View style={styles.adaptCard}>
+                <View style={styles.adaptAccent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.adaptTag}>
+                    {t('tabs.dashboard.adaptive_review_title', { lang: appLang, fallback: 'ADAPTIVE REVIEW' })}
+                  </Text>
+                  <Text style={styles.adaptBody}>{adaptiveReviewLine}</Text>
+                </View>
+                <Text style={styles.adaptCount}>{adaptiveReviewSignal.hardCount + adaptiveReviewSignal.incompleteCount}</Text>
+              </View>
+            ) : null}
 
             {/* Tasks */}
             {todayTasks.length === 0 ? (
@@ -791,6 +830,7 @@ export default function DashboardScreen() {
                     typeIcon={getTypeIcon(task.type)}
                     typeLabel={getTypeLabel(task.type)}
                     doneLabel={doneLabel}
+                    appLang={appLang}
                     index={i}
                   />
                 ))}
@@ -982,6 +1022,8 @@ const styles = StyleSheet.create({
     color: DASH.sub,
     textTransform: 'uppercase',
     letterSpacing: 0.45,
+    textAlign: 'center',
+    width: '100%',
   },
   metricValue: {
     fontSize: 17,
@@ -1018,6 +1060,27 @@ const styles = StyleSheet.create({
   goalBadgeText: { fontSize: 12, fontWeight: '700' },
   goalTrack: { height: 8, borderRadius: 4, backgroundColor: DASH.track, overflow: 'hidden' },
   goalFill: { height: 8, borderRadius: 4, backgroundColor: DASH.teal },
+  adaptCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: DASH.card,
+    borderWidth: 1,
+    borderColor: DASH.cardBorder,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    marginBottom: 10,
+    shadowColor: DASH.teal,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  adaptAccent: { width: 3, alignSelf: 'stretch', backgroundColor: DASH.teal, borderRadius: 2 },
+  adaptTag: { fontSize: 9, fontWeight: '800', color: DASH.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 },
+  adaptBody: { fontSize: 13, color: DASH.sub, lineHeight: 18 },
+  adaptCount: { fontSize: 22, fontWeight: '900', color: DASH.teal, letterSpacing: -0.5 },
 
   // Task Card
   taskCard: {
@@ -1071,7 +1134,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 7,
   },
-  calendarLinkRow: { marginTop: 8 },
+  calendarLinkRow: { marginTop: 0 },
   linkRowText: { fontSize: 13, fontWeight: '600', color: DASH.teal },
 
   // Empty

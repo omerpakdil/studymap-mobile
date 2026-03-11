@@ -2,27 +2,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
-import { getBlueprintByExamCode } from '@/app/data/examBlueprints';
 import { getCountryByCode } from '@/app/data/countries';
+import { getBlueprintByExamCode } from '@/app/data/examBlueprints';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import { getLocalizedExamName } from '@/app/i18n/examNames';
 import { buildFinalExamId, getBaseExamId, getExamTrackConfig, getExamTrackOptions, getTrackFromExamId, type TrackId } from '@/app/utils/examTrackUtils';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepValidationFail,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepValidationFail,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 
 const C = {
@@ -170,7 +171,7 @@ export default function OnboardingV2GoalTrackScreen() {
           </View>
         </View>
         <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
-          {t('common.step_of', { lang, params: { current: 3, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 3, total: 13 } })}
         </Text>
 
         <Text style={[styles.title, styles.titleCompact, { color: C.title }]}>
@@ -249,7 +250,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F0FDFB' },
   orbA: { position: 'absolute', width: 280, height: 280, borderRadius: 999, top: -80, right: -110 },
   orbB: { position: 'absolute', width: 180, height: 180, borderRadius: 999, bottom: 180, left: -80 },
-  inner: { flex: 1, paddingTop: 9, paddingHorizontal: 21 },
+  inner: { flex: 1, paddingTop: 9, paddingHorizontal: 21, paddingBottom: 112 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   backBtn: { width: 36, height: 36, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   backArrow: { fontSize: 26, fontWeight: '300', lineHeight: 30, marginTop: -1 },
@@ -283,10 +284,10 @@ const styles = StyleSheet.create({
   trackCheck: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   trackCheckText: { fontSize: 12, fontWeight: '800' },
   trackName: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3, lineHeight: 22 },
-  footer: { paddingHorizontal: 21, paddingTop: 9, paddingBottom: 14, borderTopWidth: 1 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 21, paddingTop: FOOTER.paddingTop, paddingBottom: FOOTER.paddingBottom, borderTopWidth: 1 },
   cta: {
-    height: 54,
-    borderRadius: 16,
+    height: FOOTER.ctaHeight,
+    borderRadius: FOOTER.ctaRadius,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { backgroundColor: 'rgba(13,148,136,0.12)' },
   ctaSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '48%', backgroundColor: 'rgba(255,255,255,0.15)' },
-  ctaText: { color: '#FFFFFF', fontSize: 20, fontWeight: '900', letterSpacing: -0.3 },
+  ctaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
   ctaTextDisabled: { color: 'rgba(15,118,110,0.45)' },
   ctaArrow: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', marginTop: -1 },
 });

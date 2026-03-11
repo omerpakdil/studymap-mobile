@@ -16,8 +16,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
+import { getLocalizedAchievement } from '@/app/i18n/achievementNames';
 import { getLocalizedExamName } from '@/app/i18n/examNames';
 import { getLocalizedSubjectName } from '@/app/i18n/subjectNames';
+import { formatDaysCompact, formatHoursCompact, formatMinutesCompact } from '@/app/i18n/unitFormat';
+import { getAdaptiveReviewSignal, type AdaptiveReviewSignal } from '@/app/utils/focusSessionFeedback';
 import { getLocalDateKey } from '@/app/utils/localDate';
 import {
   Achievement,
@@ -165,11 +168,15 @@ function AchievCard({
   index,
   categoryLabel,
   unlockedLabel,
+  localizedTitle,
+  localizedDescription,
 }: {
   a: Achievement;
   index: number;
   categoryLabel: string;
   unlockedLabel: string;
+  localizedTitle: string;
+  localizedDescription: string;
 }) {
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(14)).current;
@@ -233,9 +240,9 @@ function AchievCard({
           )}
         </View>
         <Text style={[styles.achTitle, { color: a.unlocked ? C.ink : C.muted }]} numberOfLines={2}>
-          {a.title}
+          {localizedTitle}
         </Text>
-        <Text style={styles.achDesc} numberOfLines={2}>{a.description}</Text>
+        <Text style={styles.achDesc} numberOfLines={2}>{localizedDescription}</Text>
 
         {/* Dot bar: full if unlocked, partial if locked */}
         <DotBar pct={a.unlocked ? 100 : Math.min(100, (a.progress / a.requirement) * 100)} count={8} />
@@ -259,6 +266,7 @@ export default function ProgressScreen() {
   const [studyStreak, setStudyStreak] = useState(0);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const [adaptiveReviewSignal, setAdaptiveReviewSignal] = useState<AdaptiveReviewSignal | null>(null);
   const [loading, setLoading] = useState(true);
 
   const headerOpacity = useRef(new Animated.Value(0)).current;
@@ -286,9 +294,9 @@ export default function ProgressScreen() {
     try {
       setLoading(true);
       const today = getLocalDateKey();
-      const [metadata, subjects, weekly, daily, streak, userAchievements, latestReport] = await Promise.all([
+      const [metadata, subjects, weekly, daily, streak, userAchievements, latestReport, adaptiveSignal] = await Promise.all([
         getProgramMetadata(), getSubjectProgress(), calculateWeeklyProgress(),
-        calculateDailyProgress(today), getStudyStreak(), getUserAchievements(), getLatestWeeklyReport(),
+        calculateDailyProgress(today), getStudyStreak(), getUserAchievements(), getLatestWeeklyReport(), getAdaptiveReviewSignal(),
       ]);
       setProgramMetadata(metadata);
       setSubjectProgress(subjects);
@@ -297,6 +305,7 @@ export default function ProgressScreen() {
       setStudyStreak(streak);
       setAchievements(userAchievements);
       setWeeklyReport(latestReport);
+      setAdaptiveReviewSignal(adaptiveSignal);
       const { checkDailyGoalCompletion, checkWeeklyGoalCompletion } = await import('@/app/utils/studyProgramStorage');
       await checkDailyGoalCompletion(today);
       await checkWeeklyGoalCompletion();
@@ -348,6 +357,7 @@ export default function ProgressScreen() {
       ? subjectEntries.reduce((p, c) => c[1].progress < p[1].progress ? c : p) : null;
     const strongest = subjectEntries.length > 0
       ? subjectEntries.reduce((p, c) => c[1].progress > p[1].progress ? c : p) : null;
+    const adaptiveSubjects = (adaptiveReviewSignal?.affectedSubjects || []).map((subject) => subjectLabel(subject));
 
     return (
       <View style={{ gap: 14 }}>
@@ -366,7 +376,7 @@ export default function ProgressScreen() {
                 <MetricRow items={[
                   { val: String(programMetadata.daysRemaining), lbl: tp('days_left', 'Days Left') },
                   { val: String(programMetadata.completedTasks), lbl: tp('done', 'Done') },
-                  { val: `${studyStreak}d`, lbl: tp('streak', 'Streak') },
+                  { val: formatDaysCompact(studyStreak, appLang), lbl: tp('streak', 'Streak') },
                 ]} />
                 <View style={styles.heroMiniWrap}>
                   <View style={styles.heroMiniTrack}>
@@ -382,9 +392,9 @@ export default function ProgressScreen() {
         {/* 4 tiled stats — large numbers with accent line, no icons */}
         <View style={styles.tiledRow}>
           <TiledStat value={`${studyStreak}`} label={tp('day_streak', 'Day Streak')} sub={tp('days', 'days')} />
-          <TiledStat value={`${weeklyProgress.hours}h`} label={tp('this_week', 'This Week')} sub={tp('studied', 'studied')} />
-          <TiledStat value={`${dailyProgress.minutes}m`} label={tp('today', 'Today')} sub={tp('logged', 'logged')} />
-          <TiledStat value={`${programMetadata.weeklyHours || 15}h`} label={tp('goal', 'Goal')} sub={tp('weekly', 'weekly')} />
+          <TiledStat value={formatHoursCompact(weeklyProgress.hours, appLang)} label={tp('this_week', 'This Week')} sub={tp('studied', 'studied')} />
+          <TiledStat value={formatMinutesCompact(dailyProgress.minutes, appLang)} label={tp('today', 'Today')} sub={tp('logged', 'logged')} />
+          <TiledStat value={formatHoursCompact(programMetadata.weeklyHours || 15, appLang)} label={tp('goal', 'Goal')} sub={tp('weekly', 'weekly')} />
         </View>
 
         {/* Dual progress */}
@@ -412,10 +422,29 @@ export default function ProgressScreen() {
             <AnimBar pct={dailyPct} delay={120} />
             <DotBar pct={dailyPct} count={10} />
             <Text style={styles.dualSub}>
-              {tp('minutes_studied', '{minutes}m studied', { minutes: dailyProgress.minutes })}
+              {`${formatMinutesCompact(dailyProgress.minutes, appLang)} ${tp('studied', 'studied').toLowerCase()}`}
             </Text>
           </View>
         </View>
+
+        {adaptiveReviewSignal?.active && (
+          <View style={styles.insightStrip}>
+            <View style={styles.insightAccent} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.insightTag}>{tp('adaptive_review_title', 'ADAPTIVE REVIEW')}</Text>
+              <Text style={styles.insightBody}>
+                {adaptiveSubjects.length <= 1
+                  ? tp('adaptive_review_line_one', '{subject} is getting extra short-term review after recent friction.', {
+                      subject: adaptiveSubjects[0] || tp('adaptive_review_subject_generic', 'A subject'),
+                    })
+                  : tp('adaptive_review_line_multi', '{subjects} are getting extra short-term review after recent friction.', {
+                      subjects: adaptiveSubjects.slice(0, 2).join(' · '),
+                    })}
+              </Text>
+            </View>
+            <Text style={styles.insightBigNum}>{adaptiveReviewSignal.hardCount + adaptiveReviewSignal.incompleteCount}</Text>
+          </View>
+        )}
 
         {/* Insight strips — typographic, no icons */}
         {weakest && weakest[1].progress < 60 && (
@@ -457,7 +486,7 @@ export default function ProgressScreen() {
                 {tp('streak_line', '{days} consecutive days — keep going', { days: studyStreak })}
               </Text>
             </View>
-            <Text style={styles.insightBigNum}>{studyStreak}d</Text>
+            <Text style={styles.insightBigNum}>{formatDaysCompact(studyStreak, appLang)}</Text>
           </View>
         )}
         {programMetadata.daysRemaining <= 30 && (
@@ -472,7 +501,7 @@ export default function ProgressScreen() {
                 })}
               </Text>
             </View>
-            <Text style={styles.insightBigNum}>{programMetadata.daysRemaining}d</Text>
+            <Text style={styles.insightBigNum}>{formatDaysCompact(programMetadata.daysRemaining, appLang)}</Text>
           </View>
         )}
       </View>
@@ -646,15 +675,20 @@ export default function ProgressScreen() {
                 </View>
               </View>
               <View style={styles.achGrid}>
-                {achs.map((a, i) => (
-                  <AchievCard
-                    key={a.id}
-                    a={a}
-                    index={i}
-                    categoryLabel={catBadgeLabel[cat] || cat.toUpperCase()}
-                    unlockedLabel={tp('unlocked', 'Unlocked')}
-                  />
-                ))}
+                {achs.map((a, i) => {
+                  const loc = getLocalizedAchievement(a.id, appLang);
+                  return (
+                    <AchievCard
+                      key={a.id}
+                      a={a}
+                      index={i}
+                      categoryLabel={catBadgeLabel[cat] || cat.toUpperCase()}
+                      unlockedLabel={tp('unlocked', 'Unlocked')}
+                      localizedTitle={loc.title}
+                      localizedDescription={loc.description}
+                    />
+                  );
+                })}
               </View>
             </View>
           );
@@ -700,8 +734,8 @@ export default function ProgressScreen() {
             <Text style={styles.weeklyDates}>{fmt(weeklyReport.weekStart)} – {fmt(weeklyReport.weekEnd)}</Text>
             <MetricRow items={[
               { val: `${weeklyReport.summary.completionRate}%`, lbl: tp('completion', 'Completion') },
-              { val: `${weeklyReport.summary.hoursStudied}h`, lbl: tp('hours', 'Hours') },
-              { val: `${weeklyReport.achievements.streakDays}d`, lbl: tp('streak', 'Streak') },
+              { val: formatHoursCompact(weeklyReport.summary.hoursStudied, appLang), lbl: tp('hours', 'Hours') },
+              { val: formatDaysCompact(weeklyReport.achievements.streakDays, appLang), lbl: tp('streak', 'Streak') },
               { val: String(weeklyReport.achievements.newBadges.length), lbl: tp('badges', 'Badges') },
             ]} />
           </LinearGradient>

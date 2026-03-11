@@ -25,6 +25,7 @@ export default function OnboardingV2Layout() {
         <Stack.Screen name="goal-intensity" />
         <Stack.Screen name="goal-setup" />
         <Stack.Screen name="schedule" />
+        <Stack.Screen name="session-length" />
         <Stack.Screen name="focus" />
         <Stack.Screen name="learning-style" />
         <Stack.Screen name="plan-preview" />

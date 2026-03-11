@@ -7,7 +7,7 @@
  */
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -22,18 +22,19 @@ import {
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { getCountryByCode } from '@/app/data/countries';
 import { getExamGoalConfig } from '@/app/data/examGoalConfigs';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import { getLocalizedExamName } from '@/app/i18n/examNames';
-import { resolveTargetModel } from '@/app/utils/targetMetric';
 import {
   trackOnboardingStepBack,
   trackOnboardingStepContinue,
   trackOnboardingStepValidationFail,
   trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
+import { resolveTargetModel } from '@/app/utils/targetMetric';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -51,7 +52,7 @@ const C = {
   backBg: 'rgba(255,255,255,0.07)', backBorder: 'rgba(255,255,255,0.09)',
   backArrow: 'rgba(167,243,208,0.65)', brand: '#2DD4BF',
   btnA: '#14B8A6', btnB: '#0F9D8C',
-  footer: 'rgba(20,20,20,0.92)', footerBorder: 'rgba(45,212,191,0.10)',
+  footer: 'transparent', footerBorder: 'rgba(45,212,191,0.10)',
 };
 
 export default function OnboardingV2GoalScoreScreen() {
@@ -198,7 +199,7 @@ export default function OnboardingV2GoalScoreScreen() {
       target_value_raw: draft.targetValueRaw || draft.targetScore,
       target_value_normalized: draft.targetValueNormalized,
     });
-    router.push('/(onboarding-v2)/goal-intensity');
+    router.push('/(onboarding-v2)/schedule');
   };
 
   const pressIn = () => Animated.spring(ctaScale,{toValue:0.97,damping:20,stiffness:400,useNativeDriver:true}).start();
@@ -238,7 +239,7 @@ export default function OnboardingV2GoalScoreScreen() {
             </View>
           </View>
           <Text style={[styles.stepLabel,{color:C.labelMuted}]}>
-            {t('common.step_of', { lang, params: { current: 5, total: 12 } })}
+            {t('common.step_of', { lang, params: { current: 5, total: 13 } })}
           </Text>
 
           {/* Title */}
@@ -334,7 +335,16 @@ export default function OnboardingV2GoalScoreScreen() {
         </Animated.View>
 
         {/* Footer */}
-        <Animated.View style={[styles.footer,{backgroundColor:C.footer,borderTopColor:C.footerBorder,opacity:ctaFade}]}>
+        <Animated.View
+          style={[
+            styles.footer,
+            {
+              backgroundColor:C.footer,
+              borderTopColor:C.footerBorder,
+              opacity:ctaFade,
+            },
+          ]}
+        >
           <Animated.View style={{transform:[{scale:ctaScale}]}}>
             <TouchableOpacity style={[styles.cta,!isValid&&styles.ctaDisabled]} onPress={handleContinue} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
               {isValid&&<LinearGradient colors={[C.btnA,C.btnB]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>}
@@ -400,8 +410,8 @@ const styles = StyleSheet.create({
   noteIcon:{fontSize:14,color:'#2DD4BF',marginTop:1},
   noteText:{flex:1,fontSize:12,lineHeight:18,fontWeight:'400'},
 
-  footer:{position:'absolute',left:0,right:0,bottom:0,paddingHorizontal:22,paddingTop:14,paddingBottom:32,borderTopWidth:StyleSheet.hairlineWidth},
-  cta:{height:54,borderRadius:14,flexDirection:'row',alignItems:'center',justifyContent:'center',overflow:'hidden',gap:8,
+  footer:{position:'absolute',left:0,right:0,bottom:0,paddingHorizontal:22,paddingTop:16,paddingBottom:12,borderTopWidth:StyleSheet.hairlineWidth,backgroundColor:C.footer,borderTopColor:C.footerBorder},
+  cta:{height:FOOTER.ctaHeight,borderRadius:FOOTER.ctaRadius,flexDirection:'row',alignItems:'center',justifyContent:'center',overflow:'hidden',gap:8,
     shadowColor:'#14B8A6',shadowOffset:{width:0,height:6},shadowOpacity:0.32,shadowRadius:16,elevation:8},
   ctaDisabled:{backgroundColor:'rgba(100,116,139,0.14)',shadowOpacity:0,elevation:0},
   ctaSheen:{position:'absolute',top:0,left:0,right:0,height:'44%',backgroundColor:'rgba(255,255,255,0.12)'},

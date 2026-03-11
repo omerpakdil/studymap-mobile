@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "studymapmobile",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "metro": {
       "resolver": {
         "assetExts": [
@@ -19,7 +19,9 @@
           "gif",
           "webp",
           "svg",
-          "html"
+          "html",
+          "mp3",
+          "wav"
         ]
       }
     },
@@ -29,6 +31,7 @@
       "buildNumber": "33",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["audio"],
         "CFBundleLocalizations": [
           "en",
           "tr",

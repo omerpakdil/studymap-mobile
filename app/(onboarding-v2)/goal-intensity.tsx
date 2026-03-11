@@ -11,22 +11,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    SafeAreaView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding-v2/footerMetrics';
 import { getCountryByCode } from '@/app/data/countries';
-import { resolveAppLanguage, t } from '@/app/i18n';
+import { getLocaleTagForLanguage, resolveAppLanguage, t } from '@/app/i18n';
+import { getIntensityCapacitySummary } from '@/app/utils/scheduleCapacity';
 import {
-  trackOnboardingStepBack,
-  trackOnboardingStepContinue,
-  trackOnboardingStepView,
+    trackOnboardingStepBack,
+    trackOnboardingStepContinue,
+    trackOnboardingStepView,
 } from '@/app/utils/onboardingV2Analytics';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -41,7 +43,7 @@ const C = {
   backBg:'rgba(0,0,0,0.04)', backBorder:'rgba(0,0,0,0.06)',
   backArrow:'#64748B', brand:'#0F9D8C',
   btnA:'#0F9D8C', btnB:'#0B7A6E',
-  footer:'rgba(250,251,252,0.96)', footerBorder:'rgba(15,23,42,0.07)',
+  footer:'transparent', footerBorder:'rgba(15,23,42,0.07)',
 };
 
 type IntensityId = 'relaxed' | 'moderate' | 'intensive' | 'extreme';
@@ -49,11 +51,10 @@ type IntensityId = 'relaxed' | 'moderate' | 'intensive' | 'extreme';
 interface Option {
   id: IntensityId;
   label: string;
-  hours: string;
+  ratio: number;
   level: number; // 1-4 intensity scale shown as dots
   totalDots: number;
   desc: string;
-  weekLabel: string;
   railA: string;
   railB: string;
   tagText: string;
@@ -64,22 +65,20 @@ const OPTIONS: Option[] = [
   {
     id: 'relaxed',
     label: 'Relaxed',
-    hours: '1–2 h/day',
+    ratio: 0.6,
     level: 1,
     totalDots: 4,
     desc: 'Gentle, sustainable pace. Best with 3+ months before your exam.',
-    weekLabel: '~5 sessions/week',
     railA: '#10B981', railB: '#059669',
     tagText: 'Low pressure',
   },
   {
     id: 'moderate',
     label: 'Moderate',
-    hours: '2–3 h/day',
+    ratio: 0.72,
     level: 2,
     totalDots: 4,
     desc: 'Balanced effort. The most popular intensity — consistent and effective.',
-    weekLabel: '~10 sessions/week',
     railA: '#0F9D8C', railB: '#0B7A6E',
     tagText: 'Recommended',
     recommended: true,
@@ -87,22 +86,20 @@ const OPTIONS: Option[] = [
   {
     id: 'intensive',
     label: 'Intensive',
-    hours: '3–4 h/day',
+    ratio: 0.86,
     level: 3,
     totalDots: 4,
     desc: 'High output. Ideal for 6–8 week sprints before your exam.',
-    weekLabel: '~15 sessions/week',
     railA: '#0284C7', railB: '#0369A1',
     tagText: 'High output',
   },
   {
     id: 'extreme',
     label: 'Extreme',
-    hours: '4+ h/day',
+    ratio: 1,
     level: 4,
     totalDots: 4,
     desc: 'Maximum load. Every available slot used. Study is your top priority.',
-    weekLabel: '~20 sessions/week',
     railA: '#DC2626', railB: '#B91C1C',
     tagText: 'Max effort',
   },
@@ -169,9 +166,12 @@ export default function OnboardingV2GoalIntensityScreen() {
 
   const selectedOpt = OPTIONS.find(o => o.id === draft.studyIntensity);
   const getLabel = (id: IntensityId) => t(`onboarding.goal_intensity.${id}.label`, { lang, fallback: OPTIONS.find(o => o.id === id)?.label || id });
-  const getHours = (id: IntensityId) => t(`onboarding.goal_intensity.${id}.hours`, { lang, fallback: OPTIONS.find(o => o.id === id)?.hours || '' });
   const getDesc = (id: IntensityId) => t(`onboarding.goal_intensity.${id}.desc`, { lang, fallback: OPTIONS.find(o => o.id === id)?.desc || '' });
-  const getWeek = (id: IntensityId) => t(`onboarding.goal_intensity.${id}.week`, { lang, fallback: OPTIONS.find(o => o.id === id)?.weekLabel || '' });
+  const formatNumber = (value: number) =>
+    new Intl.NumberFormat(getLocaleTagForLanguage(lang), {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -212,7 +212,7 @@ export default function OnboardingV2GoalIntensityScreen() {
           </View>
         </View>
         <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
-          {t('common.step_of', { lang, params: { current: 6, total: 12 } })}
+          {t('common.step_of', { lang, params: { current: 8, total: 13 } })}
         </Text>
 
         {/* Title */}
@@ -227,6 +227,12 @@ export default function OnboardingV2GoalIntensityScreen() {
         <View style={styles.cardList}>
           {OPTIONS.map((opt, i) => {
             const active = draft.studyIntensity === opt.id;
+            const capacity = getIntensityCapacitySummary(
+              draft.weeklyAvailability || {},
+              opt.id,
+              draft.preferredSessionMinutes,
+              draft.targetValueNormalized || 0
+            );
             return (
               <Animated.View
                 key={opt.id}
@@ -268,7 +274,13 @@ export default function OnboardingV2GoalIntensityScreen() {
                           </View>
                         )}
                         <View style={[styles.hoursBadge, { backgroundColor: active ? `${opt.railA}18` : 'rgba(0,0,0,0.05)' }]}>
-                          <Text style={[styles.hoursText, { color: active ? opt.railA : C.sub }]}>{getHours(opt.id)}</Text>
+                          <Text style={[styles.hoursText, { color: active ? opt.railA : C.sub }]}>
+                            {t('onboarding.goal_intensity.planned_weekly', {
+                              lang,
+                              params: { hours: formatNumber(capacity.weeklyHours) },
+                              fallback: `Uses ~${formatNumber(capacity.weeklyHours)} h/week`,
+                            })}
+                          </Text>
                         </View>
                       </View>
                     </View>
@@ -283,9 +295,23 @@ export default function OnboardingV2GoalIntensityScreen() {
                         active={active}
                       />
                       <Text style={[styles.weekLabel, { color: active ? opt.railA : C.sub }]}>
-                        {getWeek(opt.id)}
+                        {t('onboarding.goal_intensity.sessions', {
+                          lang,
+                          params: { count: capacity.sessionsPerWeek },
+                          fallback: `~${capacity.sessionsPerWeek} sessions/week`,
+                        })}
                       </Text>
                     </View>
+
+                    <Text style={[styles.capacityLine, { color: active ? opt.railA : C.sub }]}>
+                      {t('onboarding.goal_intensity.available_weekly', {
+                        lang,
+                        params: {
+                          hours: formatNumber(capacity.availableWeeklyHours),
+                        },
+                        fallback: `Based on ${formatNumber(capacity.availableWeeklyHours)} h available`,
+                      })}
+                    </Text>
 
                     {/* Description — only when active */}
                     {active && (
@@ -311,7 +337,7 @@ export default function OnboardingV2GoalIntensityScreen() {
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
             style={[styles.cta, !draft.studyIntensity && styles.ctaDisabled]}
-            onPress={() => { void trackOnboardingStepContinue('goal_intensity'); router.push('/(onboarding-v2)/schedule'); }}
+            onPress={() => { void trackOnboardingStepContinue('goal_intensity'); router.push('/(onboarding-v2)/focus'); }}
             onPressIn={pressIn}
             onPressOut={pressOut}
             activeOpacity={1}
@@ -381,10 +407,11 @@ const styles = StyleSheet.create({
   recBadge: { borderWidth:1, borderRadius:6, paddingHorizontal:6, paddingVertical:2 },
   recText: { fontSize:9, fontWeight:'700', letterSpacing:0.4 },
   hoursBadge: { borderRadius:8, paddingHorizontal:8, paddingVertical:4 },
-  hoursText: { fontSize:11, fontWeight:'700', letterSpacing:0.2 },
+  hoursText: { fontSize:10, fontWeight:'700', letterSpacing:0.1 },
 
   dotsRow: { flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
   weekLabel: { fontSize:10, fontWeight:'600', letterSpacing:0.3 },
+  capacityLine: { fontSize:11, fontWeight:'700', marginTop:-2 },
 
   cardDesc: { fontSize:12, lineHeight:17, fontWeight:'400' },
 
@@ -392,8 +419,8 @@ const styles = StyleSheet.create({
   checkText: { fontSize:15, fontWeight:'700' },
 
   // Footer
-  footer: { position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:14, paddingBottom:32, borderTopWidth:StyleSheet.hairlineWidth },
-  cta: { height:54, borderRadius:14, flexDirection:'row', alignItems:'center', justifyContent:'center', overflow:'hidden', gap:8,
+  footer: { position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  cta: { height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center', overflow:'hidden', gap:8,
     shadowColor:'#0F9D8C', shadowOffset:{width:0,height:6}, shadowOpacity:0.26, shadowRadius:16, elevation:8 },
   ctaDisabled: { backgroundColor:'rgba(148,163,184,0.18)', shadowOpacity:0, elevation:0 },
   ctaSheen: { position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },

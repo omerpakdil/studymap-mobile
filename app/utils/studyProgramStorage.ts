@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { resolveAppLanguage } from '@/app/i18n';
+import { getDateFormatByLanguage, parseDate } from './localeDate';
 import { getLocalDateKey, getStartOfLocalWeek } from './localDate';
 import { syncRemoteNotificationState } from './remoteNotificationService';
 import { devLog, devWarn, reportError } from './logger';
@@ -138,6 +140,24 @@ export const markTaskComplete = async (taskId: string, duration?: number): Promi
     devLog(`✅ Task ${taskId} marked as completed`);
   } catch (error) {
     reportError('❌ Error marking task complete:', error);
+    throw error;
+  }
+};
+
+export const clearTaskCompletion = async (taskId: string, progress: number = 0): Promise<void> => {
+  try {
+    const completions = await getTaskCompletions();
+    delete completions[taskId];
+    await AsyncStorage.setItem(STORAGE_KEYS.TASK_COMPLETIONS, JSON.stringify(completions));
+
+    const tasks = await loadDailyTasks();
+    const updatedTasks = tasks.map(task =>
+      task.id === taskId ? { ...task, completed: false, progress: Math.min(100, Math.max(0, progress)) } : task
+    );
+    await saveDailyTasks(updatedTasks);
+    devLog(`✅ Task ${taskId} completion cleared, progress set to ${progress}%`);
+  } catch (error) {
+    reportError('❌ Error clearing task completion:', error);
     throw error;
   }
 };
@@ -391,18 +411,12 @@ export const getProgramMetadata = async (): Promise<{
     let daysRemaining = 0;
     
     try {
-      // Handle different date formats (YYYY-MM-DD or MM/DD/YYYY)
-      let examDate: Date;
-      if (program.examDate.includes('/')) {
-        // MM/DD/YYYY format
-        const [month, day, year] = program.examDate.split('/').map(Number);
-        examDate = new Date(year, month - 1, day);
-      } else {
-        // YYYY-MM-DD format
-        examDate = new Date(program.examDate);
-      }
-      
-      if (!isNaN(examDate.getTime())) {
+      const lang = resolveAppLanguage();
+      const { order } = getDateFormatByLanguage(lang);
+      const examDate = parseDate(program.examDate, order)
+        ?? (program.examDate.includes('-') ? new Date(program.examDate) : null);
+
+      if (examDate && !isNaN(examDate.getTime())) {
         daysRemaining = Math.max(0, Math.ceil((examDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
       }
       
@@ -621,12 +635,11 @@ const buildSubjectBreakdownFromTasks = (
   Object.keys(bySubject).forEach((subject) => {
     const subjectTasks = bySubject[subject];
     const totalMinutes = subjectTasks.reduce((sum, task) => sum + task.duration, 0);
-    const totalHours = Math.round(totalMinutes / 60);
     const previous = existing?.[subject];
 
     breakdown[subject] = {
-      totalHours,
-      weeklyHours: Math.max(1, Math.round(totalHours / totalWeeks)),
+      totalHours: totalMinutes > 0 ? Math.max(0.5, Math.round((totalMinutes / 60) * 10) / 10) : 0,
+      weeklyHours: totalMinutes > 0 ? Math.max(0.5, Math.round(((totalMinutes / 60) / totalWeeks) * 10) / 10) : 0,
       intensityLevel: previous?.intensityLevel ?? 1,
       priority: previous?.priority ?? 2,
       currentProgress: previous?.currentProgress ?? 0,
