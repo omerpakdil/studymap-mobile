@@ -70,13 +70,13 @@ export default function OnboardingV2SplashScreen() {
       body: t('onboarding.splash.proof_2_body', { lang, fallback: 'Load distributed by subject difficulty and exam proximity.' }),
     },
     {
-      title: t('onboarding.splash.proof_3_title', { lang, fallback: 'See it before you pay' }),
-      body: t('onboarding.splash.proof_3_body', { lang, fallback: 'Full 7-day plan preview before any subscription decision.' }),
+      title: t('onboarding.splash.proof_3_title', { lang, fallback: 'Adapts as you go' }),
+      body: t('onboarding.splash.proof_3_body', { lang, fallback: 'Missed a session or weak on a topic? Plan rebalances automatically — your exam date stays fixed.' }),
     },
   ];
   const KPIS = [
     { val: t('onboarding.splash.kpi_1_value', { lang, fallback: '60s' }), lbl: t('onboarding.splash.kpi_1_label', { lang, fallback: 'to configure' }) },
-    { val: t('onboarding.splash.kpi_2_value', { lang, fallback: '7-day' }), lbl: t('onboarding.splash.kpi_2_label', { lang, fallback: 'preview first' }) },
+    { val: t('onboarding.splash.kpi_2_value', { lang, fallback: 'Daily' }), lbl: t('onboarding.splash.kpi_2_label', { lang, fallback: 'task list' }) },
     { val: t('onboarding.splash.kpi_3_value', { lang, fallback: '∞' }), lbl: t('onboarding.splash.kpi_3_label', { lang, fallback: 'adapts weekly' }) },
   ];
 
@@ -333,7 +333,7 @@ export default function OnboardingV2SplashScreen() {
           </TouchableOpacity>
         </Animated.View>
         <Text style={[styles.ctaHint, { color: C.sub }]}>
-          {t('onboarding.splash.cta_hint', { lang, fallback: 'Free to start · No card required' })}
+          {t('onboarding.splash.cta_hint', { lang, fallback: 'Set up in 60s · Built for your exam' })}
         </Text>
       </Animated.View>
     </SafeAreaView>

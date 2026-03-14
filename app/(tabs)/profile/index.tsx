@@ -7,12 +7,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Clipboard,
   Dimensions,
   Linking,
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -436,20 +438,27 @@ export default function ProfileScreen() {
               <View style={styles.referralActions}>
                 <TouchableOpacity
                   style={styles.referralBtn}
-                  onPress={() => showAlert(
-                    tp('copied_title', 'Copied!'),
-                    tp('copied_body', 'Code "{code}" copied.', { code: referralCode ?? '' })
-                  )}
+                  onPress={() => {
+                    Clipboard.setString(referralCode ?? '');
+                    showAlert(
+                      tp('copied_title', 'Copied!'),
+                      tp('copied_body', 'Code "{code}" copied.', { code: referralCode ?? '' })
+                    );
+                  }}
                 >
                   <Ionicons name="copy-outline" size={13} color="#fff" />
                   <Text style={styles.referralBtnText}>{tp('copy', 'Copy')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.referralBtn}
-                  onPress={() => showAlert(
-                    tp('share', 'Share'),
-                    tp('share_body', 'Use my code "{code}" for 7 days free on StudyMap!', { code: referralCode ?? '' })
-                  )}
+                  onPress={() => {
+                    const message = tp(
+                      'share_body',
+                      'Use my code "{code}" for 7 days free on StudyMap! {url}',
+                      { code: referralCode ?? '', url: APP_STORE_URL }
+                    );
+                    void Share.share({ message });
+                  }}
                 >
                   <Ionicons name="share-outline" size={13} color="#fff" />
                   <Text style={styles.referralBtnText}>{tp('share', 'Share')}</Text>

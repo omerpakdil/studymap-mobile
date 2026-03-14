@@ -65,7 +65,7 @@ const OPTIONS: Option[] = [
   {
     id: 'relaxed',
     label: 'Relaxed',
-    ratio: 0.6,
+    ratio: 0.25,
     level: 1,
     totalDots: 4,
     desc: 'Gentle, sustainable pace. Best with 3+ months before your exam.',
@@ -75,7 +75,7 @@ const OPTIONS: Option[] = [
   {
     id: 'moderate',
     label: 'Moderate',
-    ratio: 0.72,
+    ratio: 0.50,
     level: 2,
     totalDots: 4,
     desc: 'Balanced effort. The most popular intensity — consistent and effective.',
@@ -86,7 +86,7 @@ const OPTIONS: Option[] = [
   {
     id: 'intensive',
     label: 'Intensive',
-    ratio: 0.86,
+    ratio: 0.75,
     level: 3,
     totalDots: 4,
     desc: 'High output. Ideal for 6–8 week sprints before your exam.',
@@ -96,7 +96,7 @@ const OPTIONS: Option[] = [
   {
     id: 'extreme',
     label: 'Extreme',
-    ratio: 1,
+    ratio: 0.95,
     level: 4,
     totalDots: 4,
     desc: 'Maximum load. Every available slot used. Study is your top priority.',
@@ -260,12 +260,12 @@ export default function OnboardingV2GoalIntensityScreen() {
                   />
 
                   <View style={styles.cardContent}>
-                    {/* Top row: label + hours badge + recommended tag */}
+                    {/* Top row: label + rec badge (left stack) | hours badge (right) */}
                     <View style={styles.cardTopRow}>
-                      <Text style={[styles.cardLabel, { color: active ? opt.railA : C.title }]}>
-                        {getLabel(opt.id)}
-                      </Text>
-                      <View style={styles.cardTopRight}>
+                      <View style={styles.cardTopLeft}>
+                        <Text style={[styles.cardLabel, { color: active ? opt.railA : C.title }]}>
+                          {getLabel(opt.id)}
+                        </Text>
                         {opt.recommended && (
                           <View style={[styles.recBadge, { backgroundColor: `${opt.railA}18`, borderColor: `${opt.railA}30` }]}>
                             <Text style={[styles.recText, { color: opt.railA }]}>
@@ -273,15 +273,15 @@ export default function OnboardingV2GoalIntensityScreen() {
                             </Text>
                           </View>
                         )}
-                        <View style={[styles.hoursBadge, { backgroundColor: active ? `${opt.railA}18` : 'rgba(0,0,0,0.05)' }]}>
-                          <Text style={[styles.hoursText, { color: active ? opt.railA : C.sub }]}>
-                            {t('onboarding.goal_intensity.planned_weekly', {
-                              lang,
-                              params: { hours: formatNumber(capacity.weeklyHours) },
-                              fallback: `Uses ~${formatNumber(capacity.weeklyHours)} h/week`,
-                            })}
-                          </Text>
-                        </View>
+                      </View>
+                      <View style={[styles.hoursBadge, { backgroundColor: active ? `${opt.railA}18` : 'rgba(0,0,0,0.05)' }]}>
+                        <Text style={[styles.hoursText, { color: active ? opt.railA : C.sub }]}>
+                          {t('onboarding.goal_intensity.planned_weekly', {
+                            lang,
+                            params: { hours: formatNumber(capacity.weeklyHours) },
+                            fallback: `Uses ~${formatNumber(capacity.weeklyHours)} h/week`,
+                          })}
+                        </Text>
                       </View>
                     </View>
 
@@ -400,9 +400,9 @@ const styles = StyleSheet.create({
 
   cardContent: { flex:1, gap:8 },
 
-  cardTopRow: { flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
+  cardTopRow: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', gap:8 },
   cardLabel: { fontSize:16, fontWeight:'800', letterSpacing:-0.2 },
-  cardTopRight: { flexDirection:'row', alignItems:'center', gap:6 },
+  cardTopLeft: { flexDirection:'column', alignItems:'flex-start', gap:4, flex:1 },
 
   recBadge: { borderWidth:1, borderRadius:6, paddingHorizontal:6, paddingVertical:2 },
   recText: { fontSize:9, fontWeight:'700', letterSpacing:0.4 },

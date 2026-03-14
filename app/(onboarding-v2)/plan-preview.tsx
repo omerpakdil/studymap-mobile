@@ -419,11 +419,33 @@ export default function OnboardingV2PlanPreviewScreen() {
     if (!program?.subjectBreakdown) return [];
     return Object.entries(program.subjectBreakdown)
       .map(([name, breakdown]) => ({ name, hours: breakdown.weeklyHours }))
-      .sort((a,b) => b.hours - a.hours)
-      .slice(0, 4);
+      .sort((a,b) => b.hours - a.hours);
   }, [program]);
 
   const maxSubjectHours = subjectRows[0]?.hours || 1;
+  // Proportional compaction: for each subject beyond 4, shrink just enough to fit that row.
+  // xtra: 0 = ≤4 subjects (normal), 1 = 5, 2 = 6, 3 = 7, capped at 4.
+  const xtra = Math.max(0, Math.min(4, subjectRows.length - 4));
+  const d = {
+    wrapGap:       Math.max(1, 3 - Math.round(xtra * 0.6)),         // 3,3,2,2,1
+    cardPad:       Math.max(4, 6 - Math.round(xtra * 0.5)),          // 6,6,5,5,4
+    cardGap:       Math.max(2, 4 - Math.round(xtra * 0.5)),          // 4,4,3,3,2
+    subListGap:    Math.max(1, 4 - Math.round(xtra * 0.8)),          // 4,3,3,2,2
+    subFontSize:   Math.max(9, 12 - Math.round(xtra * 0.8)),         // 12,11,11,10,9
+    subWidth:      Math.max(56, 72 - xtra * 3),                      // 72,69,66,63,60
+    subHrsFontSize:Math.max(8,  11 - Math.round(xtra * 0.7)),        // 11,10,10,9,8
+    heroPad:       Math.max(5, 8 - Math.round(xtra * 0.7)),          // 8,7,7,6,5
+    kpiGap:        Math.max(0, 2 - Math.round(xtra * 0.5)),          // 2,2,1,1,0
+    kpiFontSize:   Math.max(12, 15 - Math.round(xtra * 0.7)),        // 15,14,14,13,12
+    taskPadV:      Math.max(2, 5 - Math.round(xtra * 0.8)),          // 5,4,4,3,2
+    taskFontSize:  Math.max(10, 12 - Math.round(xtra * 0.5)),        // 12,12,11,11,10
+    taskMetaSize:  Math.max(8,  10 - Math.round(xtra * 0.5)),        // 10,10,9,9,8
+    titleMb:       Math.max(1, 4 - xtra),                            // 4,3,2,1,0
+    stepMb:        Math.max(3, 8 - Math.round(xtra * 1.2)),          // 8,7,6,4,3
+    titleSize:     Math.max(18, 22 - Math.round(xtra * 0.8)),        // 22,21,21,20,19
+    taskCount:     xtra >= 1 ? 2 : 3,
+    showExplain:   xtra === 0,
+  };
   const explainabilityTask = useMemo(
     () => program?.dailyTasks.find((task) => task.explainability) ?? null,
     [program]
@@ -563,12 +585,12 @@ export default function OnboardingV2PlanPreviewScreen() {
             <View style={s.progressSheen}/>
           </View>
         </View>
-        <Text style={[s.stepLabel,{color:C.labelMuted}]}>
+        <Text style={[s.stepLabel,{color:C.labelMuted, marginBottom:d.stepMb}]}>
           {t('common.step_of', { lang, params: { current: 11, total: 13 } })}
         </Text>
 
         {/* Title */}
-        <Text style={[s.title,{color:C.title}, isNarrow && s.titleNarrow]} numberOfLines={2}>
+        <Text style={[s.title,{color:C.title, marginBottom:d.titleMb, fontSize:d.titleSize, lineHeight:d.titleSize + 4}, isNarrow && s.titleNarrow]} numberOfLines={2}>
           {t('onboarding.plan_preview.title', { lang, fallback: 'Your execution\nblueprint.' })}
         </Text>
 
@@ -608,7 +630,7 @@ export default function OnboardingV2PlanPreviewScreen() {
 
         {/* ── Success state ── */}
         {!loading && !!program && (
-          <Animated.View style={[s.successWrap,{
+          <Animated.View style={[s.successWrap,{gap:d.wrapGap},{
             opacity: contentAnim,
             transform:[{translateY:contentAnim.interpolate({inputRange:[0,1],outputRange:[16,0]})}],
           }]}>
@@ -616,18 +638,18 @@ export default function OnboardingV2PlanPreviewScreen() {
             {/* ── Hero: score + KPIs ── */}
             <View style={[s.heroCard,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
               <LinearGradient colors={[C.tealDk,C.tealDk2]} start={{x:0,y:0}} end={{x:1,y:0}} style={s.heroBar}/>
-              <View style={s.heroInner}>
+              <View style={[s.heroInner,{padding:d.heroPad}]}>
                 {/* Ring */}
                 <ScoreRing score={feasibility} color={scoreColor}/>
                 {/* KPIs */}
-                <View style={s.kpiCol}>
+                <View style={[s.kpiCol,{gap:d.kpiGap}]}>
                   {[
                     { val:`${formatHourValue(program.weeklyHours)}${hourUnit}`, lbl:t('onboarding.plan_preview.kpi_weekly_load', { lang, fallback: 'weekly load' }) },
                     { val:`${program.dailyTasks.length}`,  lbl:t('onboarding.plan_preview.kpi_total_tasks', { lang, fallback: 'total tasks' }) },
                     { val:`${activeDays}`, lbl:t('onboarding.plan_preview.kpi_study_days', { lang, fallback: 'study days' }) },
                   ].map((k,i)=>(
                     <View key={i} style={s.kpiItem}>
-                      <Text style={[s.kpiVal,{color:C.title}]}>{k.val}</Text>
+                      <Text style={[s.kpiVal,{color:C.title, fontSize:d.kpiFontSize}]}>{k.val}</Text>
                       <Text style={[s.kpiLbl,{color:C.muted}]} numberOfLines={2}>{k.lbl}</Text>
                     </View>
                   ))}
@@ -647,16 +669,19 @@ export default function OnboardingV2PlanPreviewScreen() {
 
             {/* ── Subject breakdown ── */}
             {subjectRows.length > 0 && (
-              <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+              <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
                 <Text style={[s.cardTitle,{color:C.muted}]}>
                   {t('onboarding.plan_preview.subject_distribution', { lang, fallback: 'Subject distribution' })}
                 </Text>
-                <View style={s.subjectList}>
+                <View style={[s.subjectList,{gap:d.subListGap}]}>
                   {subjectRows.map(({name,hours},i)=>(
                     <View key={name} style={s.subjectRow}>
-                      <Text style={[s.subjectName,{color:C.sub}, isNarrow && s.subjectNameNarrow]} numberOfLines={1}>{subjectLabel(name)}</Text>
-                      <BarFill fill={hours/maxSubjectHours} delay={300+i*80}/>
-                      <Text style={[s.subjectHrs,{color:C.teal}]}>{formatHourValue(hours)}{hourUnit}</Text>
+                      <Text
+                        style={[s.subjectName,{color:C.sub, fontSize:d.subFontSize, width:d.subWidth}]}
+                        numberOfLines={1}
+                      >{subjectLabel(name)}</Text>
+                      <BarFill fill={hours/maxSubjectHours} delay={300+i*60}/>
+                      <Text style={[s.subjectHrs,{color:C.teal, fontSize:d.subHrsFontSize}]}>{formatHourValue(hours)}{hourUnit}</Text>
                     </View>
                   ))}
                 </View>
@@ -664,19 +689,19 @@ export default function OnboardingV2PlanPreviewScreen() {
             )}
 
             {/* ── First tasks ── */}
-            <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+            <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
               <Text style={[s.cardTitle,{color:C.muted}]}>
                 {t('onboarding.plan_preview.first_sessions', { lang, fallback: 'First sessions' })}
               </Text>
               <View style={s.taskList}>
-                {program.dailyTasks.slice(0,3).map((task,i)=>(
-                  <View key={task.id} style={[s.taskRow,{borderTopColor:'rgba(255,255,255,0.05)', borderTopWidth: i===0?0:StyleSheet.hairlineWidth}]}>
+                {program.dailyTasks.slice(0, d.taskCount).map((task,i)=>(
+                  <View key={task.id} style={[s.taskRow,{borderTopColor:'rgba(255,255,255,0.05)', borderTopWidth: i===0?0:StyleSheet.hairlineWidth, paddingVertical:d.taskPadV}]}>
                     <View style={[s.taskDot,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
                       <Text style={[s.taskDotTxt,{color:C.teal}]}>{i+1}</Text>
                     </View>
                     <View style={s.taskBody}>
-                      <Text style={[s.taskSubject,{color:C.title}]} numberOfLines={1}>{subjectLabel(task.subject)}</Text>
-                      <Text style={[s.taskMeta,{color:C.muted}]} numberOfLines={1}>
+                      <Text style={[s.taskSubject,{color:C.title, fontSize:d.taskFontSize}]} numberOfLines={1}>{subjectLabel(task.subject)}</Text>
+                      <Text style={[s.taskMeta,{color:C.muted, fontSize:d.taskMetaSize}]} numberOfLines={1}>
                         {task.date?.slice(5)} · {task.timeSlot} · {getLocalizedTaskTypeLabel(task.type, lang)}
                       </Text>
                     </View>
@@ -687,12 +712,12 @@ export default function OnboardingV2PlanPreviewScreen() {
 
             {/* ── Personalization summary ── */}
             {personalPills.length > 0 && (
-              <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+              <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
                 <Text style={[s.cardTitle,{color:C.muted}]}>
                   {t('onboarding.plan_preview.personalized', { lang, fallback: 'Personalized for you' })}
                 </Text>
-                <Text style={[s.targetSummary,{color:C.sub}]} numberOfLines={2}>{targetSummaryText}</Text>
-                {localizedExplainability && (
+                <Text style={[s.targetSummary,{color:C.sub}]} numberOfLines={1}>{targetSummaryText}</Text>
+                {d.showExplain && localizedExplainability && (
                   <View style={s.explainCompact}>
                     <Text style={[s.explainMiniTitle,{color:C.title}]} numberOfLines={1}>
                       {localizedExplainability.title} · {localizedExplainability.summary}
@@ -709,7 +734,7 @@ export default function OnboardingV2PlanPreviewScreen() {
                   {personalPills.map(p=>(
                     <View key={p.label} style={[s.pill,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
                       <Text style={[s.pillLbl,{color:C.muted}]} numberOfLines={1}>{p.label}</Text>
-                      <Text style={[s.pillVal,{color:C.teal}]} numberOfLines={2}>{p.val}</Text>
+                      <Text style={[s.pillVal,{color:C.teal}]} numberOfLines={1}>{p.val}</Text>
                     </View>
                   ))}
                 </View>

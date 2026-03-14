@@ -520,8 +520,11 @@ export const examBlueprints: Record<string, ExamBlueprint> = {
   kpss: {
     examCode: 'kpss',
     subjects: [
-      s('general_ability', 'General Ability', 0.35, ['turkish', 'math_reasoning'], ['speed_reasoning', 'accuracy'], 0.1),
-      s('general_culture', 'General Culture', 0.35, ['history', 'geography', 'citizenship'], ['recall', 'concept_mapping']),
+      s('turkish', 'Turkish', 0.17, ['paragraph', 'grammar', 'meaning', 'verbal_reasoning'], ['speed', 'reading_accuracy']),
+      s('math', 'Math', 0.17, ['arithmetic', 'algebra', 'geometry', 'problem_solving'], ['accuracy', 'time_management'], 0.1),
+      s('history', 'History', 0.13, ['ottoman', 'republic', 'ataturk', 'world_history'], ['chronology', 'cause_effect']),
+      s('geography', 'Geography', 0.10, ['turkiye', 'physical', 'human'], ['map_reasoning', 'concept_linking']),
+      s('civics', 'Civics', 0.13, ['constitution', 'citizenship', 'religion_ethics', 'science_basics'], ['recall', 'application']),
       s('field', 'Field/Education', 0.3, ['education_sciences_or_branch'], ['domain_mastery', 'question_strategy'], 0.1),
     ],
     sessionTypes: ['study', 'review', 'practice', 'mock'],
@@ -531,8 +534,11 @@ export const examBlueprints: Record<string, ExamBlueprint> = {
   kpss_gygk: {
     examCode: 'kpss_gygk',
     subjects: [
-      s('general_ability', 'General Ability', 0.5, ['turkish', 'math_reasoning'], ['speed_reasoning', 'accuracy'], 0.12),
-      s('general_culture', 'General Culture', 0.5, ['history', 'geography', 'citizenship', 'current_affairs'], ['recall', 'concept_mapping']),
+      s('turkish', 'Turkish', 0.25, ['paragraph', 'grammar', 'meaning', 'verbal_reasoning'], ['speed', 'reading_accuracy']),
+      s('math', 'Math', 0.25, ['arithmetic', 'algebra', 'geometry', 'problem_solving'], ['accuracy', 'time_management'], 0.1),
+      s('history', 'History', 0.20, ['ottoman', 'republic', 'ataturk', 'world_history'], ['chronology', 'cause_effect']),
+      s('geography', 'Geography', 0.15, ['turkiye', 'physical', 'human'], ['map_reasoning', 'concept_linking']),
+      s('civics', 'Civics', 0.15, ['constitution', 'citizenship', 'religion_ethics', 'science_basics', 'current_affairs'], ['recall', 'application']),
     ],
     sessionTypes: ['study', 'review', 'practice', 'mock'],
     weeklyRules: commonRules,
@@ -541,8 +547,11 @@ export const examBlueprints: Record<string, ExamBlueprint> = {
   kpss_egitim: {
     examCode: 'kpss_egitim',
     subjects: [
-      s('general_ability', 'General Ability', 0.25, ['turkish', 'math_reasoning'], ['speed_reasoning', 'accuracy'], 0.08),
-      s('general_culture', 'General Culture', 0.25, ['history', 'geography', 'citizenship', 'current_affairs'], ['recall', 'concept_mapping']),
+      s('turkish', 'Turkish', 0.12, ['paragraph', 'grammar', 'meaning', 'verbal_reasoning'], ['speed', 'reading_accuracy']),
+      s('math', 'Math', 0.12, ['arithmetic', 'algebra', 'geometry', 'problem_solving'], ['accuracy', 'time_management'], 0.08),
+      s('history', 'History', 0.10, ['ottoman', 'republic', 'ataturk', 'world_history'], ['chronology', 'cause_effect']),
+      s('geography', 'Geography', 0.08, ['turkiye', 'physical', 'human'], ['map_reasoning', 'concept_linking']),
+      s('civics', 'Civics', 0.08, ['constitution', 'citizenship', 'religion_ethics', 'science_basics'], ['recall', 'application']),
       s('education_sciences', 'Education Sciences', 0.5, ['learning_psychology', 'guidance', 'measurement', 'teaching_methods'], ['pedagogy_mastery', 'question_strategy'], 0.12),
     ],
     sessionTypes: ['study', 'review', 'practice', 'mock'],
@@ -552,10 +561,13 @@ export const examBlueprints: Record<string, ExamBlueprint> = {
   kpss_oabt: {
     examCode: 'kpss_oabt',
     subjects: [
-      s('general_ability', 'General Ability', 0.2, ['turkish', 'math_reasoning'], ['speed_reasoning', 'accuracy'], 0.05),
-      s('general_culture', 'General Culture', 0.2, ['history', 'geography', 'citizenship', 'current_affairs'], ['recall', 'concept_mapping']),
-      s('education_sciences', 'Education Sciences', 0.25, ['learning_psychology', 'guidance', 'measurement', 'teaching_methods'], ['pedagogy_mastery', 'question_strategy'], 0.08),
-      s('teaching_field', 'Teaching Field (OABT)', 0.35, ['branch_content', 'curriculum', 'branch_question_sets'], ['domain_mastery', 'applied_accuracy'], 0.12),
+      s('turkish', 'Turkish', 0.08, ['paragraph', 'grammar', 'meaning', 'verbal_reasoning'], ['speed', 'reading_accuracy']),
+      s('math', 'Math', 0.08, ['arithmetic', 'algebra', 'geometry', 'problem_solving'], ['accuracy', 'time_management'], 0.05),
+      s('history', 'History', 0.07, ['ottoman', 'republic', 'ataturk', 'world_history'], ['chronology', 'cause_effect']),
+      s('geography', 'Geography', 0.05, ['turkiye', 'physical', 'human'], ['map_reasoning', 'concept_linking']),
+      s('civics', 'Civics', 0.05, ['constitution', 'citizenship', 'religion_ethics', 'science_basics'], ['recall', 'application']),
+      s('education_sciences', 'Education Sciences', 0.27, ['learning_psychology', 'guidance', 'measurement', 'teaching_methods'], ['pedagogy_mastery', 'question_strategy'], 0.08),
+      s('teaching_field', 'Teaching Field (OABT)', 0.4, ['branch_content', 'curriculum', 'branch_question_sets'], ['domain_mastery', 'applied_accuracy'], 0.12),
     ],
     sessionTypes: ['study', 'review', 'practice', 'mock'],
     weeklyRules: commonRules,
@@ -564,10 +576,13 @@ export const examBlueprints: Record<string, ExamBlueprint> = {
   kpss_a: {
     examCode: 'kpss_a',
     subjects: [
-      s('general_ability', 'General Ability', 0.2, ['turkish', 'math_reasoning'], ['speed_reasoning', 'accuracy'], 0.05),
-      s('general_culture', 'General Culture', 0.2, ['history', 'geography', 'citizenship', 'current_affairs'], ['recall', 'concept_mapping']),
-      s('law_economics', 'Law/Economics', 0.3, ['constitutional_law', 'administrative_law', 'micro_macro'], ['analysis', 'concept_linking'], 0.1),
-      s('finance_accounting', 'Finance/Accounting', 0.3, ['public_finance', 'accounting', 'statistics'], ['accuracy', 'application'], 0.1),
+      s('turkish', 'Turkish', 0.08, ['paragraph', 'grammar', 'meaning', 'verbal_reasoning'], ['speed', 'reading_accuracy']),
+      s('math', 'Math', 0.08, ['arithmetic', 'algebra', 'geometry', 'problem_solving'], ['accuracy', 'time_management'], 0.05),
+      s('history', 'History', 0.07, ['ottoman', 'republic', 'ataturk', 'world_history'], ['chronology', 'cause_effect']),
+      s('geography', 'Geography', 0.05, ['turkiye', 'physical', 'human'], ['map_reasoning', 'concept_linking']),
+      s('civics', 'Civics', 0.05, ['constitution', 'citizenship', 'religion_ethics', 'science_basics'], ['recall', 'application']),
+      s('law_economics', 'Law/Economics', 0.32, ['constitutional_law', 'administrative_law', 'micro_macro'], ['analysis', 'concept_linking'], 0.1),
+      s('finance_accounting', 'Finance/Accounting', 0.35, ['public_finance', 'accounting', 'statistics'], ['accuracy', 'application'], 0.1),
     ],
     sessionTypes: ['study', 'review', 'practice', 'mock'],
     weeklyRules: professionalRules,

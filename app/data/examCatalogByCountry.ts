@@ -141,3 +141,27 @@ export const getGlobalExamCatalogForCountry = (countryCode?: string): ExamCatalo
 
   return globalExamCatalog.filter((item) => !countryCodes.has(item.examCode));
 };
+
+/**
+ * Returns the top 3 most relevant exam names for the user's locale,
+ * inferred from the device locale (e.g. "tr-TR" → TR → ["TYT", "KPSS", "ALES"]).
+ * Falls back to globally recognised exams when locale is unknown.
+ */
+export function inferTopExamsByLocale(): string[] {
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? '';
+    const parts = locale.split('-');
+    const countryCode = parts.length > 1 ? parts[parts.length - 1].toUpperCase() : '';
+    const catalog = countryCode ? examCatalogByCountry[countryCode] : null;
+    if (catalog && catalog.length > 0) {
+      return catalog
+        .slice()
+        .sort((a, b) => a.priority - b.priority)
+        .slice(0, 3)
+        .map((e) => e.examName);
+    }
+  } catch {
+    // ignore
+  }
+  return ['SAT', 'IELTS', 'GRE'];
+};

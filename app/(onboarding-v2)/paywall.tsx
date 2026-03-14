@@ -108,7 +108,7 @@ export default function OnboardingV2PaywallScreen() {
   const fallbackPriceLine = useMemo(
     () => t('onboarding.paywall.price_line', {
       lang,
-      fallback: lang === 'tr' ? 'Sonra abonelik devam eder · İstediğin zaman iptal' : 'Then subscription continues · Cancel anytime',
+      fallback: lang === 'tr' ? 'Abonelik devam eder · İstediğin zaman iptal' : 'Subscription continues · Cancel anytime',
     }),
     [lang]
   );
@@ -125,8 +125,8 @@ export default function OnboardingV2PaywallScreen() {
         if (!monthly) return;
         setPriceLine(
           lang === 'tr'
-            ? `Sonra ${monthly.product.priceString}/ay · İstediğin zaman iptal`
-            : `Then ${monthly.product.priceString}/month · Cancel anytime`
+            ? `${monthly.product.priceString}/ay · İstediğin zaman iptal`
+            : `${monthly.product.priceString}/month · Cancel anytime`
         );
       } catch {}
     })();
@@ -186,10 +186,9 @@ export default function OnboardingV2PaywallScreen() {
             <View style={[s.brandMark,{backgroundColor:C.brand}]}/>
             <Text style={[s.brandTxt,{color:C.brand}]}>StudyMap</Text>
           </View>
-          {/* Free trial badge top-right */}
-          <View style={[s.freeBadge,{backgroundColor:C.greenSoft,borderColor:C.greenBorder}]}>
-            <Text style={[s.freeBadgeTxt,{color:C.green}]} numberOfLines={1}>
-              {t('onboarding.paywall.free_trial_badge', { lang, fallback: '7 days free' })}
+          <View style={[s.freeBadge,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
+            <Text style={[s.freeBadgeTxt,{color:C.teal}]} numberOfLines={1}>
+              {t('onboarding.paywall.premium_badge', { lang, fallback: 'Premium' })}
             </Text>
           </View>
         </View>
@@ -274,9 +273,6 @@ export default function OnboardingV2PaywallScreen() {
           <Text style={[s.priceThen,{color:C.muted}]}>
             {priceLine || fallbackPriceLine}
           </Text>
-          <Text style={[s.priceFree,{color:C.green}]}>
-            {t('onboarding.paywall.free_trial_badge', { lang, fallback: '7 days free' })}
-          </Text>
         </View>
 
         {/* Primary CTA */}
@@ -285,7 +281,7 @@ export default function OnboardingV2PaywallScreen() {
             <LinearGradient colors={[C.tealDk,C.tealDk2]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
             <View style={s.ctaSheen}/>
             <Text style={s.ctaTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
-              {t('onboarding.paywall.start_trial', { lang, fallback: 'Start Free Trial' })}
+              {t('onboarding.paywall.start_premium', { lang, fallback: lang === 'tr' ? 'Premium\'a Başla' : 'Start Premium' })}
             </Text>
             <Text style={s.ctaArrow}>→</Text>
           </TouchableOpacity>

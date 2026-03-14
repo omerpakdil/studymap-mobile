@@ -16,6 +16,7 @@ import { ONBOARDING_FOOTER_METRICS as FOOTER } from '@/app/components/onboarding
 import { getCountryByCode } from '@/app/data/countries';
 import type { SupportedLanguage } from '@/app/i18n';
 import { resolveAppLanguage, t } from '@/app/i18n';
+import { getMinuteUnitShort } from '@/app/i18n/unitFormat';
 import {
   trackOnboardingStepBack,
   trackOnboardingStepContinue,
@@ -264,7 +265,7 @@ export default function OnboardingV2SessionLengthScreen() {
                         {copy.options[opt.key].label}
                       </Text>
                       <View style={[s.badge, { backgroundColor: active ? `${C.teal}18` : 'rgba(0,0,0,0.05)' }]}>
-                        <Text style={[s.badgeText, { color: active ? C.tealDk : C.sub }]}>{opt.id} min</Text>
+                        <Text style={[s.badgeText, { color: active ? C.tealDk : C.sub }]}>{opt.id} {getMinuteUnitShort(lang)}</Text>
                       </View>
                     </View>
                     <Text style={[s.cardDesc, { color: C.sub }]}>
@@ -294,7 +295,7 @@ export default function OnboardingV2SessionLengthScreen() {
           >
             <LinearGradient colors={[C.teal, C.tealDk]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
             <Text style={s.ctaText}>
-              {t('common.continue', { lang })} · {selected.id} min
+              {t('common.continue', { lang })} · {selected.id} {getMinuteUnitShort(lang)}
             </Text>
             <Text style={s.ctaArrow}>→</Text>
           </TouchableOpacity>

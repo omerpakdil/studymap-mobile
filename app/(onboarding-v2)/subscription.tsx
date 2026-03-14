@@ -105,7 +105,7 @@ const BENEFIT_ICONS = ['↻', '⚡', '◎', '↗'] as const;
 
 const DEV_PLAN_PREVIEWS = [
   { id: 'dev_annual_preview', title: 'Annual', sub: 'Best value — pay once a year', price: '$59.99', period: '/yr', badge: 'PREVIEW' },
-  { id: 'dev_weekly_preview', title: 'Weekly', sub: 'Short-term commitment', price: '$4.99', period: '/wk', badge: 'PREVIEW' },
+  { id: 'dev_monthly_preview', title: 'Monthly', sub: 'Flexible month-to-month', price: '$9.99', period: '/mo', badge: 'PREVIEW' },
 ] as const;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -757,11 +757,7 @@ function PlanCard({
             </View>
             <Text style={[s.planSub, compact && s.planSubCompact, { color: selected ? C.muted : C.dim }]} numberOfLines={2}>{sub}</Text>
             {eq && <Text style={[s.planEq, compact && s.planEqCompact, { color: selected ? C.amber : C.dim }]}>{eq}</Text>}
-            {introStr && (
-              <View style={[s.introBadge,{backgroundColor:C.greenSoft,borderColor:C.greenBorder}]}>
-                <Text style={[s.introTxt,{color:C.green}]}>{introStr}</Text>
-              </View>
-            )}
+            {/* intro offer badge intentionally hidden — no free trial */}
           </View>
 
           {/* Price */}
@@ -913,16 +909,19 @@ export default function SubscriptionScreen() {
 
   const monthlyPkg = offerings?.availablePackages.find(p => p.packageType === 'MONTHLY') ?? null;
 
-  const sortedPkgs = (offerings?.availablePackages ?? []).slice().sort((a,b) => {
-    const o: Record<string,number> = {ANNUAL:0,MONTHLY:1,WEEKLY:2,LIFETIME:3};
-    return (o[a.packageType]??9) - (o[b.packageType]??9);
-  });
+  const sortedPkgs = (offerings?.availablePackages ?? [])
+    .filter(p => p.packageType !== 'WEEKLY')
+    .slice()
+    .sort((a, b) => {
+      const o: Record<string, number> = { ANNUAL: 0, MONTHLY: 1, LIFETIME: 2 };
+      return (o[a.packageType] ?? 9) - (o[b.packageType] ?? 9);
+    });
   const showDevPlanPreviews = __DEV__ && sortedPkgs.length <= 1;
   const isTight = height <= 850;
   const isNarrow = width <= 390;
   const isMultiPlan = sortedPkgs.length > 1;
-  const densePlanMode = isMultiPlan;
-  const useCompactFooter = isTight || isNarrow || densePlanMode;
+  const densePlanMode = false; // max 2 plans — no need to compress
+  const useCompactFooter = isTight || isNarrow;
   const quotes = useMemo(() => getLocalizedQuotePool(lang), [lang]);
   const benefits = [
     { icon: BENEFIT_ICONS[0], title: t('onboarding.subscription.benefit_1_title', { lang, fallback: 'Your plan is optimized every week' }), desc: t('onboarding.subscription.benefit_1_desc', { lang, fallback: 'Premium keeps your exam timeline fixed and updates weekly distribution based on what you actually completed.' }) },
@@ -986,11 +985,7 @@ export default function SubscriptionScreen() {
       const AS = (await import('@react-native-async-storage/async-storage')).default;
       await AS.setItem('subscription_status','active');
     } catch {}
-    if (source === 'onboarding_v2') {
-      router.replace('/(onboarding-v2)/account');
-      return;
-    }
-    router.replace('/(tabs)/dashboard');
+    router.replace('/(onboarding-v2)/account');
   };
 
   const pressIn  = () => Animated.spring(ctaScale, { toValue:0.97, damping:20, stiffness:400, useNativeDriver:true }).start();
@@ -998,7 +993,7 @@ export default function SubscriptionScreen() {
 
   const ctaLabel = purchasing ? t('onboarding.subscription.cta_processing', { lang, fallback: 'Processing…' })
     : selected?.packageType === 'LIFETIME' ? t('onboarding.subscription.cta_lifetime', { lang, fallback: 'Get Lifetime Access' })
-    : t('onboarding.subscription.cta_trial', { lang, fallback: 'Start 7-Day Free Trial' });
+    : t('onboarding.subscription.cta_subscribe', { lang, fallback: lang === 'tr' ? 'Premium\'a Başla' : 'Start Premium' });
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) return (
@@ -1062,10 +1057,10 @@ export default function SubscriptionScreen() {
             <View style={[s.brandMark,{backgroundColor:C.amber}]}/>
             <Text style={[s.brandTxt,{color:C.amber}]}>StudyMap</Text>
             <View style={s.brandSpacer}/>
-            <View style={[s.freePill,{backgroundColor:C.greenSoft,borderColor:C.greenBorder}]}>
-              <View style={[s.freeDot,{backgroundColor:C.green}]}/>
-              <Text style={[s.freePillTxt,{color:C.green}]} numberOfLines={1}>
-                {t('onboarding.subscription.free_trial_badge', { lang, fallback: '7 days free' })}
+            <View style={[s.freePill,{backgroundColor:C.amberSoft,borderColor:C.amberBorder}]}>
+              <View style={[s.freeDot,{backgroundColor:C.amber}]}/>
+              <Text style={[s.freePillTxt,{color:C.amber}]} numberOfLines={1}>
+                {t('onboarding.subscription.premium_badge', { lang, fallback: 'Premium' })}
               </Text>
             </View>
           </View>
@@ -1200,11 +1195,6 @@ export default function SubscriptionScreen() {
             <Text style={[s.priceCtxMain,{color:C.sub}]}>
               {getPriceContextLabel(lang, selected, monthlyEq(selected, lang))}
             </Text>
-            {selected.packageType!=='LIFETIME' && (
-              <Text style={[s.priceCtxFree,{color:C.green}]}>
-                {t('onboarding.subscription.free_trial_badge', { lang, fallback: 'Free 7 days' })}
-              </Text>
-            )}
           </View>
         )}
 
@@ -1311,12 +1301,12 @@ const s = StyleSheet.create({
   freeDot:{ width:5, height:5, borderRadius:3 },
   freePillTxt:{ fontSize:10, fontWeight:'700' },
 
-  heroSection:{ gap:6, marginBottom:12 },
+  heroSection:{ gap:6, marginBottom:14 },
   heroSectionTight:{ gap:3, marginBottom:7 },
   heroEyebrow:{ fontSize:11, fontWeight:'600', letterSpacing:0.5, textTransform:'uppercase' },
-  heroHeadline:{ fontSize:36, fontWeight:'900', lineHeight:41, letterSpacing:-1 },
-  heroHeadlineTight:{ fontSize:33, lineHeight:37 },
-  heroBody:{ fontSize:12, lineHeight:18, fontWeight:'400' },
+  heroHeadline:{ fontSize:38, fontWeight:'900', lineHeight:43, letterSpacing:-1 },
+  heroHeadlineTight:{ fontSize:34, lineHeight:38 },
+  heroBody:{ fontSize:13, lineHeight:20, fontWeight:'400' },
   heroBodyTight:{ fontSize:11, lineHeight:15 },
 
   tickerCard:{ borderWidth:1, borderRadius:13, paddingHorizontal:12, paddingVertical:7, marginBottom:8 },
@@ -1324,17 +1314,17 @@ const s = StyleSheet.create({
   tickerDot:{ width:6, height:6, borderRadius:3, marginTop:5, flexShrink:0 },
   tickerQuote:{ flex:1, fontSize:11, lineHeight:16, fontWeight:'400', fontStyle:'italic' },
 
-  statRow:{ flexDirection:'row', gap:8, marginBottom:14 },
-  statRowCompact:{ marginBottom:7, gap:7 },
-  statCell:{ flex:1, borderWidth:1, borderRadius:13, paddingHorizontal:9, paddingVertical:10, gap:4, alignItems:'center', justifyContent:'flex-start', minHeight:96 },
-  statCellCompact:{ paddingVertical:8, paddingHorizontal:8, borderRadius:11, minHeight:88 },
-  statVal:{ fontSize:18, fontWeight:'900', letterSpacing:-0.4 },
+  statRow:{ flexDirection:'row', gap:9, marginBottom:18 },
+  statRowCompact:{ marginBottom:8, gap:7 },
+  statCell:{ flex:1, borderWidth:1, borderRadius:13, paddingHorizontal:9, paddingVertical:12, gap:4, alignItems:'center', justifyContent:'flex-start', minHeight:100 },
+  statCellCompact:{ paddingVertical:8, paddingHorizontal:8, borderRadius:11, minHeight:90 },
+  statVal:{ fontSize:20, fontWeight:'900', letterSpacing:-0.4 },
   statLabel:{ fontSize:10, fontWeight:'600', textAlign:'center', lineHeight:14, flexShrink:1 },
   statSub:{ fontSize:8, textAlign:'center', lineHeight:11, flexShrink:1 },
 
   sectionLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.7, textTransform:'uppercase', marginBottom:6 },
 
-  planList:{ gap:8, marginBottom:14 },
+  planList:{ gap:12, marginBottom:18 },
   planListCompact:{ gap:6, marginBottom:8 },
   devPreviewList:{ gap:8, marginBottom:12 },
   devPreviewCard:{ borderWidth:1, borderRadius:14, paddingHorizontal:12, paddingVertical:11, flexDirection:'row', alignItems:'center', gap:10 },
@@ -1347,28 +1337,28 @@ const s = StyleSheet.create({
   devPreviewRight:{ alignItems:'flex-end' },
   devPreviewPrice:{ fontSize:16, fontWeight:'800', letterSpacing:-0.2 },
   devPreviewPeriod:{ fontSize:10, fontWeight:'500' },
-  planCard:{ borderRadius:16, overflow:'hidden' },
-  popularRibbon:{ height:20, alignItems:'center', justifyContent:'center' },
-  popularRibbonTxt:{ fontSize:10, fontWeight:'800', color:'#000', letterSpacing:0.8 },
-  planInner:{ flexDirection:'row', alignItems:'center', paddingHorizontal:12, paddingVertical:13, gap:9 },
-  planInnerCompact:{ paddingHorizontal:11, paddingVertical:8, gap:7 },
-  planLeft:{ flex:1, gap:3 },
+  planCard:{ borderRadius:18, overflow:'hidden' },
+  popularRibbon:{ height:24, alignItems:'center', justifyContent:'center' },
+  popularRibbonTxt:{ fontSize:11, fontWeight:'800', color:'#000', letterSpacing:0.8 },
+  planInner:{ flexDirection:'row', alignItems:'center', paddingHorizontal:14, paddingVertical:16, gap:10 },
+  planInnerCompact:{ paddingHorizontal:11, paddingVertical:10, gap:7 },
+  planLeft:{ flex:1, gap:4 },
   planTitleRow:{ flexDirection:'row', alignItems:'center', gap:8, flexWrap:'wrap' },
-  planTitle:{ fontSize:15, fontWeight:'800', letterSpacing:-0.2 },
-  saveBadge:{ borderWidth:1, borderRadius:6, paddingHorizontal:6, paddingVertical:2 },
+  planTitle:{ fontSize:16, fontWeight:'800', letterSpacing:-0.2 },
+  saveBadge:{ borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:2 },
   saveBadgeTxt:{ fontSize:9, fontWeight:'800', letterSpacing:0.5 },
-  planSub:{ fontSize:10, fontWeight:'400', lineHeight:13 },
-  planSubCompact:{ lineHeight:12 },
-  planEq:{ fontSize:10, fontWeight:'600' },
+  planSub:{ fontSize:11, fontWeight:'400', lineHeight:15 },
+  planSubCompact:{ lineHeight:13 },
+  planEq:{ fontSize:11, fontWeight:'600' },
   planEqCompact:{ fontSize:9 },
   introBadge:{ alignSelf:'flex-start', borderWidth:1, borderRadius:7, paddingHorizontal:7, paddingVertical:3, marginTop:2 },
   introTxt:{ fontSize:9, fontWeight:'700' },
-  planRight:{ alignItems:'flex-end', gap:1, minWidth:74, flexShrink:0 },
-  planOldPrice:{ fontSize:10, fontWeight:'700', textDecorationLine:'line-through' },
-  planPrice:{ fontSize:19, fontWeight:'900', letterSpacing:-0.3 },
-  planPeriod:{ fontSize:10 },
-  radio:{ width:20, height:20, borderRadius:10, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
-  radioDot:{ width:8, height:8, borderRadius:4, backgroundColor:'#000' },
+  planRight:{ alignItems:'flex-end', gap:1, minWidth:78, flexShrink:0 },
+  planOldPrice:{ fontSize:11, fontWeight:'700', textDecorationLine:'line-through' },
+  planPrice:{ fontSize:21, fontWeight:'900', letterSpacing:-0.3 },
+  planPeriod:{ fontSize:11 },
+  radio:{ width:22, height:22, borderRadius:11, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  radioDot:{ width:9, height:9, borderRadius:4.5, backgroundColor:'#000' },
 
   benefitCard:{ borderWidth:1, borderRadius:15, overflow:'hidden', marginBottom:10 },
   benRow:{ flexDirection:'row', alignItems:'center', paddingRight:12, paddingVertical:10 },

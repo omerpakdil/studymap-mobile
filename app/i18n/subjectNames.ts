@@ -60,6 +60,7 @@ const baseNames: Record<string, string> = {
   translation: 'Translation',
   general_ability: 'General Ability',
   general_culture: 'General Culture',
+  civics: 'Civics',
   field: 'Field/Education',
   education_sciences: 'Education Sciences',
   teaching_field: 'Teaching Field',
@@ -114,6 +115,9 @@ const aliases: Record<string, string> = {
   grammar: 'grammar',
   translation: 'translation',
   'general ability': 'general_ability',
+  quantitative: 'quant',
+  'verbal language': 'verbal',
+  verbal: 'verbal',
   'general culture': 'general_culture',
   'field education': 'field',
   'education sciences': 'education_sciences',
@@ -125,7 +129,6 @@ const aliases: Record<string, string> = {
   'primary subject 3': 'subject_3',
   'integrated reasoning': 'integrated_reasoning',
   'writing and language': 'writing_and_language',
-  'verbal language': 'verbal',
 };
 
 const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, string>>> = {
@@ -197,6 +200,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     numeracy: 'Sayısal Yetenek',
     integrated_reasoning: 'Bütünleşik Akıl Yürütme',
     writing_and_language: 'Yazma ve Dil',
+    civics: 'Vatandaşlık',
   },
   de: {
     math: 'Mathematik',
@@ -245,6 +249,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     ydt_or_elective: 'YDT/Wahlfach',
     general_ability: 'Allgemeine Faehigkeiten',
     general_culture: 'Allgemeinwissen',
+    civics: 'Staatsbürgerkunde',
     field: 'Fach/Bildung',
     subject_1: 'Hauptfach 1',
     subject_2: 'Hauptfach 2',
@@ -301,6 +306,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     ydt_or_elective: 'YDT/Option',
     general_ability: 'Aptitude generale',
     general_culture: 'Culture generale',
+    civics: 'Education civique',
     field: 'Domaine/Education',
     subject_1: 'Matiere principale 1',
     subject_2: 'Matiere principale 2',
@@ -357,6 +363,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     ydt_or_elective: 'YDT/選択',
     general_ability: '一般能力',
     general_culture: '一般教養',
+    civics: '公民',
     field: '分野/教育',
     subject_1: '主要科目 1',
     subject_2: '主要科目 2',
@@ -413,6 +420,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     ydt_or_elective: 'YDT/선택',
     general_ability: '일반 능력',
     general_culture: '일반 상식',
+    civics: '시민',
     field: '분야/교육',
     subject_1: '주요 과목 1',
     subject_2: '주요 과목 2',
@@ -477,6 +485,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     numeracy: 'المهارات العددية',
     integrated_reasoning: 'الاستدلال المتكامل',
     writing_and_language: 'الكتابة واللغة',
+    civics: 'التربية الوطنية',
   },
   hi: {
     math: 'गणित',
@@ -533,6 +542,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     numeracy: 'संख्यात्मक कौशल',
     integrated_reasoning: 'एकीकृत तर्क',
     writing_and_language: 'लेखन और भाषा',
+    civics: 'नागरिकशास्त्र',
   },
   id: {
     math: 'Matematika',
@@ -589,6 +599,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     numeracy: 'Numerasi',
     integrated_reasoning: 'Penalaran Terpadu',
     writing_and_language: 'Menulis dan Bahasa',
+    civics: 'PKn/Kewarganegaraan',
   },
   'pt-BR': {
     math: 'Matematica',
@@ -637,6 +648,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     ydt_or_elective: 'YDT/Eletiva',
     general_ability: 'Habilidade Geral',
     general_culture: 'Cultura Geral',
+    civics: 'Educacao Civica',
     field: 'Area/Educacao',
     subject_1: 'Materia Principal 1',
     subject_2: 'Materia Principal 2',
@@ -701,6 +713,7 @@ const localizedOverrides: Partial<Record<SupportedLanguage, Record<string, strin
     numeracy: '数理能力',
     integrated_reasoning: '综合推理',
     writing_and_language: '写作与语言',
+    civics: '政治',
   },
 };
 
@@ -1055,14 +1068,14 @@ const examSpecificOverrides: ExamSubjectOverrides = mergeExamOverrides(
   buildExamOverrides(['tyt_ayt_sayisal', 'tyt_ayt_ea', 'tyt_ayt_sozel'], 'tr', {
     tyt_core: 'TYT',
     ayt_math: 'AYT Matematik',
-    literature: 'Edebiyat',
+    literature: 'Türk Dili ve Edebiyatı',
     history: 'Tarih',
     geography: 'Coğrafya',
     physics: 'Fizik',
     chemistry: 'Kimya',
     biology: 'Biyoloji',
     philosophy_group: 'Felsefe Grubu',
-    religion: 'Din ve Ahlak',
+    religion: 'Din Kültürü ve Ahlak Bilgisi',
   }),
   buildExamOverrides(['tyt'], 'tr', {
     turkish: 'Türkçe',
@@ -1078,16 +1091,16 @@ const examSpecificOverrides: ExamSubjectOverrides = mergeExamOverrides(
   }),
   buildExamOverrides(['ayt_ea'], 'tr', {
     mathematics: 'Matematik',
-    literature: 'Edebiyat',
+    literature: 'Türk Dili ve Edebiyatı',
     history: 'Tarih',
     geography: 'Coğrafya',
   }),
   buildExamOverrides(['ayt_sozel'], 'tr', {
-    literature: 'Edebiyat',
+    literature: 'Türk Dili ve Edebiyatı',
     history: 'Tarih',
     geography: 'Coğrafya',
     philosophy_group: 'Felsefe Grubu',
-    religion: 'Din ve Ahlak',
+    religion: 'Din Kültürü ve Ahlak Bilgisi',
   }),
   buildExamOverrides(['ydt_tr'], 'tr', {
     vocabulary: 'Kelime',
@@ -1096,29 +1109,23 @@ const examSpecificOverrides: ExamSubjectOverrides = mergeExamOverrides(
     translation: 'Çeviri',
     practice: 'Deneme Setleri',
   }),
+  buildExamOverrides(['kpss', 'kpss_gygk', 'kpss_egitim', 'kpss_oabt', 'kpss_a'], 'tr', {
+    turkish: 'Türkçe',
+    math: 'Matematik',
+    history: 'Tarih',
+    geography: 'Coğrafya',
+    civics: 'Vatandaşlık',
+  }),
   buildExamOverrides(['kpss'], 'tr', {
-    general_ability: 'Genel Yetenek',
-    general_culture: 'Genel Kültür',
     field: 'Alan Bilgisi/Eğitim',
   }),
-  buildExamOverrides(['kpss_gygk'], 'tr', {
-    general_ability: 'Genel Yetenek',
-    general_culture: 'Genel Kültür',
-  }),
-  buildExamOverrides(['kpss_egitim'], 'tr', {
-    general_ability: 'Genel Yetenek',
-    general_culture: 'Genel Kültür',
+  buildExamOverrides(['kpss_egitim', 'kpss_oabt'], 'tr', {
     education_sciences: 'Eğitim Bilimleri',
   }),
   buildExamOverrides(['kpss_oabt'], 'tr', {
-    general_ability: 'Genel Yetenek',
-    general_culture: 'Genel Kültür',
-    education_sciences: 'Eğitim Bilimleri',
     teaching_field: 'ÖABT/Alan Bilgisi',
   }),
   buildExamOverrides(['kpss_a'], 'tr', {
-    general_ability: 'Genel Yetenek',
-    general_culture: 'Genel Kültür',
     law_economics: 'Hukuk/Ekonomi',
     finance_accounting: 'Maliye/Muhasebe',
   }),

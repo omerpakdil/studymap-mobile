@@ -21,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AttachStep } from 'react-native-spotlight-tour';
 
 import { useAppAlert } from '@/app/components/ui/AppAlert';
 import { resolveAppLanguage, t } from '@/app/i18n';
@@ -718,15 +719,17 @@ export default function DashboardScreen() {
 
         {/* ── Tab Toggle ── */}
         <View style={styles.tabRow}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'tasks' && styles.tabActive]}
-            onPress={() => switchTab('tasks')}
-          >
-            <Ionicons name="list" size={15} color={activeTab === 'tasks' ? DASH.teal : '#94A3B8'} />
-            <Text style={[styles.tabText, activeTab === 'tasks' && styles.tabTextActive]}>
-              {t('tabs.dashboard.tab_today_plan', { lang: appLang, fallback: "Today's Plan" })}
-            </Text>
-          </TouchableOpacity>
+          <AttachStep index={1}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'tasks' && styles.tabActive]}
+              onPress={() => switchTab('tasks')}
+            >
+              <Ionicons name="list" size={15} color={activeTab === 'tasks' ? DASH.teal : '#94A3B8'} />
+              <Text style={[styles.tabText, activeTab === 'tasks' && styles.tabTextActive]}>
+                {t('tabs.dashboard.tab_today_plan', { lang: appLang, fallback: "Today's Plan" })}
+              </Text>
+            </TouchableOpacity>
+          </AttachStep>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'subjects' && styles.tabActive]}
             onPress={() => switchTab('subjects')}
@@ -1034,11 +1037,11 @@ const styles = StyleSheet.create({
 
   // Tab
   tabRow: {
-    flexDirection: 'row', backgroundColor: DASH.card, borderRadius: 12, padding: 4, marginBottom: 10, borderWidth: 1, borderColor: DASH.cardBorder,
+    flexDirection: 'row', backgroundColor: DASH.card, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 8, marginBottom: 10, borderWidth: 1, borderColor: DASH.cardBorder,
   },
   tab: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 8, borderRadius: 9,
+    gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 9,
   },
   tabActive: {
     backgroundColor: 'rgba(45,212,191,0.12)',

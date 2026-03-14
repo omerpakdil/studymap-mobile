@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const KEY = 'walkthrough_v1_seen';
+const KEY = 'walkthrough_v6_seen';
 
 export async function hasSeenWalkthrough(): Promise<boolean> {
   try {

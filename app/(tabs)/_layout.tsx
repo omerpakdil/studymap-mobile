@@ -13,7 +13,7 @@ import {
 } from 'react-native-spotlight-tour';
 import { TourCard } from '@/app/components/walkthrough/TourCard';
 import { resolveAppLanguage, type SupportedLanguage } from '@/app/i18n';
-import { hasSeenWalkthrough } from '@/app/utils/walkthroughState';
+import { hasSeenWalkthrough, markWalkthroughSeen } from '@/app/utils/walkthroughState';
 
 const { width } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -47,7 +47,10 @@ function TourAutoStart({ start }: { start: () => void }) {
   useEffect(() => {
     hasSeenWalkthrough().then((seen) => {
       if (!seen) {
-        const timer = setTimeout(start, 600);
+        const timer = setTimeout(async () => {
+          await markWalkthroughSeen();
+          start();
+        }, 600);
         return () => clearTimeout(timer);
       }
     });
@@ -59,41 +62,45 @@ export default function TabLayout() {
   const lang = resolveAppLanguage();
   const labels = TAB_LABELS[lang] ?? TAB_LABELS.en;
 
+  const sharedFloating = {
+    middleware: [offset(16), flip(), shift({ padding: 8 })],
+    placement: 'top' as const,
+  };
+
   const tourSteps: TourStep[] = [
+    // 0: Dashboard tab
     {
-      motion: 'bounce',
-      shape: { type: 'circle', padding: 10 },
-      floatingProps: {
-        middleware: [offset(16), flip(), shift({ padding: 8 })],
-        placement: 'top',
-      },
+      motion: 'fade',
+      shape: { type: 'circle', padding: 12 },
+      floatingProps: sharedFloating,
       render: (props) => <TourCard {...props} lang={lang} />,
     },
+    // 1: First task card (study session) — AttachStep lives in dashboard.tsx
     {
-      motion: 'bounce',
-      shape: { type: 'circle', padding: 10 },
-      floatingProps: {
-        middleware: [offset(16), flip(), shift({ padding: 8 })],
-        placement: 'top',
-      },
+      motion: 'fade',
+      shape: { type: 'rectangle', padding: 8 },
+      floatingProps: sharedFloating,
       render: (props) => <TourCard {...props} lang={lang} />,
     },
+    // 2: Calendar tab
     {
-      motion: 'bounce',
-      shape: { type: 'circle', padding: 10 },
-      floatingProps: {
-        middleware: [offset(16), flip(), shift({ padding: 8 })],
-        placement: 'top',
-      },
+      motion: 'fade',
+      shape: { type: 'circle', padding: 12 },
+      floatingProps: sharedFloating,
       render: (props) => <TourCard {...props} lang={lang} />,
     },
+    // 3: Progress tab
     {
-      motion: 'bounce',
-      shape: { type: 'circle', padding: 10 },
-      floatingProps: {
-        middleware: [offset(16), flip(), shift({ padding: 8 })],
-        placement: 'top',
-      },
+      motion: 'fade',
+      shape: { type: 'circle', padding: 12 },
+      floatingProps: sharedFloating,
+      render: (props) => <TourCard {...props} lang={lang} />,
+    },
+    // 4: Profile tab
+    {
+      motion: 'fade',
+      shape: { type: 'circle', padding: 12 },
+      floatingProps: sharedFloating,
       render: (props) => <TourCard {...props} lang={lang} />,
     },
   ];
@@ -102,7 +109,8 @@ export default function TabLayout() {
     <SpotlightTourProvider
       steps={tourSteps}
       overlayColor="#051412"
-      overlayOpacity={0.78}
+      overlayOpacity={0.75}
+      nativeDriver={false}
       onBackdropPress="continue"
     >
       {({ start }) => (
@@ -162,7 +170,7 @@ export default function TabLayout() {
               options={{
                 title: labels.calendar,
                 tabBarIcon: ({ focused }) => (
-                  <AttachStep index={1}>
+                  <AttachStep index={2}>
                     <ModernTabIcon name="calendar" focused={focused} />
                   </AttachStep>
                 ),
@@ -174,7 +182,7 @@ export default function TabLayout() {
               options={{
                 title: labels.progress,
                 tabBarIcon: ({ focused }) => (
-                  <AttachStep index={2}>
+                  <AttachStep index={3}>
                     <ModernTabIcon name="progress" focused={focused} />
                   </AttachStep>
                 ),
@@ -186,7 +194,7 @@ export default function TabLayout() {
               options={{
                 title: labels.profile,
                 tabBarIcon: ({ focused }) => (
-                  <AttachStep index={3}>
+                  <AttachStep index={4}>
                     <ModernTabIcon name="profile" focused={focused} />
                   </AttachStep>
                 ),
@@ -208,22 +216,14 @@ function ModernTabLabel({ label, focused }: { label: string; focused: boolean })
   );
 }
 
-function ModernTabIcon({
-  name,
-  focused,
-}: {
-  name: 'dashboard' | 'calendar' | 'progress' | 'profile';
-  focused: boolean;
-}) {
-  const iconName: keyof typeof Ionicons.glyphMap =
-    name === 'dashboard'
-      ? focused ? 'grid' : 'grid-outline'
-      : name === 'calendar'
-        ? focused ? 'calendar-clear' : 'calendar-clear-outline'
-        : name === 'progress'
-          ? focused ? 'stats-chart' : 'stats-chart-outline'
-          : focused ? 'person' : 'person-outline';
+const TAB_ICONS: Record<'dashboard' | 'calendar' | 'progress' | 'profile', { focused: keyof typeof Ionicons.glyphMap; unfocused: keyof typeof Ionicons.glyphMap }> = {
+  dashboard: { focused: 'grid', unfocused: 'grid-outline' },
+  calendar:  { focused: 'calendar-clear', unfocused: 'calendar-clear-outline' },
+  progress:  { focused: 'stats-chart', unfocused: 'stats-chart-outline' },
+  profile:   { focused: 'person', unfocused: 'person-outline' },
+};
 
+function ModernTabIcon({ name, focused }: { name: 'dashboard' | 'calendar' | 'progress' | 'profile'; focused: boolean }) {
   return (
     <View style={styles.iconSlot}>
       <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
@@ -235,7 +235,7 @@ function ModernTabIcon({
             style={StyleSheet.absoluteFill}
           />
         )}
-        <Ionicons name={iconName} size={isTablet ? 23 : 20} color={focused ? TAB.active : TAB.inactive} />
+        <Ionicons name={TAB_ICONS[name][focused ? 'focused' : 'unfocused']} size={isTablet ? 23 : 20} color={focused ? TAB.active : TAB.inactive} />
       </View>
     </View>
   );
@@ -267,5 +267,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 10,
     elevation: 4,
+  },
+  tabEmoji: {
+    fontSize: isTablet ? 20 : 18,
+    opacity: 0.45,
+  },
+  tabEmojiActive: {
+    opacity: 1,
   },
 });

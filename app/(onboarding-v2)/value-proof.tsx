@@ -77,8 +77,8 @@ const C = {
 export default function OnboardingV2ValueProofScreen() {
   const lang = resolveAppLanguage();
   const METRICS = [
-    { value: '7', label: t('onboarding.value_proof.metric_execution_preview', { lang }) },
-    { value: '3', label: t('onboarding.value_proof.metric_balancing_layers', { lang }) },
+    { value: t('onboarding.value_proof.metric_daily_label', { lang, fallback: 'Daily' }), label: t('onboarding.value_proof.metric_daily_sub', { lang, fallback: 'task list' }) },
+    { value: '50+', label: t('onboarding.value_proof.metric_balancing_layers', { lang }) },
     { value: '100%', label: t('onboarding.value_proof.metric_availability_based', { lang }) },
   ];
   const CARDS = [

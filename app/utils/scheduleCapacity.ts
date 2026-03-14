@@ -13,10 +13,10 @@ export const SLOT_STUDY_CAPACITY_MINUTES: Record<string, number> = {
 };
 
 export const INTENSITY_LOAD_RATIO: Record<StudyIntensityId, number> = {
-  relaxed: 0.3,
-  moderate: 0.5,
-  intensive: 0.7,
-  extreme: 0.9,
+  relaxed: 0.25,
+  moderate: 0.50,
+  intensive: 0.75,
+  extreme: 0.95,
 };
 
 export const INTENSITY_SESSION_BLOCK_MINUTES: Record<StudyIntensityId, number> = {
@@ -53,7 +53,7 @@ export const getIntensityCapacitySummary = (
   const effectivePressure = ENABLE_TARGET_PRESSURE_ADJUSTMENTS
     ? Math.min(1, Math.max(0, targetPressure))
     : 0;
-  const pressureMultiplier = 0.92 + effectivePressure * 0.22;
+  const pressureMultiplier = 1.0 + effectivePressure * 0.22;
   const weeklyMinutes = Math.max(30, Math.round(weeklyAvailableMinutes * ratio * pressureMultiplier));
   const dailyMinutes = dailyAvailableMinutes.length > 0
     ? dailyAvailableMinutes.map((minutes) => Math.max(30, Math.round(minutes * ratio)))

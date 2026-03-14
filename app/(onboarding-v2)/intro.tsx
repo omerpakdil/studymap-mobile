@@ -6,6 +6,7 @@
  * Dark teal-ink background, crisp white headline, teal accents.
  */
 import { useOnboardingV2 } from '@/app/(onboarding-v2)/state';
+import { inferTopExamsByLocale } from '@/app/data/examCatalogByCountry';
 import { resolveAppLanguage, t } from '@/app/i18n';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -51,13 +52,14 @@ export default function OnboardingV2IntroScreen() {
   const { resetDraft } = useOnboardingV2();
   const lang = resolveAppLanguage();
   const WORDS = [
-    t('onboarding.intro.word_1', { lang, fallback: 'Your' }),
-    t('onboarding.intro.word_2', { lang, fallback: 'smartest' }),
-    t('onboarding.intro.word_3', { lang, fallback: 'study' }),
-    t('onboarding.intro.word_4', { lang, fallback: 'plan' }),
-    t('onboarding.intro.word_5', { lang, fallback: 'starts' }),
-    t('onboarding.intro.word_6', { lang, fallback: 'here.' }),
-  ];
+    t('onboarding.intro.word_1', { lang, fallback: 'The' }),
+    t('onboarding.intro.word_2', { lang, fallback: 'study' }),
+    t('onboarding.intro.word_3', { lang, fallback: 'plan' }),
+    t('onboarding.intro.word_4', { lang, fallback: 'your' }),
+    t('onboarding.intro.word_5', { lang, fallback: 'exam' }),
+    t('onboarding.intro.word_6', { lang, fallback: 'deserves.' }),
+  ].filter(w => w.trim() !== '');
+  const topExams = inferTopExamsByLocale();
   const wordAnims = useRef(WORDS.map(() => new Animated.Value(0))).current;
   const subFade = useRef(new Animated.Value(0)).current;
   const statsFade = useRef(new Animated.Value(0)).current;
@@ -191,15 +193,27 @@ export default function OnboardingV2IntroScreen() {
         <Animated.Text style={[styles.sub, { color: C.sub, opacity: subFade }]}>
           {t('onboarding.intro.subtitle', {
             lang,
-            fallback: 'Adaptive plans built around your schedule - not a generic template.',
+            fallback: 'Exam-specific daily tasks, built around your real schedule. Designed to last all the way to exam day.',
           })}
         </Animated.Text>
+
+        {/* Locale-inferred exam chip strip */}
+        <Animated.View style={[styles.examChipsRow, { opacity: subFade }]}>
+          {topExams.map(name => (
+            <View key={name} style={[styles.examChip, { backgroundColor: C.badgeBg, borderColor: C.badgeBorder }]}>
+              <Text style={[styles.examChipText, { color: C.badge }]}>{name}</Text>
+            </View>
+          ))}
+          <Text style={[styles.examChipSuffix, { color: C.pillLbl }]}>
+            {t('onboarding.intro.exam_chips_suffix', { lang, fallback: '& 50+ more' })}
+          </Text>
+        </Animated.View>
 
         {/* Stat pills */}
         <Animated.View style={[styles.statsRow, { opacity: statsFade }]}>
           {[
             { v: t('onboarding.intro.stat_1_value', { lang, fallback: '60s' }), l: t('onboarding.intro.stat_1_label', { lang, fallback: 'Setup' }) },
-            { v: t('onboarding.intro.stat_2_value', { lang, fallback: '7-day' }), l: t('onboarding.intro.stat_2_label', { lang, fallback: 'Preview' }) },
+            { v: t('onboarding.intro.stat_2_value', { lang, fallback: 'Daily' }), l: t('onboarding.intro.stat_2_label', { lang, fallback: 'tasks' }) },
             { v: t('onboarding.intro.stat_3_value', { lang, fallback: '∞' }), l: t('onboarding.intro.stat_3_label', { lang, fallback: 'Adapts' }) },
           ].map(s => (
             <View
@@ -236,7 +250,7 @@ export default function OnboardingV2IntroScreen() {
         </TouchableOpacity>
 
         <Text style={[styles.hint, { color: C.hint }]}>
-          {t('onboarding.intro.hint', { lang, fallback: 'Free to explore · No card required' })}
+          {t('onboarding.intro.hint', { lang, fallback: 'Set up in 60s · Built for your exam' })}
         </Text>
       </Animated.View>
     </SafeAreaView>
@@ -335,8 +349,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 23,
     fontWeight: '400',
-    marginBottom: 24,
+    marginBottom: 14,
     maxWidth: 310,
+  },
+
+  examChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 20,
+  },
+  examChip: {
+    borderWidth: 1,
+    borderRadius: 99,
+    paddingVertical: 4,
+    paddingHorizontal: 11,
+  },
+  examChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  examChipSuffix: {
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
 
   statsRow: {

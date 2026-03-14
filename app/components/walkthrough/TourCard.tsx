@@ -1,17 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Dimensions, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+// Easing kept for card entrance animation
 import type { RenderProps } from 'react-native-spotlight-tour';
 import type { SupportedLanguage } from '@/app/i18n';
 import { markWalkthroughSeen } from '@/app/utils/walkthroughState';
-import {
-  DONE_LABELS,
-  NEXT_LABELS,
-  SKIP_LABELS,
-  TOUR_STEPS,
-} from './tourData';
+import { DONE_LABELS, NEXT_LABELS, SKIP_LABELS, TOUR_STEPS } from './tourData';
 
 const { width: SW } = Dimensions.get('window');
-const isTablet = SW >= 768;
+const CARD_W = Math.min(SW - 32, 380);
 const TOTAL = TOUR_STEPS.length;
 
 interface TourCardProps extends RenderProps {
@@ -20,183 +16,206 @@ interface TourCardProps extends RenderProps {
 
 export function TourCard({ current, isLast, next, stop, lang }: TourCardProps) {
   const data = TOUR_STEPS[current];
+
+  const slideY    = useRef(new Animated.Value(24)).current;
+  const fade      = useRef(new Animated.Value(0)).current;
+  const scale     = useRef(new Animated.Value(0.88)).current;
+
+  useEffect(() => {
+    if (!data) return;
+    slideY.setValue(24);
+    fade.setValue(0);
+    scale.setValue(0.88);
+
+    // Card entrance — spring bounce
+    Animated.parallel([
+      Animated.spring(slideY, { toValue: 0, tension: 55, friction: 7, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, tension: 55, friction: 7, useNativeDriver: true }),
+      Animated.timing(fade, { toValue: 1, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+    ]).start();
+
+    return () => {};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
+
   if (!data) return null;
 
-  const handleSkip = async () => {
-    await markWalkthroughSeen();
-    stop();
+  const handleSkip = async () => { await markWalkthroughSeen(); stop(); };
+  const handleNext = async () => {
+    if (isLast) { await markWalkthroughSeen(); stop(); }
+    else { next(); }
   };
 
-  const handleNext = async () => {
-    if (isLast) {
-      await markWalkthroughSeen();
-      stop();
-    } else {
-      next();
-    }
-  };
 
   return (
-    <View style={styles.wrapper}>
-      {/* Step dots */}
-      <View style={styles.dotsRow}>
-        {Array.from({ length: TOTAL }).map((_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.dot,
-              i < current && styles.dotDone,
-              i === current && styles.dotActive,
-            ]}
-          />
-        ))}
+    <Animated.View style={[s.root, { opacity: fade, transform: [{ translateY: slideY }, { scale }] }]}>
+      {/* Card body */}
+      <View style={s.card}>
+        {/* Top row: progress + step counter */}
+        <View style={s.topBar}>
+          <View style={s.segsRow}>
+            {Array.from({ length: TOTAL }).map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  s.seg,
+                  i < current  && s.segDone,
+                  i === current && s.segActive,
+                ]}
+              />
+            ))}
+          </View>
+          <Text style={s.stepCount}>{current + 1}<Text style={s.stepTotal}>/{TOTAL}</Text></Text>
+        </View>
+
+        {/* Title */}
+        <Text style={s.title}>{data.titles[lang] ?? data.titles.en}</Text>
+
+        {/* Description */}
+        <Text style={s.desc}>{data.descs[lang] ?? data.descs.en}</Text>
+
+        {/* Buttons */}
+        <View style={s.btnRow}>
+          <Pressable
+            style={({ pressed }) => [s.skipBtn, pressed && s.pressed]}
+            onPress={handleSkip}
+          >
+            <Text style={s.skipTxt}>{SKIP_LABELS[lang] ?? SKIP_LABELS.en}</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [s.nextBtn, pressed && s.pressed]}
+            onPress={handleNext}
+          >
+            <Text style={s.nextTxt}>
+              {isLast ? (DONE_LABELS[lang] ?? DONE_LABELS.en) : (NEXT_LABELS[lang] ?? NEXT_LABELS.en)}
+            </Text>
+          </Pressable>
+        </View>
       </View>
-
-      {/* Icon badge */}
-      <View style={styles.iconBadge}>
-        <Ionicons name={data.icon as never} size={22} color="#0F9D8C" />
-      </View>
-
-      {/* Title */}
-      <Text style={styles.title}>{data.titles[lang] ?? data.titles.en}</Text>
-
-      {/* Description */}
-      <Text style={styles.desc}>{data.descs[lang] ?? data.descs.en}</Text>
-
-      {/* Counter */}
-      <Text style={styles.counter}>{current + 1} / {TOTAL}</Text>
-
-      {/* Buttons */}
-      <View style={styles.btnRow}>
-        <Pressable
-          style={({ pressed }) => [styles.skipBtn, pressed && styles.btnPressed]}
-          onPress={handleSkip}
-        >
-          <Text style={styles.skipText}>{SKIP_LABELS[lang] ?? SKIP_LABELS.en}</Text>
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.nextBtn, pressed && styles.btnPressed]}
-          onPress={handleNext}
-        >
-          <Text style={styles.nextText}>
-            {isLast ? (DONE_LABELS[lang] ?? DONE_LABELS.en) : (NEXT_LABELS[lang] ?? NEXT_LABELS.en)}
-          </Text>
-          {!isLast && (
-            <Ionicons name="arrow-forward" size={14} color="#fff" style={{ marginLeft: 5 }} />
-          )}
-        </Pressable>
-      </View>
-    </View>
+    </Animated.View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    width: SW - 40,
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(226,232,240,0.95)',
-    backgroundColor: 'rgba(255,255,255,0.98)',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    elevation: 10,
+const TEAL   = '#14B8A6';
+const TEAL_DIM = 'rgba(20,184,166,0.18)';
+const CARD_BG = 'rgba(8,14,20,0.97)';
+
+const s = StyleSheet.create({
+  root: {
+    width: CARD_W,
+    alignItems: 'flex-start',
   },
-  dotsRow: {
+
+  // ── Card ────────────────────────────────────────
+  card: {
+    width: CARD_W,
+    backgroundColor: CARD_BG,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: TEAL,
+    padding: 18,
+    shadowColor: TEAL,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  segsRow: {
     flexDirection: 'row',
     gap: 5,
-    marginBottom: 14,
-    alignSelf: 'flex-start',
+    flex: 1,
+    marginRight: 10,
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#CBD5E1',
+  seg: {
+    flex: 1,
+    height: 3,
+    borderRadius: 99,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  dotDone: {
-    backgroundColor: 'rgba(15,157,140,0.28)',
+  segDone: {
+    backgroundColor: TEAL_DIM,
   },
-  dotActive: {
-    width: 20,
-    backgroundColor: '#0F9D8C',
+  segActive: {
+    backgroundColor: TEAL,
+    shadowColor: TEAL,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  iconBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#ECFDF8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(15,157,140,0.16)',
-  },
-  title: {
-    fontSize: isTablet ? 20 : 17,
+  stepCount: {
+    fontSize: 13,
     fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 7,
-    letterSpacing: -0.25,
+    color: TEAL,
+    letterSpacing: -0.3,
+  },
+  stepTotal: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(20,184,166,0.55)',
+  },
+
+  title: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#F1F5F9',
+    letterSpacing: -0.4,
+    marginBottom: 8,
+    lineHeight: 23,
   },
   desc: {
-    fontSize: isTablet ? 14 : 13,
-    color: '#64748B',
-    lineHeight: isTablet ? 21 : 19,
-    marginBottom: 12,
+    fontSize: 13,
+    color: 'rgba(203,213,225,0.82)',
+    lineHeight: 20,
+    marginBottom: 18,
+    fontWeight: '400',
   },
-  counter: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
+
   btnRow: {
     flexDirection: 'row',
     gap: 10,
   },
   skipBtn: {
-    flex: 1,
-    height: 42,
+    height: 44,
+    paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255,255,255,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   nextBtn: {
-    flex: 2,
-    height: 42,
+    flex: 1,
+    height: 44,
     borderRadius: 12,
-    backgroundColor: '#0F9D8C',
-    flexDirection: 'row',
+    backgroundColor: TEAL,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0F9D8C',
+    shadowColor: TEAL,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
     elevation: 6,
   },
-  btnPressed: {
-    opacity: 0.78,
-  },
-  skipText: {
-    fontSize: 14,
+  pressed: { opacity: 0.75 },
+  skipTxt: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: 'rgba(203,213,225,0.65)',
   },
-  nextText: {
+  nextTxt: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.1,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.2,
   },
 });
