@@ -833,7 +833,7 @@ export const zhHansMessages: AppMessages = {
       "delete_account": "删除账户",
       "delete_account_sub": "永久删除所有数据",
       "app_name": "StudyMap",
-      "app_version": "版本 1.0.0 · 构建 1",
+      "app_version": "版本 {version} · 构建 {build}",
       "latest": "最新",
       "terms_of_use": "使用条款",
       "privacy_policy": "隐私政策",

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -151,6 +152,8 @@ export default function ProfileScreen() {
   const appLocale = getLocaleTagForLanguage(appLang);
   const tp = (key: string, fallback: string, params?: Record<string, string | number>) =>
     t(`tabs.profile.${key}`, { lang: appLang, fallback, params });
+  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? '2.0.0';
+  const appBuild = Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? '35';
 
   const [programMetadata, setProgramMetadata]   = useState<any>(null);
   const [onboardingData,  setOnboardingData]     = useState<any>(null);
@@ -633,7 +636,9 @@ export default function ProfileScreen() {
           </LinearGradient>
           <View>
             <Text style={styles.appInfoName}>{tp('app_name', 'StudyMap')}</Text>
-            <Text style={styles.appInfoVer}>{tp('app_version', 'Version 1.0.0 · Build 1')}</Text>
+            <Text style={styles.appInfoVer}>
+              {tp('app_version', `Version ${appVersion} · Build ${appBuild}`, { version: appVersion, build: appBuild })}
+            </Text>
           </View>
           <View style={styles.appInfoBadge}>
             <Text style={styles.appInfoBadgeText}>{tp('latest', 'Latest')}</Text>

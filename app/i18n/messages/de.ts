@@ -833,7 +833,7 @@ export const deMessages: AppMessages = {
       "delete_account": "Konto loeschen",
       "delete_account_sub": "Alle Daten dauerhaft entfernen",
       "app_name": "StudyMap",
-      "app_version": "Version 1.0.0 · Build 1",
+      "app_version": "Version {version} · Build {build}",
       "latest": "Aktuell",
       "terms_of_use": "Nutzungsbedingungen",
       "privacy_policy": "Datenschutzrichtlinie",

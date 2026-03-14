@@ -833,7 +833,7 @@ export const idMessages: AppMessages = {
       "delete_account": "Hapus akun",
       "delete_account_sub": "Hapus semua data secara permanen",
       "app_name": "StudyMap",
-      "app_version": "Versi 1.0.0 · Build 1",
+      "app_version": "Versi {version} · Build {build}",
       "latest": "Terbaru",
       "terms_of_use": "Ketentuan penggunaan",
       "privacy_policy": "Kebijakan privasi",

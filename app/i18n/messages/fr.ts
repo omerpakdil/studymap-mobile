@@ -833,7 +833,7 @@ export const frMessages: AppMessages = {
       "delete_account": "Supprimer le compte",
       "delete_account_sub": "Supprimer toutes les donnees definitivement",
       "app_name": "StudyMap",
-      "app_version": "Version 1.0.0 · Build 1",
+      "app_version": "Version {version} · Build {build}",
       "latest": "A jour",
       "terms_of_use": "Conditions d'utilisation",
       "privacy_policy": "Politique de confidentialite",

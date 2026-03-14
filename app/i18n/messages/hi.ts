@@ -833,7 +833,7 @@ export const hiMessages: AppMessages = {
       "delete_account": "खाता हटाएं",
       "delete_account_sub": "सभी डेटा स्थायी रूप से हटाएं",
       "app_name": "StudyMap",
-      "app_version": "संस्करण 1.0.0 · बिल्ड 1",
+      "app_version": "संस्करण {version} · बिल्ड {build}",
       "latest": "नवीनतम",
       "terms_of_use": "उपयोग की शर्तें",
       "privacy_policy": "गोपनीयता नीति",

@@ -833,7 +833,7 @@ export const trMessages: AppMessages = {
       "delete_account": "Hesabı Sil",
       "delete_account_sub": "Tüm verileri kalıcı olarak sil",
       "app_name": "StudyMap",
-      "app_version": "Sürüm 1.0.0 · Yapı 1",
+      "app_version": "Sürüm {version} · Yapı {build}",
       "latest": "Güncel",
       "terms_of_use": "Kullanım Koşulları",
       "privacy_policy": "Gizlilik Politikası",

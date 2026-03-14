@@ -259,6 +259,7 @@ export default function StudySessionScreen() {
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const backgroundTimeRef = useRef<number | null>(null);
+  const sessionEndAtRef = useRef<number | null>(null);
   const isRunningRef = useRef(false);
 
   // Animations
@@ -300,12 +301,12 @@ export default function StudySessionScreen() {
       if ((state === 'background' || state === 'inactive') && isRunningRef.current) {
         backgroundTimeRef.current = Date.now();
       } else if (state === 'active' && isRunningRef.current && backgroundTimeRef.current) {
-        const elapsed = Math.floor((Date.now() - backgroundTimeRef.current) / 1000);
-        setTimeLeft((prev) => {
-          const next = Math.max(0, prev - elapsed);
-          if (next === 0) completeTimer();
-          return next;
-        });
+        const next = getRemainingSeconds();
+        if (next === 0) {
+          completeTimer();
+        } else {
+          setTimeLeft(next);
+        }
         backgroundTimeRef.current = null;
       }
     });
@@ -377,34 +378,49 @@ export default function StudySessionScreen() {
 
   const startTimer = () => {
     if (timerState === 'completed') return;
+    if (intervalRef.current) clearInterval(intervalRef.current);
     setTimerState('running');
     isRunningRef.current = true;
+    sessionEndAtRef.current = Date.now() + timeLeft * 1000;
     if (timerState === 'idle') {
       playSessionStart();
       NotificationService.startBreakReminders?.();
     }
     intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) { completeTimer(); return 0; }
-        return prev - 1;
-      });
+      const next = getRemainingSeconds();
+      if (next <= 0) {
+        completeTimer();
+        return;
+      }
+      setTimeLeft(next);
     }, 1000);
   };
 
   const pauseTimer = () => {
+    const next = getRemainingSeconds();
     setTimerState('paused');
     isRunningRef.current = false;
     if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    sessionEndAtRef.current = null;
+    if (next > 0) setTimeLeft(next);
   };
 
   const resetTimer = () => {
     pauseTimer();
     setTimerState('idle');
     setTimeLeft(focusDuration * 60);
+    backgroundTimeRef.current = null;
+    sessionEndAtRef.current = null;
   };
 
   const completeTimer = () => {
-    pauseTimer();
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    isRunningRef.current = false;
+    sessionEndAtRef.current = null;
+    backgroundTimeRef.current = null;
+    setTimeLeft(0);
     setTimerState('completed');
     stopLofi().then(() => {
       playSessionEnd();
@@ -485,6 +501,11 @@ export default function StudySessionScreen() {
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const getRemainingSeconds = () => {
+    if (!sessionEndAtRef.current) return timeLeft;
+    return Math.max(0, Math.ceil((sessionEndAtRef.current - Date.now()) / 1000));
   };
 
   const progress = 1 - timeLeft / (focusDuration * 60);

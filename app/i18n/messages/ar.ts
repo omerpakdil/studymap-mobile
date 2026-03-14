@@ -833,7 +833,7 @@ export const arMessages: AppMessages = {
       "delete_account": "حذف الحساب",
       "delete_account_sub": "حذف جميع البيانات نهائيا",
       "app_name": "StudyMap",
-      "app_version": "الاصدار 1.0.0 · البنية 1",
+      "app_version": "الإصدار {version} · البناء {build}",
       "latest": "الاحدث",
       "terms_of_use": "شروط الاستخدام",
       "privacy_policy": "سياسة الخصوصية",

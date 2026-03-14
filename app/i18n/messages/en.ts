@@ -839,7 +839,7 @@ export const enMessages = {
       "delete_account": "Delete Account",
       "delete_account_sub": "Permanently remove all data",
       "app_name": "StudyMap",
-      "app_version": "Version 1.0.0 · Build 1",
+      "app_version": "Version {version} · Build {build}",
       "latest": "Latest",
       "terms_of_use": "Terms of Use",
       "privacy_policy": "Privacy Policy",

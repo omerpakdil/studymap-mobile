@@ -833,7 +833,7 @@ export const jaMessages: AppMessages = {
       "delete_account": "アカウントを削除",
       "delete_account_sub": "すべてのデータを完全に削除",
       "app_name": "StudyMap",
-      "app_version": "バージョン 1.0.0 · ビルド 1",
+      "app_version": "バージョン {version} · ビルド {build}",
       "latest": "最新",
       "terms_of_use": "利用規約",
       "privacy_policy": "プライバシーポリシー",

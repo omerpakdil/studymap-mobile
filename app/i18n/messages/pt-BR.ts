@@ -833,7 +833,7 @@ export const ptBRMessages: AppMessages = {
       "delete_account": "Excluir conta",
       "delete_account_sub": "Remover permanentemente todos os dados",
       "app_name": "StudyMap",
-      "app_version": "Versao 1.0.0 · Build 1",
+      "app_version": "Versão {version} · Build {build}",
       "latest": "Atual",
       "terms_of_use": "Termos de uso",
       "privacy_policy": "Politica de privacidade",

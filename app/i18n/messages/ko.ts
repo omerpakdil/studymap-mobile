@@ -833,7 +833,7 @@ export const koMessages: AppMessages = {
       "delete_account": "계정 삭제",
       "delete_account_sub": "모든 데이터를 영구적으로 삭제",
       "app_name": "StudyMap",
-      "app_version": "버전 1.0.0 · 빌드 1",
+      "app_version": "버전 {version} · 빌드 {build}",
       "latest": "최신",
       "terms_of_use": "이용 약관",
       "privacy_policy": "개인정보 처리방침",
