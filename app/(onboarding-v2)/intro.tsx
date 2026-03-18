@@ -18,6 +18,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 
@@ -50,6 +51,8 @@ const C = {
 
 export default function OnboardingV2IntroScreen() {
   const { resetDraft } = useOnboardingV2();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const lang = resolveAppLanguage();
   const WORDS = [
     t('onboarding.intro.word_1', { lang, fallback: 'The' }),
@@ -120,14 +123,18 @@ export default function OnboardingV2IntroScreen() {
 
       {/* Orbs */}
       <Animated.View
-        style={[styles.orbA, { backgroundColor: C.orbA, transform: [{ scale: orbPulse }] }]}
+        style={[
+          styles.orbA,
+          isTablet && styles.orbATablet,
+          { backgroundColor: C.orbA, transform: [{ scale: orbPulse }] },
+        ]}
       />
-      <View style={[styles.orbB, { backgroundColor: C.orbB }]} />
+      <View style={[styles.orbB, isTablet && styles.orbBTablet, { backgroundColor: C.orbB }]} />
 
       {/* Rotating geometric shape */}
-      <Animated.View style={[styles.shapeWrap, { transform: [{ rotate: spin }] }]}>
-        <View style={[styles.shape, { borderColor: C.shape }]} />
-        <View style={[styles.shapeInner, { borderColor: C.shapeInner }]} />
+      <Animated.View style={[styles.shapeWrap, isTablet && styles.shapeWrapTablet, { transform: [{ rotate: spin }] }]}>
+        <View style={[styles.shape, isTablet && styles.shapeTablet, { borderColor: C.shape }]} />
+        <View style={[styles.shapeInner, isTablet && styles.shapeInnerTablet, { borderColor: C.shapeInner }]} />
       </Animated.View>
 
       {/* Fine grid lines */}
@@ -155,23 +162,24 @@ export default function OnboardingV2IntroScreen() {
       </View>
 
       {/* ── Main content ───────────────────────────────── */}
-      <View style={styles.content}>
+      <View style={[styles.content, isTablet && styles.contentTablet]}>
 
         {/* Badge */}
-        <View style={[styles.badge, { backgroundColor: C.badgeBg, borderColor: C.badgeBorder }]}>
+        <View style={[styles.badge, isTablet && styles.badgeTablet, { backgroundColor: C.badgeBg, borderColor: C.badgeBorder }]}>
           <View style={[styles.badgeDot, { backgroundColor: C.badge }]} />
-          <Text style={[styles.badgeText, { color: C.badge }]}>
+          <Text style={[styles.badgeText, isTablet && styles.badgeTextTablet, { color: C.badge }]}>
             {t('onboarding.intro.badge', { lang, fallback: 'STUDYMAP' })}
           </Text>
         </View>
 
         {/* Headline */}
-        <View style={styles.headlineWrap}>
+        <View style={[styles.headlineWrap, isTablet && styles.headlineWrapTablet]}>
           {WORDS.map((word, i) => (
             <Animated.Text
               key={i}
               style={[
                 styles.headWord,
+                isTablet && styles.headWordTablet,
                 { color: C.headline },
                 {
                   opacity: wordAnims[i],
@@ -190,7 +198,7 @@ export default function OnboardingV2IntroScreen() {
         </View>
 
         {/* Subtitle */}
-        <Animated.Text style={[styles.sub, { color: C.sub, opacity: subFade }]}>
+        <Animated.Text style={[styles.sub, isTablet && styles.subTablet, { color: C.sub, opacity: subFade }]}>
           {t('onboarding.intro.subtitle', {
             lang,
             fallback: 'Exam-specific daily tasks, built around your real schedule. Designed to last all the way to exam day.',
@@ -198,19 +206,19 @@ export default function OnboardingV2IntroScreen() {
         </Animated.Text>
 
         {/* Locale-inferred exam chip strip */}
-        <Animated.View style={[styles.examChipsRow, { opacity: subFade }]}>
+        <Animated.View style={[styles.examChipsRow, isTablet && styles.examChipsRowTablet, { opacity: subFade }]}>
           {topExams.map(name => (
-            <View key={name} style={[styles.examChip, { backgroundColor: C.badgeBg, borderColor: C.badgeBorder }]}>
-              <Text style={[styles.examChipText, { color: C.badge }]}>{name}</Text>
+            <View key={name} style={[styles.examChip, isTablet && styles.examChipTablet, { backgroundColor: C.badgeBg, borderColor: C.badgeBorder }]}>
+              <Text style={[styles.examChipText, isTablet && styles.examChipTextTablet, { color: C.badge }]}>{name}</Text>
             </View>
           ))}
-          <Text style={[styles.examChipSuffix, { color: C.pillLbl }]}>
+          <Text style={[styles.examChipSuffix, isTablet && styles.examChipSuffixTablet, { color: C.pillLbl }]}>
             {t('onboarding.intro.exam_chips_suffix', { lang, fallback: '& 50+ more' })}
           </Text>
         </Animated.View>
 
         {/* Stat pills */}
-        <Animated.View style={[styles.statsRow, { opacity: statsFade }]}>
+        <Animated.View style={[styles.statsRow, isTablet && styles.statsRowTablet, { opacity: statsFade }]}>
           {[
             { v: t('onboarding.intro.stat_1_value', { lang, fallback: '60s' }), l: t('onboarding.intro.stat_1_label', { lang, fallback: 'Setup' }) },
             { v: t('onboarding.intro.stat_2_value', { lang, fallback: 'Daily' }), l: t('onboarding.intro.stat_2_label', { lang, fallback: 'tasks' }) },
@@ -220,8 +228,8 @@ export default function OnboardingV2IntroScreen() {
               key={s.v}
               style={[styles.pill, { backgroundColor: C.pillBg, borderColor: C.pillBorder }]}
             >
-              <Text style={[styles.pillVal, { color: C.pillVal }]}>{s.v}</Text>
-              <Text style={[styles.pillLbl, { color: C.pillLbl }]}>{s.l}</Text>
+              <Text style={[styles.pillVal, isTablet && styles.pillValTablet, { color: C.pillVal }]}>{s.v}</Text>
+              <Text style={[styles.pillLbl, isTablet && styles.pillLblTablet, { color: C.pillLbl }]}>{s.l}</Text>
             </View>
           ))}
         </Animated.View>
@@ -229,10 +237,10 @@ export default function OnboardingV2IntroScreen() {
 
       {/* ── CTA ────────────────────────────────────────── */}
       <Animated.View
-        style={[styles.ctaWrap, { opacity: ctaFade, transform: [{ translateY: ctaSlide }] }]}
+        style={[styles.ctaWrap, isTablet && styles.ctaWrapTablet, { opacity: ctaFade, transform: [{ translateY: ctaSlide }] }]}
       >
         <TouchableOpacity
-          style={styles.cta}
+          style={[styles.cta, isTablet && styles.ctaTablet]}
           onPress={() => router.replace('/(onboarding-v2)/splash')}
           activeOpacity={0.88}
         >
@@ -243,13 +251,13 @@ export default function OnboardingV2IntroScreen() {
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.ctaSheen} />
-          <Text style={[styles.ctaText, { color: C.btnText }]}>
+          <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet, { color: C.btnText }]}>
             {t('onboarding.intro.cta', { lang, fallback: 'Get Started' })}
           </Text>
           <Text style={[styles.ctaArrow, { color: 'rgba(255,255,255,0.75)' }]}>→</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.hint, { color: C.hint }]}>
+        <Text style={[styles.hint, isTablet && styles.hintTablet, { color: C.hint }]}>
           {t('onboarding.intro.hint', { lang, fallback: 'Set up in 60s · Built for your exam' })}
         </Text>
       </Animated.View>
@@ -271,6 +279,12 @@ const styles = StyleSheet.create({
     top: -110,
     right: -140,
   },
+  orbATablet: {
+    width: 460,
+    height: 460,
+    top: -80,
+    right: -100,
+  },
   orbB: {
     position: 'absolute',
     width: 240,
@@ -278,6 +292,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     bottom: 110,
     left: -100,
+  },
+  orbBTablet: {
+    width: 320,
+    height: 320,
+    bottom: 130,
+    left: -70,
   },
 
   shapeWrap: {
@@ -289,12 +309,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  shapeWrapTablet: {
+    top: '10%',
+    right: '4%',
+    width: 280,
+    height: 280,
+  },
   shape: {
     position: 'absolute',
     width: 200,
     height: 200,
     borderRadius: 44,
     borderWidth: 1.5,
+  },
+  shapeTablet: {
+    width: 280,
+    height: 280,
+    borderRadius: 58,
   },
   shapeInner: {
     position: 'absolute',
@@ -303,12 +334,25 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     borderWidth: 1,
   },
+  shapeInnerTablet: {
+    width: 190,
+    height: 190,
+    borderRadius: 40,
+  },
 
   content: {
     flex: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: 26,
     paddingBottom: 18,
+  },
+  contentTablet: {
+    justifyContent: 'center',
+    paddingHorizontal: 44,
+    paddingBottom: 84,
+    maxWidth: 920,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   badge: {
@@ -322,6 +366,12 @@ const styles = StyleSheet.create({
     gap: 7,
     marginBottom: 20,
   },
+  badgeTablet: {
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    gap: 9,
+    marginBottom: 28,
+  },
   badgeDot: {
     width: 6,
     height: 6,
@@ -332,17 +382,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.2,
   },
+  badgeTextTablet: {
+    fontSize: 13,
+  },
 
   headlineWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    rowGap: 2,
     marginBottom: 16,
+  },
+  headlineWrapTablet: {
+    maxWidth: 860,
+    rowGap: 6,
+    marginBottom: 24,
   },
   headWord: {
     fontSize: 46,
     fontWeight: '900',
     lineHeight: 54,
     letterSpacing: -1.4,
+  },
+  headWordTablet: {
+    fontSize: 84,
+    lineHeight: 90,
+    letterSpacing: -2.3,
   },
 
   sub: {
@@ -352,6 +416,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     maxWidth: 310,
   },
+  subTablet: {
+    fontSize: 22,
+    lineHeight: 32,
+    maxWidth: 700,
+    marginBottom: 22,
+  },
 
   examChipsRow: {
     flexDirection: 'row',
@@ -360,27 +430,47 @@ const styles = StyleSheet.create({
     gap: 7,
     marginBottom: 20,
   },
+  examChipsRowTablet: {
+    gap: 10,
+    marginBottom: 28,
+    maxWidth: 760,
+  },
   examChip: {
     borderWidth: 1,
     borderRadius: 99,
     paddingVertical: 4,
     paddingHorizontal: 11,
   },
+  examChipTablet: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
   examChipText: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
+  },
+  examChipTextTablet: {
+    fontSize: 14,
   },
   examChipSuffix: {
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.2,
   },
+  examChipSuffixTablet: {
+    fontSize: 14,
+  },
 
   statsRow: {
     flexDirection: 'row',
     gap: 10,
     marginBottom: 32,
+  },
+  statsRowTablet: {
+    gap: 14,
+    marginBottom: 20,
+    maxWidth: 860,
   },
   pill: {
     flex: 1,
@@ -395,17 +485,31 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.4,
   },
+  pillValTablet: {
+    fontSize: 28,
+  },
   pillLbl: {
     fontSize: 10,
     fontWeight: '500',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
+  pillLblTablet: {
+    fontSize: 12,
+  },
 
   ctaWrap: {
     paddingHorizontal: 26,
     paddingBottom: 32,
     gap: 12,
+  },
+  ctaWrapTablet: {
+    paddingHorizontal: 44,
+    paddingBottom: 44,
+    maxWidth: 920,
+    width: '100%',
+    alignSelf: 'center',
+    gap: 14,
   },
   cta: {
     height: 56,
@@ -421,6 +525,10 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  ctaTablet: {
+    height: 68,
+    borderRadius: 20,
+  },
   ctaSheen: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
@@ -432,6 +540,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.2,
   },
+  ctaTextTablet: {
+    fontSize: 22,
+  },
   ctaArrow: {
     fontSize: 18,
     fontWeight: '500',
@@ -441,5 +552,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     letterSpacing: 0.3,
+  },
+  hintTablet: {
+    fontSize: 13,
   },
 });

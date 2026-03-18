@@ -929,6 +929,32 @@ export const ptBRMessages: AppMessages = {
     "complete_session": "Concluir Sessão",
     "back_dashboard": "Voltar ao Painel",
     "focus_duration": "Duração do Foco",
+
+    "subject": "Matéria",
+
+    "focus_audio": "Áudio de foco",
+
+    "audio_state_playing": "Tocando",
+
+    "audio_state_off": "Desligado",
+
+    "change_audio": "Canais",
+
+    "lofi_modal_title": "Rádio de foco",
+
+    "lofi_modal_sub": "Escolha o canal ideal para esta sessão",
+
+    "lofi_channel_ambient": "Ambient",
+
+    "lofi_channel_ambient_sub": "Rádio ambient suave",
+
+    "lofi_channel_lofi": "Lofi",
+
+    "lofi_channel_lofi_sub": "Rádio lofi tranquila",
+
+    "lofi_channel_deep": "Foco profundo",
+
+    "lofi_channel_deep_sub": "Som de foco profundo baseado em drone",
     "select_focus_duration": "Selecione por quanto tempo focar",
     "preset_quick_25": "Rápido 25",
     "preset_standard_45": "Foco 45",

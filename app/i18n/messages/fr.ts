@@ -929,6 +929,32 @@ export const frMessages: AppMessages = {
     "complete_session": "Terminer la session",
     "back_dashboard": "Retour au tableau de bord",
     "focus_duration": "Durée de concentration",
+
+    "subject": "Matière",
+
+    "focus_audio": "Audio de focus",
+
+    "audio_state_playing": "Lecture",
+
+    "audio_state_off": "Coupé",
+
+    "change_audio": "Canaux",
+
+    "lofi_modal_title": "Radio Focus",
+
+    "lofi_modal_sub": "Choisis le canal adapté à cette session",
+
+    "lofi_channel_ambient": "Ambient",
+
+    "lofi_channel_ambient_sub": "Radio ambient douce",
+
+    "lofi_channel_lofi": "Lofi",
+
+    "lofi_channel_lofi_sub": "Radio lofi détendue",
+
+    "lofi_channel_deep": "Focus profond",
+
+    "lofi_channel_deep_sub": "Focus profond basé sur des drones",
     "select_focus_duration": "Choisissez la durée de concentration",
     "preset_quick_25": "Rapide 25",
     "preset_standard_45": "Focus 45",

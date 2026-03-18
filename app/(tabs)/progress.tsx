@@ -37,6 +37,7 @@ import {
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 // ─── Teal-only Design Tokens ──────────────────────────────────────────────────
 const C = {
@@ -181,7 +182,7 @@ function AchievCard({
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(14)).current;
   const op = RARITY_OPACITY[a.rarity] ?? 0.30;
-  const cardW = (width - 40 - 12) / 2;
+  const cardW = isTablet ? (width - 40 - 18) / 2 : (width - 40 - 12) / 2;
   const code = a.title
     .split(' ')
     .filter(Boolean)
@@ -360,14 +361,14 @@ export default function ProgressScreen() {
     const adaptiveSubjects = (adaptiveReviewSignal?.affectedSubjects || []).map((subject) => subjectLabel(subject));
 
     return (
-      <View style={{ gap: 14 }}>
+      <View style={{ gap: isTablet ? 20 : 14 }}>
         {/* Hero */}
         <View style={styles.heroCard}>
           <LinearGradient colors={['#0F766E', '#0F9D8C', '#2DD4BF']} style={styles.heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
             <View style={styles.heroBlob1} />
             <View style={styles.heroBlob2} />
             <View style={styles.heroRow}>
-              <RingProgress pct={overallProgress} size={110} stroke={10}>
+              <RingProgress pct={overallProgress} size={isTablet ? 146 : 110} stroke={isTablet ? 12 : 10}>
                 <Text style={styles.ringPct}>{overallProgress}%</Text>
                 <Text style={styles.ringLabel}>{tp('overall', 'Overall')}</Text>
               </RingProgress>
@@ -642,7 +643,7 @@ export default function ProgressScreen() {
                   {tp('of_badges', 'of {count} badges', { count: achievements.length })}
                 </Text>
               </View>
-              <RingProgress pct={pct} size={86} stroke={9}>
+              <RingProgress pct={pct} size={isTablet ? 118 : 86} stroke={isTablet ? 11 : 9}>
                 <Text style={styles.achRingPct}>{pct}%</Text>
               </RingProgress>
             </View>
@@ -912,64 +913,78 @@ const styles = StyleSheet.create({
   loaderSquare1: { position: 'absolute', width: 32, height: 32, borderRadius: 4, borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)' },
   loaderSquare2: { position: 'absolute', width: 20, height: 20, borderRadius: 3, borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)' },
   loaderSquare3: { position: 'absolute', width: 8, height: 8, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.9)' },
-  loadTitle: { fontSize: 20, fontWeight: '700', color: C.ink, marginBottom: 5 },
-  loadSub: { fontSize: 14, color: C.sub },
+  loadTitle: { fontSize: isTablet ? 28 : 20, fontWeight: '700', color: C.ink, marginBottom: 5 },
+  loadSub: { fontSize: isTablet ? 18 : 14, color: C.sub },
 
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: isIOS ? 6 : 14, paddingBottom: 14 },
-  headerKicker: { fontSize: 10, fontWeight: '700', color: C.muted, letterSpacing: 1.1, textTransform: 'uppercase', marginBottom: 4 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: C.ink, lineHeight: 27 },
-  headerSub: { marginTop: 2, fontSize: 12, fontWeight: '500', color: C.sub },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: isIOS ? (isTablet ? 10 : 6) : (isTablet ? 18 : 14), paddingBottom: isTablet ? 18 : 14 },
+  headerKicker: { fontSize: isTablet ? 16 : 10, fontWeight: '700', color: C.muted, letterSpacing: isTablet ? 1.6 : 1.1, textTransform: 'uppercase', marginBottom: isTablet ? 6 : 4 },
+  headerTitle: { fontSize: isTablet ? 40 : 22, fontWeight: '800', color: C.ink, lineHeight: isTablet ? 46 : 27 },
+  headerSub: { marginTop: 2, fontSize: isTablet ? 20 : 12, fontWeight: '500', color: C.sub },
   headerExam: { color: C.t500, fontWeight: '800' },
 
-  streakBadge: { alignItems: 'center', backgroundColor: C.t100, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder, paddingHorizontal: 12, paddingVertical: 8 },
-  streakBadgeNum: { fontSize: 22, fontWeight: '900', color: C.t600, lineHeight: 26 },
-  streakBadgeLbl: { fontSize: 9, fontWeight: '600', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  streakBadge: { alignItems: 'center', backgroundColor: C.t100, borderRadius: isTablet ? 20 : 14, borderWidth: 1, borderColor: C.cardBorder, paddingHorizontal: isTablet ? 18 : 12, paddingVertical: isTablet ? 14 : 8 },
+  streakBadgeNum: { fontSize: isTablet ? 34 : 22, fontWeight: '900', color: C.t600, lineHeight: isTablet ? 38 : 26 },
+  streakBadgeLbl: { fontSize: isTablet ? 13 : 9, fontWeight: '600', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
   streakDotRow: { flexDirection: 'row', gap: 3, marginTop: 4 },
   streakDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.t500 },
 
-  tabRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 16, backgroundColor: C.card, borderRadius: 12, padding: 4, borderWidth: 1, borderColor: C.cardBorder },
-  tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 9, gap: 3 },
+  tabRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: isTablet ? 26 : 16, backgroundColor: C.card, borderRadius: isTablet ? 18 : 12, padding: isTablet ? 8 : 4, borderWidth: 1, borderColor: C.cardBorder },
+  tabBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: isTablet ? 16 : 9, borderRadius: isTablet ? 13 : 9, gap: 3 },
   tabBtnActive: { backgroundColor: C.t100 },
   tabActiveLine: { width: 16, height: 2, borderRadius: 1, backgroundColor: C.t500 },
-  tabBtnText: { fontSize: 11, fontWeight: '600', color: C.muted },
+  tabBtnText: { fontSize: isTablet ? 17 : 11, fontWeight: '600', color: C.muted },
   tabBtnTextActive: { color: C.t500, fontWeight: '700' },
 
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 4 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: isTablet ? 8 : 4, paddingBottom: isTablet ? 36 : 0 },
 
-  heroCard: { borderRadius: 22, overflow: 'hidden', marginBottom: 2, shadowColor: C.t500, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 18, elevation: 12 },
-  heroGradient: { padding: 20 },
+  heroCard: { borderRadius: isTablet ? 30 : 22, overflow: 'hidden', marginBottom: 4, shadowColor: C.t500, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 18, elevation: 12, minHeight: isTablet ? 280 : undefined },
+  heroGradient: { padding: isTablet ? 36 : 20 },
   heroBlob1: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)', top: -40, right: -30 },
   heroBlob2: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 60 },
-  heroRow: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-  heroRightTitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginBottom: 10 },
-  heroMiniWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
-  heroMiniTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
-  heroMiniFill: { height: 4, borderRadius: 2, backgroundColor: '#fff' },
-  heroMiniText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.9)' },
-  ringPct: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  ringLabel: { fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
+  heroRow: { flexDirection: 'row', alignItems: 'center', gap: isTablet ? 24 : 18 },
+  heroRightTitle: { fontSize: isTablet ? 18 : 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginBottom: isTablet ? 14 : 10 },
+  heroMiniWrap: { flexDirection: 'row', alignItems: 'center', gap: isTablet ? 12 : 8, marginTop: isTablet ? 14 : 10 },
+  heroMiniTrack: { flex: 1, height: isTablet ? 6 : 4, borderRadius: isTablet ? 3 : 2, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+  heroMiniFill: { height: isTablet ? 6 : 4, borderRadius: isTablet ? 3 : 2, backgroundColor: '#fff' },
+  heroMiniText: { fontSize: isTablet ? 14 : 11, fontWeight: '600', color: 'rgba(255,255,255,0.9)' },
+  ringPct: { fontSize: isTablet ? 30 : 22, fontWeight: '800', color: '#fff' },
+  ringLabel: { fontSize: isTablet ? 14 : 11, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
 
-  metricRow: { flexDirection: 'row', alignItems: 'center' },
+  metricRow: { flexDirection: 'row', alignItems: 'center', marginTop: isTablet ? 2 : 0 },
   metricItem: { flex: 1, alignItems: 'center' },
-  metricVal: { fontSize: 17, fontWeight: '800', color: '#fff' },
-  metricLbl: { fontSize: 10, fontWeight: '500', color: 'rgba(255,255,255,0.75)', marginTop: 2 },
-  metricDivider: { width: 1, height: 24, backgroundColor: 'rgba(255,255,255,0.25)' },
+  metricVal: { fontSize: isTablet ? 24 : 17, fontWeight: '800', color: '#fff' },
+  metricLbl: { fontSize: isTablet ? 13 : 10, fontWeight: '500', color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  metricDivider: { width: 1, height: isTablet ? 34 : 24, backgroundColor: 'rgba(255,255,255,0.25)' },
 
-  tiledRow: { flexDirection: 'row', gap: 8 },
-  tiledStat: { flex: 1, backgroundColor: C.card, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: C.cardBorder, gap: 2, shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 },
+  tiledRow: { flexDirection: 'row', gap: isTablet ? 14 : 8, flexWrap: isTablet ? 'wrap' : 'nowrap' },
+  tiledStat: {
+    ...(isTablet ? { flexBasis: '48.8%', maxWidth: '48.8%' } : { flex: 1 }),
+    minHeight: isTablet ? 144 : undefined,
+    backgroundColor: C.card,
+    borderRadius: isTablet ? 18 : 14,
+    padding: isTablet ? 20 : 12,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    gap: 2,
+    shadowColor: C.t500,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1
+  },
   tiledAccentLine: { width: 18, height: 3, borderRadius: 2, backgroundColor: C.t500, marginBottom: 4 },
-  tiledValue: { fontSize: 17, fontWeight: '900', color: C.ink, letterSpacing: -0.3 },
-  tiledLabel: { fontSize: 10, fontWeight: '700', color: C.sub, textTransform: 'uppercase', letterSpacing: 0.3 },
-  tiledSub: { fontSize: 9, color: C.muted },
+  tiledValue: { fontSize: isTablet ? 30 : 17, fontWeight: '900', color: C.ink, letterSpacing: -0.3 },
+  tiledLabel: { fontSize: isTablet ? 14 : 10, fontWeight: '700', color: C.sub, textTransform: 'uppercase', letterSpacing: 0.3 },
+  tiledSub: { fontSize: isTablet ? 13 : 9, color: C.muted },
 
-  dualCard: { flexDirection: 'row', backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 16, shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
-  dualHalf: { flex: 1, gap: 6 },
-  dualDivider: { width: 1, backgroundColor: C.cardBorder, marginHorizontal: 14 },
+  dualCard: { flexDirection: 'row', backgroundColor: C.card, borderRadius: isTablet ? 20 : 16, borderWidth: 1, borderColor: C.cardBorder, padding: isTablet ? 26 : 16, minHeight: isTablet ? 190 : undefined, shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2 },
+  dualHalf: { flex: 1, gap: isTablet ? 10 : 6, justifyContent: isTablet ? 'center' : 'flex-start' },
+  dualDivider: { width: 1, backgroundColor: C.cardBorder, marginHorizontal: isTablet ? 18 : 14 },
   dualHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dualTitle: { fontSize: 12, fontWeight: '700', color: C.ink },
-  dualPct: { fontSize: 14, fontWeight: '800', color: C.t500 },
-  dualSub: { fontSize: 10, color: C.muted, fontWeight: '500' },
+  dualTitle: { fontSize: isTablet ? 16 : 12, fontWeight: '700', color: C.ink },
+  dualPct: { fontSize: isTablet ? 20 : 14, fontWeight: '800', color: C.t500 },
+  dualSub: { fontSize: isTablet ? 13 : 10, color: C.muted, fontWeight: '500' },
 
   barTrack: { borderRadius: 4, backgroundColor: C.track, overflow: 'hidden' },
   barFill: { borderRadius: 4 },
@@ -977,49 +992,49 @@ const styles = StyleSheet.create({
   dotBarRow: { flexDirection: 'row', gap: 3, marginTop: 4 },
   dotBarDot: { width: 5, height: 5, borderRadius: 3 },
 
-  insightStrip: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder, padding: 14, shadowColor: C.t500, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
+  insightStrip: { flexDirection: 'row', alignItems: 'center', gap: isTablet ? 16 : 12, backgroundColor: C.card, borderRadius: isTablet ? 18 : 14, borderWidth: 1, borderColor: C.cardBorder, padding: isTablet ? 22 : 14, minHeight: isTablet ? 120 : undefined, shadowColor: C.t500, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
   insightStripFilled: { backgroundColor: C.t500, borderColor: C.t500 },
   insightAccent: { width: 3, alignSelf: 'stretch', backgroundColor: C.t500, borderRadius: 2 },
-  insightTag: { fontSize: 9, fontWeight: '800', color: C.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 },
-  insightBody: { fontSize: 13, color: C.sub, lineHeight: 18 },
+  insightTag: { fontSize: isTablet ? 11 : 9, fontWeight: '800', color: C.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 },
+  insightBody: { fontSize: isTablet ? 17 : 13, color: C.sub, lineHeight: isTablet ? 24 : 18 },
   insightHighlight: { fontWeight: '700', color: C.ink },
-  insightBigNum: { fontSize: 22, fontWeight: '900', color: C.t500, letterSpacing: -0.5 },
+  insightBigNum: { fontSize: isTablet ? 30 : 22, fontWeight: '900', color: C.t500, letterSpacing: -0.5 },
 
   subjHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  subjHeaderTitle: { fontSize: 16, fontWeight: '800', color: C.ink },
+  subjHeaderTitle: { fontSize: isTablet ? 22 : 16, fontWeight: '800', color: C.ink },
   subjHeaderBadge: { backgroundColor: C.t100, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  subjHeaderBadgeText: { fontSize: 11, fontWeight: '700', color: C.t600 },
+  subjHeaderBadgeText: { fontSize: isTablet ? 14 : 11, fontWeight: '700', color: C.t600 },
 
-  barChartCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.cardBorder, padding: 16, shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2 },
-  barChartTitle: { fontSize: 11, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 14 },
+  barChartCard: { backgroundColor: C.card, borderRadius: isTablet ? 20 : 16, borderWidth: 1, borderColor: C.cardBorder, padding: isTablet ? 20 : 16, shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2 },
+  barChartTitle: { fontSize: isTablet ? 14 : 11, fontWeight: '700', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: isTablet ? 18 : 14 },
   barChartRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  barChartLabel: { width: 74, fontSize: 11, fontWeight: '600', color: C.sub },
+  barChartLabel: { width: isTablet ? 110 : 74, fontSize: isTablet ? 14 : 11, fontWeight: '600', color: C.sub },
   barChartTrackWrap: { flex: 1 },
-  barChartPct: { width: 36, fontSize: 11, fontWeight: '700', color: C.t500, textAlign: 'right' },
+  barChartPct: { width: isTablet ? 52 : 36, fontSize: isTablet ? 14 : 11, fontWeight: '700', color: C.t500, textAlign: 'right' },
 
-  subjCard: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.cardBorder, overflow: 'hidden', shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2 },
+  subjCard: { flexDirection: 'row', alignItems: 'stretch', backgroundColor: C.card, borderRadius: isTablet ? 18 : 14, borderWidth: 1, borderColor: C.cardBorder, overflow: 'hidden', shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2 },
   subjAccent: { width: 4, alignSelf: 'stretch' },
-  subjBody: { flex: 1, padding: 13, gap: 7 },
+  subjBody: { flex: 1, padding: isTablet ? 18 : 13, gap: isTablet ? 10 : 7 },
   subjTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  subjRankBox: { width: 26, height: 26, borderRadius: 7, justifyContent: 'center', alignItems: 'center' },
-  subjRankText: { fontSize: 10, fontWeight: '800', color: C.t500 },
-  subjName: { fontSize: 14, fontWeight: '700', color: C.ink },
-  subjPct: { fontSize: 15, fontWeight: '800', color: C.t500 },
+  subjRankBox: { width: isTablet ? 34 : 26, height: isTablet ? 34 : 26, borderRadius: isTablet ? 9 : 7, justifyContent: 'center', alignItems: 'center' },
+  subjRankText: { fontSize: isTablet ? 13 : 10, fontWeight: '800', color: C.t500 },
+  subjName: { fontSize: isTablet ? 19 : 14, fontWeight: '700', color: C.ink },
+  subjPct: { fontSize: isTablet ? 22 : 15, fontWeight: '800', color: C.t500 },
   subjMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  subjMetaText: { fontSize: 11, color: C.muted, fontWeight: '500' },
+  subjMetaText: { fontSize: isTablet ? 14 : 11, color: C.muted, fontWeight: '500' },
   subjMetaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: C.track },
 
   achHeroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  achHeroBig: { fontSize: 52, fontWeight: '900', color: '#fff', lineHeight: 56 },
-  achHeroSub: { fontSize: 13, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
-  achRingPct: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  achHeroBig: { fontSize: isTablet ? 66 : 52, fontWeight: '900', color: '#fff', lineHeight: isTablet ? 72 : 56 },
+  achHeroSub: { fontSize: isTablet ? 18 : 13, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
+  achRingPct: { fontSize: isTablet ? 20 : 15, fontWeight: '800', color: '#fff' },
 
   catHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   catGlyph: { width: 22, height: 22, borderRadius: 6, backgroundColor: C.t100, justifyContent: 'center', alignItems: 'center' },
   catGlyphInner: { width: 8, height: 8, borderRadius: 2, backgroundColor: C.t500 },
-  catTitle: { fontSize: 13, fontWeight: '700', color: C.ink },
+  catTitle: { fontSize: isTablet ? 17 : 13, fontWeight: '700', color: C.ink },
   catCountPill: { backgroundColor: C.t100, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3 },
-  catCountText: { fontSize: 11, fontWeight: '700', color: C.t600 },
+  catCountText: { fontSize: isTablet ? 14 : 11, fontWeight: '700', color: C.t600 },
   achGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
 
   achCard: { borderRadius: 14, borderWidth: 1.5, padding: 12, gap: 5 },
@@ -1035,39 +1050,39 @@ const styles = StyleSheet.create({
   achCodeTextUnlocked: { color: '#FFFFFF' },
   achUnlockedPill: { backgroundColor: 'rgba(15,157,140,0.16)', borderWidth: 1, borderColor: 'rgba(15,157,140,0.30)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 },
   achUnlockedText: { fontSize: 8, fontWeight: '800', color: C.t600, letterSpacing: 0.3, textTransform: 'uppercase' },
-  achTitle: { fontSize: 12, fontWeight: '700', lineHeight: 16 },
-  achDesc: { fontSize: 10, color: C.muted, lineHeight: 13, marginTop: 1, minHeight: 26 },
-  achProgress: { fontSize: 9, color: C.muted, fontWeight: '500', marginTop: 2 },
+  achTitle: { fontSize: isTablet ? 15 : 12, fontWeight: '700', lineHeight: isTablet ? 20 : 16 },
+  achDesc: { fontSize: isTablet ? 12 : 10, color: C.muted, lineHeight: isTablet ? 17 : 13, marginTop: 1, minHeight: isTablet ? 34 : 26 },
+  achProgress: { fontSize: isTablet ? 11 : 9, color: C.muted, fontWeight: '500', marginTop: 2 },
 
-  weeklyKicker: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
-  weeklyDates: { fontSize: 18, fontWeight: '800', color: '#fff', marginBottom: 14 },
+  weeklyKicker: { fontSize: isTablet ? 13 : 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
+  weeklyDates: { fontSize: isTablet ? 26 : 18, fontWeight: '800', color: '#fff', marginBottom: isTablet ? 18 : 14 },
 
-  weekSection: { backgroundColor: C.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.cardBorder, shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2 },
+  weekSection: { backgroundColor: C.card, borderRadius: isTablet ? 20 : 16, padding: isTablet ? 20 : 16, borderWidth: 1, borderColor: C.cardBorder, shadowColor: C.t500, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 5, elevation: 2 },
   weekSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  weekSectionTitle: { fontSize: 13, fontWeight: '700', color: C.ink },
+  weekSectionTitle: { fontSize: isTablet ? 17 : 13, fontWeight: '700', color: C.ink },
 
   tripleLineGlyph: { gap: 3, justifyContent: 'center' },
   tripleLineA: { width: 14, height: 2, borderRadius: 1, backgroundColor: C.t500 },
 
   weekSubRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 11 },
-  weekSubName: { width: 80, fontSize: 11, fontWeight: '600', color: C.sub },
-  weekSubPct: { width: 34, fontSize: 11, fontWeight: '700', color: C.t500, textAlign: 'right' },
+  weekSubName: { width: isTablet ? 110 : 80, fontSize: isTablet ? 14 : 11, fontWeight: '600', color: C.sub },
+  weekSubPct: { width: isTablet ? 46 : 34, fontSize: isTablet ? 14 : 11, fontWeight: '700', color: C.t500, textAlign: 'right' },
 
   weekListRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
   weekListDash: { width: 12, height: 2, borderRadius: 1, backgroundColor: C.t500, marginTop: 9 },
-  weekListText: { flex: 1, fontSize: 13, color: C.sub, lineHeight: 20 },
+  weekListText: { flex: 1, fontSize: isTablet ? 17 : 13, color: C.sub, lineHeight: isTablet ? 24 : 20 },
 
   goalsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  goalBlock: { backgroundColor: C.t100, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  goalBlock: { backgroundColor: C.t100, borderRadius: isTablet ? 16 : 12, paddingHorizontal: isTablet ? 18 : 14, paddingVertical: isTablet ? 14 : 10 },
   goalBlockSub: { backgroundColor: C.t50, borderWidth: 1, borderColor: C.cardBorder },
-  goalBlockVal: { fontSize: 18, fontWeight: '800', color: C.t600 },
-  goalBlockLbl: { fontSize: 9, fontWeight: '600', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
+  goalBlockVal: { fontSize: isTablet ? 24 : 18, fontWeight: '800', color: C.t600 },
+  goalBlockLbl: { fontSize: isTablet ? 12 : 9, fontWeight: '600', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 },
 
   emptyWrap: { alignItems: 'center', paddingTop: 40, paddingBottom: 20 },
   emptyGlyph: { gap: 6, alignItems: 'flex-start', marginBottom: 20 },
   emptyGlyphBar: { height: 5, borderRadius: 3, backgroundColor: C.t500 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: C.ink, marginBottom: 6 },
-  emptyText: { fontSize: 13, color: C.sub, textAlign: 'center', lineHeight: 19, marginBottom: 20 },
+  emptyTitle: { fontSize: isTablet ? 22 : 17, fontWeight: '700', color: C.ink, marginBottom: 6 },
+  emptyText: { fontSize: isTablet ? 16 : 13, color: C.sub, textAlign: 'center', lineHeight: isTablet ? 23 : 19, marginBottom: 20 },
   genBtn: { backgroundColor: C.t500, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 13 },
-  genBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  genBtnText: { fontSize: isTablet ? 18 : 14, fontWeight: '700', color: '#fff' },
 });

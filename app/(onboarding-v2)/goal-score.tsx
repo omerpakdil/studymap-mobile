@@ -18,6 +18,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -61,6 +62,8 @@ export default function OnboardingV2GoalScoreScreen() {
   const lang = resolveAppLanguage({
     countryDefaultLanguage: getCountryByCode(draft.countryCode)?.defaultLanguage ?? null,
   });
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   useEffect(() => { void trackOnboardingStepView('goal_score'); }, []);
 
   const entrance = useRef(new Animated.Value(0)).current;
@@ -217,18 +220,18 @@ export default function OnboardingV2GoalScoreScreen() {
       </View>
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={8}>
-        <Animated.View style={[styles.inner,{opacity:entrance}]}>
+        <Animated.View style={[styles.inner, isTablet && styles.innerTablet,{opacity:entrance}]}>
 
           {/* Header */}
-          <View style={styles.headerRow}>
-            <TouchableOpacity style={[styles.backBtn,{backgroundColor:C.backBg,borderColor:C.backBorder}]} onPress={()=>{void trackOnboardingStepBack('goal_score');router.back();}} activeOpacity={0.7}>
-              <Text style={[styles.backArrow,{color:C.backArrow}]}>‹</Text>
+          <View style={[styles.headerRow, isTablet && styles.headerRowTablet]}>
+            <TouchableOpacity style={[styles.backBtn, isTablet && styles.backBtnTablet,{backgroundColor:C.backBg,borderColor:C.backBorder}]} onPress={()=>{void trackOnboardingStepBack('goal_score');router.back();}} activeOpacity={0.7}>
+              <Text style={[styles.backArrow, isTablet && styles.backArrowTablet,{color:C.backArrow}]}>‹</Text>
             </TouchableOpacity>
             <View style={styles.brandRow}>
               <View style={[styles.brandMark,{backgroundColor:C.brand}]}/>
-              <Text style={[styles.brandText,{color:C.brand}]}>StudyMap</Text>
+              <Text style={[styles.brandText, isTablet && styles.brandTextTablet,{color:C.brand}]}>StudyMap</Text>
             </View>
-            <View style={styles.backBtn}/>
+            <View style={[styles.backBtn, isTablet && styles.backBtnTablet]}/>
           </View>
 
           {/* Progress */}
@@ -238,23 +241,23 @@ export default function OnboardingV2GoalScoreScreen() {
               <View style={styles.progressSheen}/>
             </View>
           </View>
-          <Text style={[styles.stepLabel,{color:C.labelMuted}]}>
+          <Text style={[styles.stepLabel, isTablet && styles.stepLabelTablet,{color:C.labelMuted}]}>
             {t('common.step_of', { lang, params: { current: 5, total: 13 } })}
           </Text>
 
           {/* Title */}
-          <Text style={[styles.title,{color:C.title}]}>
+          <Text style={[styles.title, isTablet && styles.titleTablet,{color:C.title}]}>
             {titleByMetric[goalConfig?.primaryMetric ?? 'score'] ?? t('onboarding.goal_score.title_score', { lang })}
           </Text>
-          <Text style={[styles.sub,{color:C.sub}]}>
+          <Text style={[styles.sub, isTablet && styles.subTablet,{color:C.sub}]}>
             {subtitleByMetric[goalConfig?.primaryMetric ?? ''] ?? t('onboarding.goal_score.subtitle_default', { lang })}
           </Text>
 
           {/* Metric input */}
-          <View style={[styles.inputWrap,{backgroundColor:C.inputBg,borderColor:isValid?C.inputBorderActive:C.inputBorder}]}>
+          <View style={[styles.inputWrap, isTablet && styles.inputWrapTablet,{backgroundColor:C.inputBg,borderColor:isValid?C.inputBorderActive:C.inputBorder}]}>
             <LinearGradient colors={[C.btnA,C.btnB]} start={{x:0,y:0}} end={{x:1,y:0}} style={[styles.inputBar,{opacity:isValid?1:0.3}]}/>
-            <View style={styles.inputInner}>
-              <Text style={[styles.inputLabel,{color:C.label}]}>{label.toUpperCase()}</Text>
+            <View style={[styles.inputInner, isTablet && styles.inputInnerTablet]}>
+              <Text style={[styles.inputLabel, isTablet && styles.inputLabelTablet,{color:C.label}]}>{label.toUpperCase()}</Text>
               {isNumericTarget ? (
                 <View style={styles.inputRow}>
                   <TextInput
@@ -263,7 +266,7 @@ export default function OnboardingV2GoalScoreScreen() {
                     placeholder={quickPicks.length ? `e.g. ${quickPicks[Math.min(2, quickPicks.length - 1)]}` : t('onboarding.goal_score.enter_target', { lang })}
                     placeholderTextColor={C.inputPlaceholder}
                     keyboardType={inputMode}
-                    style={[styles.scoreInput,{color:isValid?C.teal:C.inputText}]}
+                    style={[styles.scoreInput, isTablet && styles.scoreInputTablet,{color:isValid?C.teal:C.inputText}]}
                     returnKeyType="done"
                   />
                   {isValid && (
@@ -273,7 +276,7 @@ export default function OnboardingV2GoalScoreScreen() {
                   )}
                 </View>
               ) : (
-                <View style={styles.optionGrid}>
+                <View style={[styles.optionGrid, isTablet && styles.optionGridTablet]}>
                   {selectableOptions.map((option) => {
                     const selected = draft.targetScore === option;
                     return (
@@ -281,12 +284,13 @@ export default function OnboardingV2GoalScoreScreen() {
                         key={option}
                         style={[
                           styles.optionChip,
+                          isTablet && styles.optionChipTablet,
                           { borderColor: selected ? C.teal : C.cardBorder, backgroundColor: selected ? C.tealSoft : 'rgba(255,255,255,0.04)' },
                         ]}
                         onPress={() => persistTarget(option)}
                         activeOpacity={0.85}
                       >
-                        <Text style={[styles.optionChipText, { color: selected ? C.teal : C.sub }]}>{option}</Text>
+                        <Text style={[styles.optionChipText, isTablet && styles.optionChipTextTablet, { color: selected ? C.teal : C.sub }]}>{option}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -307,19 +311,19 @@ export default function OnboardingV2GoalScoreScreen() {
 
           {/* Quick-select chips (exam-aware) */}
           {!!quickPicks.length && isNumericTarget && (
-            <View style={styles.chipsRow}>
-              <Text style={[styles.chipsLabel,{color:C.labelMuted}]}>{t('onboarding.goal_score.quick_select', { lang })}</Text>
-              <View style={styles.chips}>
+            <View style={[styles.chipsRow, isTablet && styles.chipsRowTablet]}>
+              <Text style={[styles.chipsLabel, isTablet && styles.chipsLabelTablet,{color:C.labelMuted}]}>{t('onboarding.goal_score.quick_select', { lang })}</Text>
+              <View style={[styles.chips, isTablet && styles.chipsTablet]}>
                 {quickPicks.map(pick => {
                   const active = draft.targetScore === String(pick);
                   return (
                     <TouchableOpacity
                       key={String(pick)}
-                      style={[styles.chip,{backgroundColor:active?C.tealSoft:'rgba(255,255,255,0.04)',borderColor:active?C.teal:C.cardBorder}]}
+                      style={[styles.chip, isTablet && styles.chipTablet,{backgroundColor:active?C.tealSoft:'rgba(255,255,255,0.04)',borderColor:active?C.teal:C.cardBorder}]}
                       onPress={()=>persistTarget(String(pick))}
                       activeOpacity={0.8}
                     >
-                      <Text style={[styles.chipText,{color:active?C.teal:C.sub}]}>{pick}</Text>
+                      <Text style={[styles.chipText, isTablet && styles.chipTextTablet,{color:active?C.teal:C.sub}]}>{pick}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -328,16 +332,17 @@ export default function OnboardingV2GoalScoreScreen() {
           )}
 
           {/* Context note */}
-          <View style={[styles.note,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+          <View style={[styles.note, isTablet && styles.noteTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
             <Text style={styles.noteIcon}>→</Text>
             <Text style={[styles.noteText,{color:C.sub}]}>{noteText}</Text>
           </View>
         </Animated.View>
 
         {/* Footer */}
-        <Animated.View
+      <Animated.View
           style={[
             styles.footer,
+            isTablet && styles.footerTablet,
             {
               backgroundColor:C.footer,
               borderTopColor:C.footerBorder,
@@ -346,11 +351,11 @@ export default function OnboardingV2GoalScoreScreen() {
           ]}
         >
           <Animated.View style={{transform:[{scale:ctaScale}]}}>
-            <TouchableOpacity style={[styles.cta,!isValid&&styles.ctaDisabled]} onPress={handleContinue} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
+            <TouchableOpacity style={[styles.cta, isTablet && styles.ctaTablet,!isValid&&styles.ctaDisabled]} onPress={handleContinue} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
               {isValid&&<LinearGradient colors={[C.btnA,C.btnB]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>}
               {isValid&&<View style={styles.ctaSheen}/>}
-              <Text style={[styles.ctaText,!isValid&&styles.ctaTextDisabled]}>{t('common.continue', { lang })}</Text>
-              {isValid&&<Text style={styles.ctaArrow}>→</Text>}
+              <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet,!isValid&&styles.ctaTextDisabled]}>{t('common.continue', { lang })}</Text>
+              {isValid&&<Text style={[styles.ctaArrow, isTablet && styles.ctaArrowTablet]}>→</Text>}
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
@@ -365,29 +370,42 @@ const styles = StyleSheet.create({
   orbA:{position:'absolute',width:300,height:300,borderRadius:999,top:-90,right:-120},
   orbB:{position:'absolute',width:200,height:200,borderRadius:999,bottom:160,left:-90},
   inner:{flex:1,paddingHorizontal:22,paddingTop:10,paddingBottom:110},
+  innerTablet:{paddingHorizontal:36,paddingTop:20,paddingBottom:140,maxWidth:980,width:'100%',alignSelf:'center'},
   headerRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:16},
+  headerRowTablet:{marginBottom:20},
   backBtn:{width:36,height:36,borderRadius:11,borderWidth:1,justifyContent:'center',alignItems:'center'},
+  backBtnTablet:{width:48,height:48,borderRadius:14},
   backArrow:{fontSize:26,fontWeight:'300',lineHeight:30,marginTop:-1},
+  backArrowTablet:{fontSize:32,lineHeight:36},
   brandRow:{flexDirection:'row',alignItems:'center',gap:6},
   brandMark:{width:7,height:7,borderRadius:2},
   brandText:{fontSize:14,fontWeight:'800',letterSpacing:0.4},
+  brandTextTablet:{fontSize:18},
   progressTrack:{height:3,borderRadius:999,overflow:'hidden',marginBottom:7},
   progressFill:{height:'100%',borderRadius:999,overflow:'hidden'},
   progressSheen:{position:'absolute',top:0,left:0,right:0,height:'50%',backgroundColor:'rgba(255,255,255,0.22)'},
   stepLabel:{fontSize:10,fontWeight:'600',letterSpacing:0.9,textTransform:'uppercase',marginBottom:18,opacity:0.65},
+  stepLabelTablet:{fontSize:14,marginBottom:20},
   title:{fontSize:33,fontWeight:'900',lineHeight:39,letterSpacing:-0.8,marginBottom:8},
+  titleTablet:{fontSize:62,lineHeight:68,marginBottom:14,maxWidth:820},
   sub:{fontSize:14,lineHeight:21,fontWeight:'400',marginBottom:22},
+  subTablet:{fontSize:24,lineHeight:34,marginBottom:30,maxWidth:900},
 
   inputWrap:{borderRadius:20,borderWidth:1,overflow:'hidden',marginBottom:14,
     shadowColor:'#2DD4BF',shadowOffset:{width:0,height:4},shadowOpacity:0.12,shadowRadius:16,elevation:4},
+  inputWrapTablet:{borderRadius:26,marginBottom:20},
   inputBar:{height:3},
   inputInner:{padding:18,gap:6},
+  inputInnerTablet:{padding:32,gap:12},
   inputLabel:{fontSize:10,fontWeight:'700',letterSpacing:1.3,textTransform:'uppercase'},
+  inputLabelTablet:{fontSize:14},
   inputRow:{flexDirection:'row',alignItems:'center',gap:10},
   scoreInput:{flex:1,fontSize:44,fontWeight:'900',letterSpacing:-1,paddingVertical:6},
+  scoreInputTablet:{fontSize:68,paddingVertical:10},
   checkBadge:{width:36,height:36,borderRadius:12,alignItems:'center',justifyContent:'center'},
   checkText:{fontSize:18,fontWeight:'700'},
   optionGrid:{flexDirection:'row',flexWrap:'wrap',gap:8,paddingTop:4},
+  optionGridTablet:{gap:14,paddingTop:10},
   optionChip:{
     minWidth:'31%',
     flexGrow:1,
@@ -397,25 +415,37 @@ const styles = StyleSheet.create({
     paddingHorizontal:10,
     alignItems:'center',
   },
+  optionChipTablet:{borderRadius:18,paddingVertical:18,paddingHorizontal:16},
   optionChipText:{fontSize:14,fontWeight:'700'},
+  optionChipTextTablet:{fontSize:20},
   rangeHint:{fontSize:11,fontWeight:'500',letterSpacing:0.2},
 
   chipsRow:{marginBottom:14,gap:8},
+  chipsRowTablet:{marginBottom:20,gap:12},
   chipsLabel:{fontSize:10,fontWeight:'600',letterSpacing:0.8,textTransform:'uppercase'},
+  chipsLabelTablet:{fontSize:14},
   chips:{flexDirection:'row',gap:8},
+  chipsTablet:{gap:12},
   chip:{flex:1,borderWidth:1,borderRadius:12,paddingVertical:10,alignItems:'center'},
+  chipTablet:{borderRadius:18,paddingVertical:17},
   chipText:{fontSize:14,fontWeight:'700'},
+  chipTextTablet:{fontSize:20},
 
   note:{flexDirection:'row',alignItems:'flex-start',gap:10,borderWidth:1,borderRadius:14,padding:13},
+  noteTablet:{borderRadius:20,padding:20,marginTop:6},
   noteIcon:{fontSize:14,color:'#2DD4BF',marginTop:1},
   noteText:{flex:1,fontSize:12,lineHeight:18,fontWeight:'400'},
 
   footer:{position:'absolute',left:0,right:0,bottom:0,paddingHorizontal:22,paddingTop:16,paddingBottom:12,borderTopWidth:StyleSheet.hairlineWidth,backgroundColor:C.footer,borderTopColor:C.footerBorder},
+  footerTablet:{paddingHorizontal:40,paddingTop:20,paddingBottom:46},
   cta:{height:FOOTER.ctaHeight,borderRadius:FOOTER.ctaRadius,flexDirection:'row',alignItems:'center',justifyContent:'center',overflow:'hidden',gap:8,
     shadowColor:'#14B8A6',shadowOffset:{width:0,height:6},shadowOpacity:0.32,shadowRadius:16,elevation:8},
+  ctaTablet:{height:72,borderRadius:22},
   ctaDisabled:{backgroundColor:'rgba(100,116,139,0.14)',shadowOpacity:0,elevation:0},
   ctaSheen:{position:'absolute',top:0,left:0,right:0,height:'44%',backgroundColor:'rgba(255,255,255,0.12)'},
   ctaText:{color:'#fff',fontSize:16,fontWeight:'800',letterSpacing:0.2},
+  ctaTextTablet:{fontSize:24},
   ctaTextDisabled:{color:'rgba(100,116,139,0.40)'},
   ctaArrow:{color:'rgba(255,255,255,0.78)',fontSize:17},
+  ctaArrowTablet:{fontSize:22},
 });

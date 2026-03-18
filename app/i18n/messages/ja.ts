@@ -929,6 +929,32 @@ export const jaMessages: AppMessages = {
     "complete_session": "セッションを完了",
     "back_dashboard": "ダッシュボードへ戻る",
     "focus_duration": "集中時間",
+
+    "subject": "科目",
+
+    "focus_audio": "集中オーディオ",
+
+    "audio_state_playing": "再生中",
+
+    "audio_state_off": "オフ",
+
+    "change_audio": "チャンネル",
+
+    "lofi_modal_title": "集中ラジオ",
+
+    "lofi_modal_sub": "このセッションに合うチャンネルを選んでください",
+
+    "lofi_channel_ambient": "アンビエント",
+
+    "lofi_channel_ambient_sub": "やわらかなアンビエントラジオ",
+
+    "lofi_channel_lofi": "ローファイ",
+
+    "lofi_channel_lofi_sub": "落ち着いたローファイラジオ",
+
+    "lofi_channel_deep": "ディープフォーカス",
+
+    "lofi_channel_deep_sub": "ドローン系の深い集中サウンド",
     "select_focus_duration": "集中する時間を選択",
     "preset_quick_25": "クイック 25",
     "preset_standard_45": "集中 45",

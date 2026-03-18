@@ -929,6 +929,32 @@ export const hiMessages: AppMessages = {
     "complete_session": "सेशन पूरा करें",
     "back_dashboard": "डैशबोर्ड पर वापस जाएँ",
     "focus_duration": "फोकस अवधि",
+
+    "subject": "विषय",
+
+    "focus_audio": "फोकस ऑडियो",
+
+    "audio_state_playing": "चल रहा है",
+
+    "audio_state_off": "बंद",
+
+    "change_audio": "चैनल",
+
+    "lofi_modal_title": "फोकस रेडियो",
+
+    "lofi_modal_sub": "इस सेशन के लिए सही चैनल चुनें",
+
+    "lofi_channel_ambient": "एम्बिएंट",
+
+    "lofi_channel_ambient_sub": "मुलायम एम्बिएंट रेडियो",
+
+    "lofi_channel_lofi": "लोफाइ",
+
+    "lofi_channel_lofi_sub": "आरामदायक लोफाइ रेडियो",
+
+    "lofi_channel_deep": "डीप फोकस",
+
+    "lofi_channel_deep_sub": "ड्रोन आधारित डीप फोकस साउंड",
     "select_focus_duration": "फोकस की अवधि चुनें",
     "preset_quick_25": "त्वरित 25",
     "preset_standard_45": "फ़ोकस 45",

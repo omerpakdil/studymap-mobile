@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -60,6 +61,8 @@ function PresetChip({
 }: {
   preset: { id: FocusPresetId; code: string; label: string; desc: string }; selected: boolean; onPress: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const anim = useRef(new Animated.Value(selected ? 1 : 0)).current;
   useEffect(() => {
     Animated.spring(anim, { toValue: selected ? 1 : 0, useNativeDriver: false, tension: 160, friction: 12 }).start();
@@ -69,14 +72,14 @@ function PresetChip({
   const border = anim.interpolate({ inputRange: [0, 1], outputRange: ['rgba(148,163,184,0.28)', T.teal] });
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.78} style={{ flex: 1, minWidth: '44%' }}>
-      <Animated.View style={[styles.presetChip, { backgroundColor: bg, borderColor: border }]}>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.78} style={{ flex: 1, minWidth: isTablet ? '31%' : '44%' }}>
+      <Animated.View style={[styles.presetChip, isTablet && styles.presetChipTablet, { backgroundColor: bg, borderColor: border }]}>
         {selected && <View style={styles.presetSelectedMark} />}
-        <View style={[styles.presetCodePill, selected && styles.presetCodePillSelected]}>
-          <Text style={[styles.presetCodeText, selected && styles.presetCodeTextSelected]}>{preset.code}</Text>
+        <View style={[styles.presetCodePill, isTablet && styles.presetCodePillTablet, selected && styles.presetCodePillSelected]}>
+          <Text style={[styles.presetCodeText, isTablet && styles.presetCodeTextTablet, selected && styles.presetCodeTextSelected]}>{preset.code}</Text>
         </View>
-        <Text style={[styles.presetLabel, selected && { color: '#fff' }]}>{preset.label}</Text>
-        <Text style={[styles.presetDesc, selected && { color: 'rgba(255,255,255,0.68)' }]}>{preset.desc}</Text>
+        <Text style={[styles.presetLabel, isTablet && styles.presetLabelTablet, selected && { color: '#fff' }]}>{preset.label}</Text>
+        <Text style={[styles.presetDesc, isTablet && styles.presetDescTablet, selected && { color: 'rgba(255,255,255,0.68)' }]}>{preset.desc}</Text>
       </Animated.View>
     </TouchableOpacity>
   );
@@ -89,6 +92,8 @@ function SubjectRow({
   subject: string; subjectLabel: string; value: number; contributionPercent: number;
   onValue: (v: number) => void; index: number; shareLabel: string;
 }) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const slideIn = useRef(new Animated.Value(24)).current;
   const fadeIn  = useRef(new Animated.Value(0)).current;
 
@@ -109,31 +114,31 @@ function SubjectRow({
   return (
     <Animated.View style={[styles.subRow, { transform: [{ translateX: slideIn }], opacity: fadeIn }]}>
       {/* Left accent */}
-      <View style={[styles.subAccent, { backgroundColor: color }]} />
+      <View style={[styles.subAccent, isTablet && styles.subAccentTablet, { backgroundColor: color }]} />
 
-      <View style={styles.subBody}>
+      <View style={[styles.subBody, isTablet && styles.subBodyTablet]}>
         {/* Top */}
-        <View style={styles.subTop}>
-          <View style={styles.subLeft}>
-            <View style={styles.subIndex}>
-              <Text style={styles.subIndexText}>{index + 1}</Text>
+        <View style={[styles.subTop, isTablet && styles.subTopTablet]}>
+          <View style={[styles.subLeft, isTablet && styles.subLeftTablet]}>
+            <View style={[styles.subIndex, isTablet && styles.subIndexTablet]}>
+              <Text style={[styles.subIndexText, isTablet && styles.subIndexTextTablet]}>{index + 1}</Text>
             </View>
-            <Text style={styles.subName}>{subjectLabel}</Text>
+            <Text style={[styles.subName, isTablet && styles.subNameTablet]}>{subjectLabel}</Text>
           </View>
-          <View style={[styles.subBadge, { backgroundColor: badgeBg }]}>
-            <Text style={[styles.subBadgeText, { color }]}>
+          <View style={[styles.subBadge, isTablet && styles.subBadgeTablet, { backgroundColor: badgeBg }]}>
+            <Text style={[styles.subBadgeText, isTablet && styles.subBadgeTextTablet, { color }]}>
               {value > 0 ? '+' : ''}{value}%
             </Text>
           </View>
         </View>
 
         {/* Slider */}
-        <View style={styles.sliderRow}>
-          <Text style={styles.sliderEdge}>−30</Text>
-          <View style={styles.sliderTrack}>
-            <View style={styles.sliderCenter} />
+        <View style={[styles.sliderRow, isTablet && styles.sliderRowTablet]}>
+          <Text style={[styles.sliderEdge, isTablet && styles.sliderEdgeTablet]}>−30</Text>
+          <View style={[styles.sliderTrack, isTablet && styles.sliderTrackTablet]}>
+            <View style={[styles.sliderCenter, isTablet && styles.sliderCenterTablet]} />
             <Slider
-              style={styles.slider}
+              style={[styles.slider, isTablet && styles.sliderTablet]}
               minimumValue={FOCUS_MIN}
               maximumValue={FOCUS_MAX}
               value={value}
@@ -144,16 +149,16 @@ function SubjectRow({
               onValueChange={onValue}
             />
           </View>
-          <Text style={styles.sliderEdge}>+30</Text>
+          <Text style={[styles.sliderEdge, isTablet && styles.sliderEdgeTablet]}>+30</Text>
         </View>
 
         {/* Share bar */}
-        <View style={styles.shareRow}>
-          <Text style={styles.shareLabel}>{shareLabel}</Text>
-          <View style={styles.shareTrack}>
-            <View style={[styles.shareFill, { width: `${Math.max(2, contributionPercent)}%` as any, backgroundColor: T.teal }]} />
+        <View style={[styles.shareRow, isTablet && styles.shareRowTablet]}>
+          <Text style={[styles.shareLabel, isTablet && styles.shareLabelTablet]}>{shareLabel}</Text>
+          <View style={[styles.shareTrack, isTablet && styles.shareTrackTablet]}>
+            <View style={[styles.shareFill, isTablet && styles.shareFillTablet, { width: `${Math.max(2, contributionPercent)}%` as any, backgroundColor: T.teal }]} />
           </View>
-          <Text style={styles.shareVal}>{contributionPercent}%</Text>
+          <Text style={[styles.shareVal, isTablet && styles.shareValTablet]}>{contributionPercent}%</Text>
         </View>
       </View>
     </Animated.View>
@@ -164,6 +169,8 @@ function SubjectRow({
 export default function FocusWeightsScreen() {
   const { showAlert } = useAppAlert();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const appLang = resolveAppLanguage();
   const tp = (key: string, fallback: string, params?: Record<string, string | number>) =>
     t(`tabs.profile.focus.${key}`, { lang: appLang, fallback, params });
@@ -288,63 +295,63 @@ export default function FocusWeightsScreen() {
       <View style={styles.orbB} />
 
       {/* ── Header ── */}
-      <Animated.View style={[styles.header, { opacity: headerAnim }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.75}>
-          <Text style={styles.backBtnText} numberOfLines={1}>{tp('back', 'Back')}</Text>
+      <Animated.View style={[styles.header, isTablet && styles.headerTablet, { opacity: headerAnim }]}>
+        <TouchableOpacity style={[styles.backBtn, isTablet && styles.backBtnTablet]} onPress={() => router.back()} activeOpacity={0.75}>
+          <Text style={[styles.backBtnText, isTablet && styles.backBtnTextTablet]} numberOfLines={1}>{tp('back', 'Back')}</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerKicker}>{tp('header_kicker', 'Preferences')}</Text>
-          <Text style={styles.headerTitle}>{tp('header_title', 'Focus Weights')}</Text>
+          <Text style={[styles.headerKicker, isTablet && styles.headerKickerTablet]}>{tp('header_kicker', 'Preferences')}</Text>
+          <Text style={[styles.headerTitle, isTablet && styles.headerTitleTablet]}>{tp('header_title', 'Focus Weights')}</Text>
         </View>
         <TouchableOpacity
-          style={styles.resetBtn}
+          style={[styles.resetBtn, isTablet && styles.resetBtnTablet]}
           onPress={() => { const r: SubjectFocusOverrides = {}; subjects.forEach(s => { r[s] = 0; }); setOverrides(r); setActivePreset('balanced'); }}
           activeOpacity={0.75}
         >
-          <Text style={styles.resetBtnText}>{tp('reset', 'Reset')}</Text>
+          <Text style={[styles.resetBtnText, isTablet && styles.resetBtnTextTablet]}>{tp('reset', 'Reset')}</Text>
         </TouchableOpacity>
       </Animated.View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, isTablet && styles.scrollContentTablet]} showsVerticalScrollIndicator={false}>
 
         {/* ── Summary Strip ── */}
-        <View style={styles.summaryStrip}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryVal}>{subjects.length}</Text>
-            <Text style={styles.summaryLbl}>{tp('summary_subjects', 'Subjects')}</Text>
+        <View style={[styles.summaryStrip, isTablet && styles.summaryStripTablet]}>
+          <View style={[styles.summaryItem, isTablet && styles.summaryItemTablet]}>
+            <Text style={[styles.summaryVal, isTablet && styles.summaryValTablet]}>{subjects.length}</Text>
+            <Text style={[styles.summaryLbl, isTablet && styles.summaryLblTablet]}>{tp('summary_subjects', 'Subjects')}</Text>
           </View>
-          <View style={styles.summaryDiv} />
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryVal, { color: T.tealDk }]}>{positiveCount}</Text>
-            <Text style={styles.summaryLbl}>{tp('summary_boosted', 'Boosted')}</Text>
+          <View style={[styles.summaryDiv, isTablet && styles.summaryDivTablet]} />
+          <View style={[styles.summaryItem, isTablet && styles.summaryItemTablet]}>
+            <Text style={[styles.summaryVal, isTablet && styles.summaryValTablet, { color: T.tealDk }]}>{positiveCount}</Text>
+            <Text style={[styles.summaryLbl, isTablet && styles.summaryLblTablet]}>{tp('summary_boosted', 'Boosted')}</Text>
           </View>
-          <View style={styles.summaryDiv} />
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryVal, { color: T.tealSoft }]}>{negativeCount}</Text>
-            <Text style={styles.summaryLbl}>{tp('summary_reduced', 'Reduced')}</Text>
+          <View style={[styles.summaryDiv, isTablet && styles.summaryDivTablet]} />
+          <View style={[styles.summaryItem, isTablet && styles.summaryItemTablet]}>
+            <Text style={[styles.summaryVal, isTablet && styles.summaryValTablet, { color: T.tealSoft }]}>{negativeCount}</Text>
+            <Text style={[styles.summaryLbl, isTablet && styles.summaryLblTablet]}>{tp('summary_reduced', 'Reduced')}</Text>
           </View>
-          <View style={styles.summaryDiv} />
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryVal, { color: T.teal }]}>{activePresetLabel}</Text>
-            <Text style={styles.summaryLbl}>{tp('summary_preset', 'Preset')}</Text>
+          <View style={[styles.summaryDiv, isTablet && styles.summaryDivTablet]} />
+          <View style={[styles.summaryItem, isTablet && styles.summaryItemTablet]}>
+            <Text style={[styles.summaryVal, isTablet && styles.summaryValTablet, { color: T.teal }]}>{activePresetLabel}</Text>
+            <Text style={[styles.summaryLbl, isTablet && styles.summaryLblTablet]}>{tp('summary_preset', 'Preset')}</Text>
           </View>
         </View>
 
         {/* ── Info ── */}
-        <View style={styles.infoBanner}>
-          <View style={styles.infoDot} />
-          <Text style={styles.infoText}>
+        <View style={[styles.infoBanner, isTablet && styles.infoBannerTablet]}>
+          <View style={[styles.infoDot, isTablet && styles.infoDotTablet]} />
+          <Text style={[styles.infoText, isTablet && styles.infoTextTablet]}>
             {tp('info_text', 'Adjust each subject -30% to +30%. The planner uses these preferences for scheduling and weekly adaptation.')}
           </Text>
         </View>
 
         {/* ── Presets ── */}
-        <View style={styles.block}>
-          <View style={styles.blockHeader}>
-            <View style={styles.blockDot} />
-            <Text style={styles.blockTitle}>{tp('quick_presets', 'Quick Presets')}</Text>
+        <View style={[styles.block, isTablet && styles.blockTablet]}>
+          <View style={[styles.blockHeader, isTablet && styles.blockHeaderTablet]}>
+            <View style={[styles.blockDot, isTablet && styles.blockDotTablet]} />
+            <Text style={[styles.blockTitle, isTablet && styles.blockTitleTablet]}>{tp('quick_presets', 'Quick Presets')}</Text>
           </View>
-          <View style={styles.presetGrid}>
+          <View style={[styles.presetGrid, isTablet && styles.presetGridTablet]}>
             {PRESETS.map(p => (
               <PresetChip
                 key={p.id}
@@ -379,15 +386,15 @@ export default function FocusWeightsScreen() {
         </View>
 
         {/* ── Sliders ── */}
-        <View style={styles.block}>
-          <View style={styles.blockHeader}>
-            <View style={[styles.blockDot, { backgroundColor: T.tealMid }]} />
-            <Text style={styles.blockTitle}>{tp('subject_weights', 'Subject Weights')}</Text>
-            <View style={styles.subjectCount}>
-              <Text style={styles.subjectCountText}>{subjects.length}</Text>
+        <View style={[styles.block, isTablet && styles.blockTablet]}>
+          <View style={[styles.blockHeader, isTablet && styles.blockHeaderTablet]}>
+            <View style={[styles.blockDot, isTablet && styles.blockDotTablet, { backgroundColor: T.tealMid }]} />
+            <Text style={[styles.blockTitle, isTablet && styles.blockTitleTablet]}>{tp('subject_weights', 'Subject Weights')}</Text>
+            <View style={[styles.subjectCount, isTablet && styles.subjectCountTablet]}>
+              <Text style={[styles.subjectCountText, isTablet && styles.subjectCountTextTablet]}>{subjects.length}</Text>
             </View>
           </View>
-          <View style={styles.slidersCard}>
+          <View style={[styles.slidersCard, isTablet && styles.slidersCardTablet]}>
             {subjects.map((subject, i) => (
               <View key={subject}>
                 {i > 0 && <View style={styles.subDivider} />}
@@ -406,24 +413,24 @@ export default function FocusWeightsScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+          style={[styles.saveBtn, isTablet && styles.saveBtnTablet, saving && { opacity: 0.6 }]}
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.85}
         >
           <LinearGradient
             colors={[T.tealDk, T.tealMid]}
-            style={styles.saveBtnGrad}
+            style={[styles.saveBtnGrad, isTablet && styles.saveBtnGradTablet]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           >
             {saving
               ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.saveBtnText}>{tp('save', 'Save Focus Weights')}</Text>
+              : <Text style={[styles.saveBtnText, isTablet && styles.saveBtnTextTablet]}>{tp('save', 'Save Focus Weights')}</Text>
             }
           </LinearGradient>
         </TouchableOpacity>
 
-        <View style={{ height: isIOS ? 112 : 90 }} />
+        <View style={{ height: isIOS ? (isTablet ? 138 : 112) : (isTablet ? 120 : 90) }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -442,23 +449,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: isIOS ? 6 : 14, paddingBottom: 14,
   },
+  headerTablet: { gap: 16, paddingHorizontal: 28, paddingTop: isIOS ? 12 : 18, paddingBottom: 18 },
   backBtn: {
     minWidth: 52, height: 38, borderRadius: 12, backgroundColor: T.tealLt,
     paddingHorizontal: 10,
     justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: T.border,
   },
+  backBtnTablet: { minWidth: 66, height: 48, borderRadius: 15, paddingHorizontal: 14 },
   backBtnText: { fontSize: 11, fontWeight: '800', color: T.tealDk, includeFontPadding: false },
+  backBtnTextTablet: { fontSize: 14 },
   headerKicker: { fontSize: 10, fontWeight: '700', color: T.muted, letterSpacing: 1.1, textTransform: 'uppercase', marginBottom: 2 },
+  headerKickerTablet: { fontSize: 12, letterSpacing: 1.3, marginBottom: 4 },
   headerTitle:  { fontSize: 22, fontWeight: '800', color: T.ink, letterSpacing: -0.3 },
+  headerTitleTablet: { fontSize: 30, letterSpacing: -0.5 },
   resetBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: T.card, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
     borderWidth: 1, borderColor: T.border,
   },
+  resetBtnTablet: { borderRadius: 14, paddingHorizontal: 16, paddingVertical: 11 },
   resetBtnText: { fontSize: 12, fontWeight: '700', color: T.muted },
+  resetBtnTextTablet: { fontSize: 15 },
 
   scroll:        { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 10 },
+  scrollContentTablet: { paddingHorizontal: 28, paddingTop: 10, paddingBottom: 14, maxWidth: 980, alignSelf: 'center', width: '100%' },
 
   // Summary
   summaryStrip: {
@@ -466,10 +481,15 @@ const styles = StyleSheet.create({
     marginBottom: 14, overflow: 'hidden',
     shadowColor: T.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
+  summaryStripTablet: { borderRadius: 22, marginBottom: 20 },
   summaryItem: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+  summaryItemTablet: { paddingVertical: 20 },
   summaryDiv:  { width: StyleSheet.hairlineWidth, backgroundColor: T.border, marginVertical: 10 },
+  summaryDivTablet: { marginVertical: 16 },
   summaryVal:  { fontSize: 17, fontWeight: '900', color: T.ink, marginBottom: 2, letterSpacing: -0.2 },
+  summaryValTablet: { fontSize: 24, marginBottom: 4 },
   summaryLbl:  { fontSize: 10, fontWeight: '600', color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  summaryLblTablet: { fontSize: 12, letterSpacing: 0.6 },
 
   // Info
   infoBanner: {
@@ -477,65 +497,103 @@ const styles = StyleSheet.create({
     backgroundColor: T.tealLt, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
     marginBottom: 20, borderWidth: 1, borderColor: T.border,
   },
+  infoBannerTablet: { gap: 14, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 16, marginBottom: 26 },
   infoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.teal, marginTop: 4 },
+  infoDotTablet: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
   infoText: { flex: 1, fontSize: 12, color: T.sub, lineHeight: 18, fontWeight: '500' },
+  infoTextTablet: { fontSize: 16, lineHeight: 24 },
 
   // Block
   block: { marginBottom: 20 },
+  blockTablet: { marginBottom: 28 },
   blockHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  blockHeaderTablet: { gap: 10, marginBottom: 16 },
   blockDot:    { width: 7, height: 7, borderRadius: 4, backgroundColor: T.teal },
+  blockDotTablet: { width: 9, height: 9, borderRadius: 5 },
   blockTitle:  { flex: 1, fontSize: 13, fontWeight: '800', color: T.sub, textTransform: 'uppercase', letterSpacing: 0.6 },
+  blockTitleTablet: { fontSize: 15, letterSpacing: 0.8 },
   subjectCount: { backgroundColor: T.tealLt, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: T.border },
+  subjectCountTablet: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   subjectCountText: { fontSize: 11, fontWeight: '800', color: T.teal },
+  subjectCountTextTablet: { fontSize: 13 },
 
   // Preset chips
   presetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  presetGridTablet: { gap: 14 },
   presetChip: {
     borderRadius: 16, borderWidth: 1.5, padding: 14, position: 'relative', overflow: 'hidden',
   },
+  presetChipTablet: { borderRadius: 20, padding: 18 },
   presetSelectedMark: { position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderTopWidth: 28, borderRightWidth: 28, borderTopColor: 'rgba(255,255,255,0.18)', borderRightColor: 'rgba(255,255,255,0.18)', borderStyle: 'solid' },
   presetCodePill: { alignSelf: 'flex-start', minWidth: 30, paddingHorizontal: 8, height: 20, borderRadius: 10, backgroundColor: T.tealLt, borderWidth: 1, borderColor: T.border, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  presetCodePillTablet: { minWidth: 38, height: 24, borderRadius: 12, paddingHorizontal: 10, marginBottom: 10 },
   presetCodePillSelected: { backgroundColor: 'rgba(255,255,255,0.18)', borderColor: 'rgba(255,255,255,0.28)' },
   presetCodeText: { fontSize: 10, fontWeight: '800', color: T.tealDk, letterSpacing: 0.4 },
+  presetCodeTextTablet: { fontSize: 12 },
   presetCodeTextSelected: { color: '#fff' },
   presetLabel:  { fontSize: 14, fontWeight: '800', color: T.ink, marginBottom: 2 },
+  presetLabelTablet: { fontSize: 18, marginBottom: 4 },
   presetDesc:   { fontSize: 11, color: T.muted, lineHeight: 15 },
+  presetDescTablet: { fontSize: 14, lineHeight: 20 },
 
   // Sliders card
   slidersCard: {
     backgroundColor: T.card, borderRadius: 18, borderWidth: 1, borderColor: T.border, overflow: 'hidden',
     shadowColor: T.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
+  slidersCardTablet: { borderRadius: 22 },
   subDivider: { height: StyleSheet.hairlineWidth, backgroundColor: T.border },
 
   // Subject row
   subRow: { flexDirection: 'row' },
+  subAccentTablet: { width: 4 },
   subAccent: { width: 3 },
   subBody:  { flex: 1, padding: 15 },
+  subBodyTablet: { padding: 20 },
   subTop:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  subTopTablet: { marginBottom: 16 },
   subLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  subLeftTablet: { gap: 14 },
   subIndex: { width: 24, height: 24, borderRadius: 8, backgroundColor: T.tealLt, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: T.border },
+  subIndexTablet: { width: 30, height: 30, borderRadius: 10 },
   subIndexText: { fontSize: 11, fontWeight: '800', color: T.teal },
+  subIndexTextTablet: { fontSize: 13 },
   subName: { fontSize: 15, fontWeight: '700', color: T.ink },
+  subNameTablet: { fontSize: 20 },
   subBadge: { borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4 },
+  subBadgeTablet: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
   subBadgeText: { fontSize: 13, fontWeight: '800' },
+  subBadgeTextTablet: { fontSize: 16 },
 
   sliderRow:    { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  sliderRowTablet: { marginBottom: 16 },
   sliderEdge:   { width: 26, fontSize: 10, fontWeight: '700', color: T.muted, textAlign: 'center' },
+  sliderEdgeTablet: { width: 36, fontSize: 13 },
   sliderTrack:  { flex: 1, position: 'relative', justifyContent: 'center' },
+  sliderTrackTablet: {},
   sliderCenter: { position: 'absolute', alignSelf: 'center', width: 1.5, height: 10, backgroundColor: 'rgba(148,163,184,0.5)', zIndex: 1 },
+  sliderCenterTablet: { height: 14 },
   slider:       { width: '100%', height: 36 },
+  sliderTablet: { height: 44 },
 
   shareRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  shareRowTablet: { gap: 12 },
   shareLabel: { fontSize: 11, fontWeight: '600', color: T.muted, width: 60 },
+  shareLabelTablet: { fontSize: 13, width: 84 },
   shareTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: T.track, overflow: 'hidden' },
+  shareTrackTablet: { height: 7, borderRadius: 4 },
   shareFill:  { height: 5, borderRadius: 3 },
+  shareFillTablet: { height: 7, borderRadius: 4 },
   shareVal:   { fontSize: 12, fontWeight: '800', color: T.teal, width: 32, textAlign: 'right' },
+  shareValTablet: { fontSize: 15, width: 42 },
 
   saveBtn: {
     borderRadius: 17, overflow: 'hidden',
     shadowColor: T.tealDk, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.30, shadowRadius: 12, elevation: 8,
   },
+  saveBtnTablet: { borderRadius: 20 },
   saveBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, height: 54 },
+  saveBtnGradTablet: { height: 62 },
   saveBtnText: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.1 },
+  saveBtnTextTablet: { fontSize: 18 },
 });

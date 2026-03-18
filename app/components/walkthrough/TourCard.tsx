@@ -1,13 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 // Easing kept for card entrance animation
 import type { RenderProps } from 'react-native-spotlight-tour';
 import type { SupportedLanguage } from '@/app/i18n';
 import { markWalkthroughSeen } from '@/app/utils/walkthroughState';
 import { DONE_LABELS, NEXT_LABELS, SKIP_LABELS, TOUR_STEPS } from './tourData';
 
-const { width: SW } = Dimensions.get('window');
-const CARD_W = Math.min(SW - 32, 380);
 const TOTAL = TOUR_STEPS.length;
 
 interface TourCardProps extends RenderProps {
@@ -15,6 +13,9 @@ interface TourCardProps extends RenderProps {
 }
 
 export function TourCard({ current, isLast, next, stop, lang }: TourCardProps) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
+  const cardWidth = isTablet ? Math.min(width - 96, 520) : Math.min(width - 32, 380);
   const data = TOUR_STEPS[current];
 
   const slideY    = useRef(new Animated.Value(24)).current;
@@ -48,46 +49,47 @@ export function TourCard({ current, isLast, next, stop, lang }: TourCardProps) {
 
 
   return (
-    <Animated.View style={[s.root, { opacity: fade, transform: [{ translateY: slideY }, { scale }] }]}>
+    <Animated.View style={[s.root, isTablet && s.rootTablet, { width: cardWidth, opacity: fade, transform: [{ translateY: slideY }, { scale }] }]}>
       {/* Card body */}
-      <View style={s.card}>
+      <View style={[s.card, isTablet && s.cardTablet, { width: cardWidth }]}>
         {/* Top row: progress + step counter */}
-        <View style={s.topBar}>
-          <View style={s.segsRow}>
+        <View style={[s.topBar, isTablet && s.topBarTablet]}>
+          <View style={[s.segsRow, isTablet && s.segsRowTablet]}>
             {Array.from({ length: TOTAL }).map((_, i) => (
               <View
                 key={i}
                 style={[
                   s.seg,
+                  isTablet && s.segTablet,
                   i < current  && s.segDone,
                   i === current && s.segActive,
                 ]}
               />
             ))}
           </View>
-          <Text style={s.stepCount}>{current + 1}<Text style={s.stepTotal}>/{TOTAL}</Text></Text>
+          <Text style={[s.stepCount, isTablet && s.stepCountTablet]}>{current + 1}<Text style={[s.stepTotal, isTablet && s.stepTotalTablet]}>/{TOTAL}</Text></Text>
         </View>
 
         {/* Title */}
-        <Text style={s.title}>{data.titles[lang] ?? data.titles.en}</Text>
+        <Text style={[s.title, isTablet && s.titleTablet]}>{data.titles[lang] ?? data.titles.en}</Text>
 
         {/* Description */}
-        <Text style={s.desc}>{data.descs[lang] ?? data.descs.en}</Text>
+        <Text style={[s.desc, isTablet && s.descTablet]}>{data.descs[lang] ?? data.descs.en}</Text>
 
         {/* Buttons */}
-        <View style={s.btnRow}>
+        <View style={[s.btnRow, isTablet && s.btnRowTablet]}>
           <Pressable
-            style={({ pressed }) => [s.skipBtn, pressed && s.pressed]}
+            style={({ pressed }) => [s.skipBtn, isTablet && s.skipBtnTablet, pressed && s.pressed]}
             onPress={handleSkip}
           >
-            <Text style={s.skipTxt}>{SKIP_LABELS[lang] ?? SKIP_LABELS.en}</Text>
+            <Text style={[s.skipTxt, isTablet && s.skipTxtTablet]}>{SKIP_LABELS[lang] ?? SKIP_LABELS.en}</Text>
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [s.nextBtn, pressed && s.pressed]}
+            style={({ pressed }) => [s.nextBtn, isTablet && s.nextBtnTablet, pressed && s.pressed]}
             onPress={handleNext}
           >
-            <Text style={s.nextTxt}>
+            <Text style={[s.nextTxt, isTablet && s.nextTxtTablet]}>
               {isLast ? (DONE_LABELS[lang] ?? DONE_LABELS.en) : (NEXT_LABELS[lang] ?? NEXT_LABELS.en)}
             </Text>
           </Pressable>
@@ -103,13 +105,14 @@ const CARD_BG = 'rgba(8,14,20,0.97)';
 
 const s = StyleSheet.create({
   root: {
-    width: CARD_W,
     alignItems: 'flex-start',
+  },
+  rootTablet: {
+    alignItems: 'center',
   },
 
   // ── Card ────────────────────────────────────────
   card: {
-    width: CARD_W,
     backgroundColor: CARD_BG,
     borderRadius: 20,
     borderWidth: 1.5,
@@ -121,6 +124,13 @@ const s = StyleSheet.create({
     shadowRadius: 20,
     elevation: 12,
   },
+  cardTablet: {
+    borderRadius: 24,
+    padding: 24,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 24,
+    elevation: 14,
+  },
 
   topBar: {
     flexDirection: 'row',
@@ -128,17 +138,27 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 14,
   },
+  topBarTablet: {
+    marginBottom: 18,
+  },
   segsRow: {
     flexDirection: 'row',
     gap: 5,
     flex: 1,
     marginRight: 10,
   },
+  segsRowTablet: {
+    gap: 7,
+    marginRight: 14,
+  },
   seg: {
     flex: 1,
     height: 3,
     borderRadius: 99,
     backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  segTablet: {
+    height: 4,
   },
   segDone: {
     backgroundColor: TEAL_DIM,
@@ -157,10 +177,16 @@ const s = StyleSheet.create({
     color: TEAL,
     letterSpacing: -0.3,
   },
+  stepCountTablet: {
+    fontSize: 16,
+  },
   stepTotal: {
     fontSize: 11,
     fontWeight: '500',
     color: 'rgba(20,184,166,0.55)',
+  },
+  stepTotalTablet: {
+    fontSize: 13,
   },
 
   title: {
@@ -171,6 +197,11 @@ const s = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 23,
   },
+  titleTablet: {
+    fontSize: 24,
+    lineHeight: 30,
+    marginBottom: 12,
+  },
   desc: {
     fontSize: 13,
     color: 'rgba(203,213,225,0.82)',
@@ -178,10 +209,18 @@ const s = StyleSheet.create({
     marginBottom: 18,
     fontWeight: '400',
   },
+  descTablet: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 22,
+  },
 
   btnRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  btnRowTablet: {
+    gap: 12,
   },
   skipBtn: {
     height: 44,
@@ -192,6 +231,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  skipBtnTablet: {
+    height: 50,
+    paddingHorizontal: 18,
+    borderRadius: 14,
   },
   nextBtn: {
     flex: 1,
@@ -206,16 +250,26 @@ const s = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
+  nextBtnTablet: {
+    height: 50,
+    borderRadius: 14,
+  },
   pressed: { opacity: 0.75 },
   skipTxt: {
     fontSize: 13,
     fontWeight: '600',
     color: 'rgba(203,213,225,0.65)',
   },
+  skipTxtTablet: {
+    fontSize: 15,
+  },
   nextTxt: {
     fontSize: 14,
     fontWeight: '800',
     color: '#fff',
     letterSpacing: 0.2,
+  },
+  nextTxtTablet: {
+    fontSize: 16,
   },
 });

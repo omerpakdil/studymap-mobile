@@ -10,6 +10,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 
@@ -83,6 +84,8 @@ function FlagIcon({ code, size = 24, style }: { code: string; size?: number; sty
 export default function OnboardingV2CountrySelectScreen() {
   const { showAlert } = useAppAlert();
   const { draft, updateDraft } = useOnboardingV2();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const entrance  = useRef(new Animated.Value(0)).current;
   const ctaFade   = useRef(new Animated.Value(0)).current;
@@ -193,22 +196,22 @@ export default function OnboardingV2CountrySelectScreen() {
         ))}
       </View>
 
-      <Animated.View style={[styles.inner, { opacity: entrance }]}>
+      <Animated.View style={[styles.inner, isTablet && styles.innerTablet, { opacity: entrance }]}>
 
         {/* Header */}
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, isTablet && styles.headerRowTablet]}>
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
+            style={[styles.backBtn, isTablet && styles.backBtnTablet, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
             onPress={() => { void trackOnboardingStepBack('country_select'); router.back(); }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.backArrow, { color: C.backArrow }]}>‹</Text>
+            <Text style={[styles.backArrow, isTablet && styles.backArrowTablet, { color: C.backArrow }]}>‹</Text>
           </TouchableOpacity>
           <View style={styles.brandRow}>
             <View style={[styles.brandMark, { backgroundColor: C.brand }]} />
-            <Text style={[styles.brandText, { color: C.brand }]}>StudyMap</Text>
+            <Text style={[styles.brandText, isTablet && styles.brandTextTablet, { color: C.brand }]}>StudyMap</Text>
           </View>
-          <View style={styles.backBtn} />
+          <View style={[styles.backBtn, isTablet && styles.backBtnTablet]} />
         </View>
 
         {/* Progress */}
@@ -218,11 +221,11 @@ export default function OnboardingV2CountrySelectScreen() {
             <View style={styles.progressSheen} />
           </View>
         </View>
-        <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
+        <Text style={[styles.stepLabel, isTablet && styles.stepLabelTablet, { color: C.labelMuted }]}>
           {t('common.step_of', { lang, params: { current: 2, total: 13 } })}
         </Text>
-        <Text style={[styles.title, { color: C.title }]}>{t('onboarding.country_select.title', { lang })}</Text>
-        <Text style={[styles.sub, { color: C.sub }]}>{t('onboarding.country_select.subtitle', { lang })}</Text>
+        <Text style={[styles.title, isTablet && styles.titleTablet, { color: C.title }]}>{t('onboarding.country_select.title', { lang })}</Text>
+        <Text style={[styles.sub, isTablet && styles.subTablet, { color: C.sub }]}>{t('onboarding.country_select.subtitle', { lang })}</Text>
 
         {/* ── Detected featured card ── */}
         <Animated.View style={{ opacity: featOpacity, transform: [{ scale: featScale }], marginBottom: 12 }}>
@@ -231,6 +234,7 @@ export default function OnboardingV2CountrySelectScreen() {
             onPress={() => selectCountry(detectedCountry.code, detectedCountry.name)}
             style={[
               styles.featCard,
+              isTablet && styles.featCardTablet,
               detectedSelected
                 ? { borderColor: C.teal, borderWidth: 1.5 }
                 : { borderColor: 'rgba(15,23,42,0.08)', borderWidth: 1 },
@@ -256,7 +260,7 @@ export default function OnboardingV2CountrySelectScreen() {
 
               <View style={styles.featNameRow}>
                 <FlagIcon code={detectedCountry.code} size={28} />
-                <Text style={[styles.featName, { color: detectedSelected ? C.teal : C.title }]}>
+                <Text style={[styles.featName, isTablet && styles.featNameTablet, { color: detectedSelected ? C.teal : C.title }]}>
                   {detectedCountry.name}
                 </Text>
               </View>
@@ -275,10 +279,10 @@ export default function OnboardingV2CountrySelectScreen() {
         </Animated.View>
 
         {/* ── Other countries label ── */}
-        <Text style={[styles.sectionLabel, { color: C.labelMuted }]}>{t('onboarding.country_select.other_countries', { lang })}</Text>
+        <Text style={[styles.sectionLabel, isTablet && styles.sectionLabelTablet, { color: C.labelMuted }]}>{t('onboarding.country_select.other_countries', { lang })}</Text>
 
         {/* ── 3-column chip grid ── */}
-        <View style={styles.chipGrid}>
+        <View style={[styles.chipGrid, isTablet && styles.chipGridTablet]}>
           {otherCountries.map((country, i) => {
             const sel = draft.countryCode === country.code;
             return (
@@ -292,6 +296,7 @@ export default function OnboardingV2CountrySelectScreen() {
                 <TouchableOpacity
                   style={[
                     styles.chip,
+                    isTablet && styles.chipTablet,
                     sel
                       ? { borderColor: C.teal, borderWidth: 1.5, backgroundColor: 'rgba(13,148,136,0.07)' }
                       : { borderColor: 'rgba(15,23,42,0.08)', borderWidth: 1, backgroundColor: C.cardBg },
@@ -308,7 +313,7 @@ export default function OnboardingV2CountrySelectScreen() {
                   )}
                   <FlagIcon code={country.code} size={24} />
                   <Text
-                    style={[styles.chipName, sel && { color: C.teal, fontWeight: '700' }]}
+                    style={[styles.chipName, isTablet && styles.chipNameTablet, sel && { color: C.teal, fontWeight: '700' }]}
                     numberOfLines={1}
                   >
                     {country.name}
@@ -327,10 +332,10 @@ export default function OnboardingV2CountrySelectScreen() {
       </Animated.View>
 
       {/* Footer */}
-      <Animated.View style={[styles.footer, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}>
+      <Animated.View style={[styles.footer, isTablet && styles.footerTablet, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}>
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={[styles.cta, !draft.countryCode && styles.ctaDisabled]}
+            style={[styles.cta, isTablet && styles.ctaTablet, !draft.countryCode && styles.ctaDisabled]}
             onPress={handleContinue}
             onPressIn={pressIn}
             onPressOut={pressOut}
@@ -340,12 +345,12 @@ export default function OnboardingV2CountrySelectScreen() {
               <LinearGradient colors={[C.btnA, C.btnB]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
             )}
             {!!draft.countryCode && <View style={styles.ctaSheen} />}
-            <Text style={[styles.ctaText, !draft.countryCode && styles.ctaTextDisabled]}>
+            <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet, !draft.countryCode && styles.ctaTextDisabled]}>
               {draft.countryCode
                 ? t('onboarding.country_select.cta_prefix', { lang, params: { country: selectedName } })
                 : t('onboarding.country_select.cta_default', { lang })}
             </Text>
-            {!!draft.countryCode && <Text style={styles.ctaArrow}>→</Text>}
+            {!!draft.countryCode && <Text style={[styles.ctaArrow, isTablet && styles.ctaArrowTablet]}>→</Text>}
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -359,21 +364,29 @@ const styles = StyleSheet.create({
   orbB: { position:'absolute', width:200, height:200, borderRadius:999, bottom:160, left:-90 },
 
   inner: { flex: 1, paddingTop: 9, paddingHorizontal: 18 },
+  innerTablet:{paddingTop:20,paddingHorizontal:36,paddingBottom:110,maxWidth:1040,width:'100%',alignSelf:'center'},
 
   headerRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:14 },
+  headerRowTablet:{marginBottom:18},
   backBtn: { width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
+  backBtnTablet:{width:48,height:48,borderRadius:14},
   backArrow: { fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
+  backArrowTablet:{fontSize:32,lineHeight:36},
   brandRow: { flexDirection:'row', alignItems:'center', gap:6 },
   brandMark: { width:7, height:7, borderRadius:2 },
   brandText: { fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTextTablet:{fontSize:18},
 
   progressTrack: { height:3, borderRadius:999, overflow:'hidden', marginBottom:6 },
   progressFill: { height:'100%', borderRadius:999, overflow:'hidden' },
   progressSheen: { position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.28)' },
   stepLabel: { fontSize:9, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:13, opacity:0.7 },
+  stepLabelTablet:{fontSize:13,marginBottom:18},
 
   title: { fontSize:30, fontWeight:'900', lineHeight:35, letterSpacing:-0.7, marginBottom:5 },
+  titleTablet:{fontSize:50,lineHeight:56,marginBottom:8,maxWidth:760},
   sub: { fontSize:13, lineHeight:19, fontWeight:'400', marginBottom:16 },
+  subTablet:{fontSize:20,lineHeight:29,marginBottom:20,maxWidth:860},
 
   // ── Featured card
   featCard: {
@@ -390,6 +403,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
+  featCardTablet:{borderRadius:20,paddingHorizontal:20,paddingVertical:18,marginBottom:4},
   featLeft: { flex: 1, gap: 7 },
   featPill: {
     flexDirection: 'row',
@@ -405,6 +419,7 @@ const styles = StyleSheet.create({
   featNameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   featFlag: { fontSize: 28 },
   featName: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
+  featNameTablet:{fontSize:26},
   featCheck: {
     width: 26, height: 26, borderRadius: 13,
     borderWidth: 1.5,
@@ -418,6 +433,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.9, textTransform: 'uppercase',
     marginBottom: 9,
   },
+  sectionLabelTablet:{fontSize:14,marginBottom:14},
 
   // ── Chip grid — 3 kolon
   chipGrid: {
@@ -425,6 +441,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+  chipGridTablet:{gap:16},
   chipWrap: { width: '31%' },
   chip: {
     borderRadius: 13,
@@ -440,6 +457,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 1,
   },
+  chipTablet:{borderRadius:20,paddingTop:22,paddingBottom:20,gap:12},
   chipTopBar: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 2.5,
   },
@@ -449,6 +467,7 @@ const styles = StyleSheet.create({
     color: '#334155', textAlign: 'center',
     letterSpacing: -0.1,
   },
+  chipNameTablet:{fontSize:19},
   chipCheckBadge: {
     position: 'absolute', bottom: 5, right: 5,
     width: 14, height: 14, borderRadius: 7,
@@ -476,6 +495,7 @@ const styles = StyleSheet.create({
     paddingHorizontal:18, paddingTop:6, paddingBottom:36,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  footerTablet:{paddingHorizontal:40,paddingTop:18,paddingBottom:46},
   cta: {
     height:48, borderRadius:FOOTER.ctaRadius, flexDirection:'row',
     alignItems:'center', justifyContent:'center',
@@ -483,9 +503,12 @@ const styles = StyleSheet.create({
     shadowColor:'#0D9488', shadowOffset:{width:0,height:6},
     shadowOpacity:0.28, shadowRadius:18, elevation:8,
   },
+  ctaTablet:{height:72,borderRadius:22},
   ctaDisabled: { backgroundColor:'rgba(148,163,184,0.15)', shadowOpacity:0, elevation:0 },
   ctaSheen: { position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },
   ctaText: { color:'#fff', fontSize:15, fontWeight:'800', letterSpacing:0.1 },
+  ctaTextTablet:{fontSize:24},
   ctaTextDisabled: { color:'rgba(100,116,139,0.50)' },
   ctaArrow: { color:'rgba(255,255,255,0.80)', fontSize:17 },
+  ctaArrowTablet:{fontSize:24},
 });

@@ -252,10 +252,19 @@ export default function StudySessionScreen() {
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showOutcomeModal, setShowOutcomeModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [showLofiModal, setShowLofiModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'timer' | 'notes'>('timer');
   const [lastOutcome, setLastOutcome] = useState<SessionOutcome | null>(null);
 
-  const { isPlaying: lofiPlaying, isLoading: lofiLoading, toggle: toggleLofi, stop: stopLofi } = useLofiPlayer();
+  const {
+    isPlaying: lofiPlaying,
+    isLoading: lofiLoading,
+    toggle: toggleLofi,
+    stop: stopLofi,
+    channels: lofiChannels,
+    activeChannel,
+    changeChannel,
+  } = useLofiPlayer();
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const backgroundTimeRef = useRef<number | null>(null);
@@ -266,6 +275,7 @@ export default function StudySessionScreen() {
   const fadeIn = useRef(new Animated.Value(0)).current;
   const headerSlide = useRef(new Animated.Value(-20)).current;
   const ringPulse = useRef(new Animated.Value(1)).current;
+  const audioPulse = useRef(new Animated.Value(1)).current;
   const tabAnim = useRef(new Animated.Value(1)).current;
   const notesHeight = useRef(new Animated.Value(180)).current;
   const completionScale = useRef(new Animated.Value(0.7)).current;
@@ -329,6 +339,22 @@ export default function StudySessionScreen() {
       return () => pulse.stop();
     }
   }, [timerState]);
+
+  useEffect(() => {
+    if (!lofiPlaying) {
+      audioPulse.setValue(1);
+      return;
+    }
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(audioPulse, { toValue: 1.08, duration: 900, useNativeDriver: true }),
+        Animated.timing(audioPulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [audioPulse, lofiPlaying]);
 
   const getStorageKeys = () => {
     const id = params?.taskId || 'default';
@@ -544,6 +570,22 @@ export default function StudySessionScreen() {
     label: ts(preset.labelKey, preset.fallback),
   }));
   const activePreset = localizedPresets.find((preset) => preset.minutes === focusDuration);
+  const localizedLofiChannels = lofiChannels.map((channel) => ({
+    ...channel,
+    title:
+      channel.id === 'ambient'
+        ? ts('lofi_channel_ambient', 'Ambient')
+        : channel.id === 'lofi'
+          ? ts('lofi_channel_lofi', 'Lofi')
+          : ts('lofi_channel_deep', 'Deep Focus'),
+    description:
+      channel.id === 'ambient'
+        ? ts('lofi_channel_ambient_sub', 'Soft ambient radio')
+        : channel.id === 'lofi'
+          ? ts('lofi_channel_lofi_sub', 'Chill lofi radio')
+          : ts('lofi_channel_deep_sub', 'Drone-based deep focus'),
+  }));
+  const activeLofiLabel = localizedLofiChannels.find((channel) => channel.id === activeChannel.id)?.title ?? activeChannel.label;
   const completionIsPartial = lastOutcome === 'incomplete';
   const completionMessage = completionIsPartial
     ? ts('completion_msg_partial', 'Partial progress saved. The planner will shorten or repeat this work if needed.')
@@ -630,24 +672,11 @@ export default function StudySessionScreen() {
                     <View style={styles.ringBlob1} />
                     <View style={styles.ringBlob2} />
 
-                    {/* Lofi music toggle */}
-                    <TouchableOpacity
-                      style={[styles.lofiBtn, lofiPlaying && styles.lofiBtnActive]}
-                      onPress={() => void toggleLofi()}
-                      activeOpacity={0.75}
-                    >
-                      <Ionicons
-                        name={lofiLoading ? 'ellipsis-horizontal' : lofiPlaying ? 'musical-notes' : 'musical-note-outline'}
-                        size={16}
-                        color={lofiPlaying ? '#0F9D8C' : 'rgba(255,255,255,0.85)'}
-                      />
-                    </TouchableOpacity>
-
                     <Animated.View style={{ transform: [{ scale: ringPulse }] }}>
                       <TimerRing
                         progress={progress}
-                        size={isTablet ? 220 : 190}
-                        strokeWidth={isTablet ? 14 : 11}
+                        size={isTablet ? 338 : 190}
+                        strokeWidth={isTablet ? 18 : 11}
                         color="rgba(255,255,255,0.95)"
                       >
                         <View style={styles.ringInner}>
@@ -689,14 +718,76 @@ export default function StudySessionScreen() {
 
                 {/* Session meta chips */}
                 <View style={styles.metaRow}>
-                  <View style={styles.metaChip}>
-                    <Ionicons name="time-outline" size={14} color={S.teal} />
-                    <Text style={styles.metaChipText}>{`${formatMinutesCompact(focusDuration, appLang)} ${ts('focus_duration', 'Focus Duration').toLowerCase()}`}</Text>
+                  <View style={styles.metaCard}>
+                    <View style={styles.metaIconWrap}>
+                      <Ionicons name="time-outline" size={14} color={S.teal} />
+                    </View>
+                    <View style={styles.metaTextWrap}>
+                      <Text style={styles.metaLabel}>{ts('focus_duration', 'Focus Duration')}</Text>
+                      <Text style={styles.metaValue}>{formatMinutesCompact(focusDuration, appLang)}</Text>
+                    </View>
                   </View>
-                  <View style={styles.metaChip}>
-                    <Ionicons name="book-outline" size={14} color={S.teal} />
-                    <Text style={styles.metaChipText}>{subjectLabel}</Text>
+                  <View style={styles.metaCard}>
+                    <View style={styles.metaIconWrap}>
+                      <Ionicons name="book-outline" size={14} color={S.teal} />
+                    </View>
+                    <View style={styles.metaTextWrap}>
+                      <Text style={styles.metaLabel}>{ts('subject', 'Subject')}</Text>
+                      <Text style={styles.metaValue} numberOfLines={1}>{subjectLabel}</Text>
+                    </View>
                   </View>
+                </View>
+
+                <View style={styles.audioCard}>
+                  <View style={styles.audioCardLeft}>
+                    <TouchableOpacity
+                      style={[styles.audioToggle, lofiPlaying && styles.audioToggleActive]}
+                      onPress={() => void toggleLofi()}
+                      activeOpacity={0.82}
+                    >
+                      <Ionicons
+                        name={
+                          lofiLoading
+                            ? 'ellipsis-horizontal'
+                            : lofiPlaying
+                              ? 'pause'
+                              : 'play'
+                        }
+                        size={isTablet ? 18 : 16}
+                        color={lofiPlaying ? '#FFFFFF' : S.teal}
+                      />
+                    </TouchableOpacity>
+                    <View style={styles.audioMeta}>
+                      <View style={styles.audioTitleRow}>
+                        <Animated.View
+                          style={[
+                            styles.audioTitleIcon,
+                            lofiPlaying && [styles.audioTitleIconActive, { transform: [{ scale: audioPulse }] }],
+                          ]}
+                        >
+                          <Ionicons
+                            name={lofiPlaying ? 'headset' : 'headset-outline'}
+                            size={isTablet ? 14 : 12}
+                            color={lofiPlaying ? S.teal : S.muted}
+                          />
+                        </Animated.View>
+                        <Text style={styles.audioTitle}>{ts('focus_audio', 'Focus Audio')}</Text>
+                      </View>
+                      <Text style={styles.audioSub} numberOfLines={1}>
+                        {activeLofiLabel} · {lofiPlaying ? ts('audio_state_playing', 'Playing') : ts('audio_state_off', 'Off')}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.audioChangeBtn}
+                    onPress={() => setShowLofiModal(true)}
+                    activeOpacity={0.82}
+                  >
+                    <View style={styles.audioChangeIcon}>
+                      <Ionicons name="options-outline" size={isTablet ? 16 : 14} color={S.teal} />
+                    </View>
+                    <Text style={styles.audioChangeText}>{ts('change_audio', 'Channels')}</Text>
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.presetRow}>
@@ -895,6 +986,58 @@ export default function StudySessionScreen() {
         </Pressable>
       </Modal>
 
+      {/* ── Lofi Channel Modal ── */}
+      <Modal visible={showLofiModal} transparent animationType="fade" onRequestClose={() => setShowLofiModal(false)}>
+        <Pressable style={styles.overlay} onPress={() => setShowLofiModal(false)}>
+          <Pressable style={styles.lofiModalCard}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View style={[styles.modalIconBox, { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+                <Ionicons name="musical-notes-outline" size={22} color="#2DD4BF" />
+              </View>
+              <View>
+                <Text style={styles.lofiModalTitle}>{ts('lofi_modal_title', 'Focus Radio')}</Text>
+                <Text style={styles.lofiModalSub}>{ts('lofi_modal_sub', 'Pick the channel that fits this session')}</Text>
+              </View>
+            </View>
+
+            <View style={styles.lofiChannelList}>
+              {localizedLofiChannels.map((channel) => {
+                const selected = channel.id === activeChannel.id;
+                return (
+                  <TouchableOpacity
+                    key={channel.id}
+                    style={[styles.lofiChannelCard, selected && styles.lofiChannelCardActive]}
+                    onPress={() => {
+                      void changeChannel(channel.id);
+                      setShowLofiModal(false);
+                    }}
+                    activeOpacity={0.82}
+                  >
+                    <View style={styles.lofiChannelMeta}>
+                      <View style={[styles.lofiChannelIcon, selected && styles.lofiChannelIconActive]}>
+                        <Ionicons
+                          name={channel.id === 'deep' ? 'radio-outline' : channel.id === 'ambient' ? 'moon-outline' : 'musical-note-outline'}
+                          size={18}
+                          color={selected ? S.teal : '#FFFFFF'}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.lofiChannelTitle}>{channel.title}</Text>
+                        <Text style={styles.lofiChannelSub}>{channel.description}</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.lofiChannelRadio, selected && styles.lofiChannelRadioActive]}>
+                      {selected ? <View style={styles.lofiChannelRadioDot} /> : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* ── Completion Modal ── */}
       <Modal visible={showOutcomeModal} transparent animationType="fade" onRequestClose={() => setShowOutcomeModal(false)}>
         <Pressable style={styles.overlay} onPress={() => setShowOutcomeModal(false)}>
@@ -1043,256 +1186,339 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18,
-    paddingTop: isIOS ? 4 : 12, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: isTablet ? 22 : 18,
+    paddingTop: isIOS ? (isTablet ? 14 : 4) : (isTablet ? 22 : 12), paddingBottom: isTablet ? 22 : 12,
   },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: S.card,
+    width: isTablet ? 46 : 38, height: isTablet ? 46 : 38, borderRadius: isTablet ? 23 : 19, backgroundColor: S.card,
     borderWidth: 1, borderColor: S.cardBorder,
-    justifyContent: 'center', alignItems: 'center', marginRight: 14,
+    justifyContent: 'center', alignItems: 'center', marginRight: isTablet ? 18 : 14,
     shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
   headerMid: { flex: 1, minWidth: 0 },
-  headerSubject: { fontSize: 19, fontWeight: '800', color: S.ink, marginBottom: 4, flexShrink: 1 },
-  headerMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  headerSubject: { fontSize: isTablet ? 34 : 19, fontWeight: '800', color: S.ink, marginBottom: 4, flexShrink: 1 },
+  headerMetaRow: { flexDirection: 'row', alignItems: 'center', gap: isTablet ? 10 : 7 },
   typePill: {
-    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+    paddingHorizontal: isTablet ? 12 : 8, paddingVertical: isTablet ? 5 : 3, borderRadius: isTablet ? 9 : 6,
     borderWidth: 1,
   },
-  typePillText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
-  headerDot: { fontSize: 13, color: S.muted, fontWeight: '600' },
-  headerDuration: { fontSize: 12, fontWeight: '600', color: S.sub },
+  typePillText: { fontSize: isTablet ? 12 : 10, fontWeight: '800', letterSpacing: 0.8 },
+  headerDot: { fontSize: isTablet ? 16 : 13, color: S.muted, fontWeight: '600' },
+  headerDuration: { fontSize: isTablet ? 16 : 12, fontWeight: '600', color: S.sub },
   doneChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: S.tealLt, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 7,
+    backgroundColor: S.tealLt, borderRadius: isTablet ? 13 : 10, paddingHorizontal: isTablet ? 14 : 11, paddingVertical: isTablet ? 9 : 7,
     borderWidth: 1, borderColor: `${S.teal}20`,
   },
   doneChipDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: S.teal },
-  doneChipText: { fontSize: 12, fontWeight: '700', color: S.tealDk },
+  doneChipText: { fontSize: isTablet ? 14 : 12, fontWeight: '700', color: S.tealDk },
   moreBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: S.card,
+    width: isTablet ? 46 : 38, height: isTablet ? 46 : 38, borderRadius: isTablet ? 23 : 19, backgroundColor: S.card,
     borderWidth: 1, borderColor: S.cardBorder, justifyContent: 'center', alignItems: 'center',
   },
 
   // Tab
   tabRow: {
-    flexDirection: 'row', marginHorizontal: 18, marginBottom: 16,
-    backgroundColor: S.card, borderRadius: 14, padding: 4,
+    flexDirection: 'row', marginHorizontal: isTablet ? 22 : 18, marginBottom: isTablet ? 26 : 16,
+    backgroundColor: S.card, borderRadius: isTablet ? 18 : 14, padding: isTablet ? 6 : 4,
     borderWidth: 1, borderColor: S.cardBorder,
     shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 2,
   },
   tab: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, minWidth: 0,
+    justifyContent: 'center', gap: isTablet ? 8 : 6, paddingVertical: isTablet ? 14 : 10, borderRadius: isTablet ? 13 : 10, minWidth: 0,
   },
   tabActive: { backgroundColor: S.tealGlow, shadowColor: S.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 2 },
-  tabText: { fontSize: 12, fontWeight: '600', color: S.muted, flexShrink: 1, minWidth: 0 },
+  tabText: { fontSize: isTablet ? 16 : 12, fontWeight: '600', color: S.muted, flexShrink: 1, minWidth: 0 },
   tabTextActive: { color: S.teal },
 
   // Scroll
-  scroll: { paddingHorizontal: 18, paddingBottom: isIOS ? 110 : 90 },
+  scroll: { paddingHorizontal: isTablet ? 24 : 18, paddingBottom: isIOS ? (isTablet ? 150 : 110) : (isTablet ? 120 : 90) },
 
   // Timer Tab
-  timerTab: { gap: 14 },
+  timerTab: { gap: isTablet ? 10 : 14 },
 
   // Ring Card
   ringCard: {
-    borderRadius: 24, overflow: 'hidden',
+    borderRadius: isTablet ? 30 : 24, overflow: 'hidden',
     shadowColor: '#0F766E', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.28, shadowRadius: 20, elevation: 14,
+    minHeight: isTablet ? 620 : undefined,
   },
-  ringGradient: { paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center' },
+  ringGradient: { paddingVertical: isTablet ? 62 : 32, paddingHorizontal: isTablet ? 36 : 24, alignItems: 'center', justifyContent: isTablet ? 'center' : 'flex-start' },
   ringBlob1: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.07)', top: -50, right: -40 },
   ringBlob2: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 40 },
-  lofiBtn: {
-    position: 'absolute', top: 12, right: 12,
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  lofiBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderColor: 'rgba(255,255,255,0.95)',
-  },
   ringInner: { alignItems: 'center', justifyContent: 'center' },
-  ringTime: { fontSize: isTablet ? 48 : 42, fontWeight: '900', color: '#FFFFFF', letterSpacing: -2, textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+  ringTime: { fontSize: isTablet ? 82 : 42, fontWeight: '900', color: '#FFFFFF', letterSpacing: -2, textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   ringStateBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    marginTop: 8, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
+    marginTop: isTablet ? 16 : 8, paddingHorizontal: isTablet ? 22 : 14, paddingVertical: isTablet ? 11 : 6, borderRadius: isTablet ? 24 : 20,
   },
   ringStateDot: { width: 7, height: 7, borderRadius: 4 },
-  ringStateText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-  ringBar: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 20, width: '100%', maxWidth: 260 },
-  ringBarTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
-  ringBarFill: { height: 5, borderRadius: 3, backgroundColor: '#fff' },
-  ringBarPct: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)', minWidth: 32, textAlign: 'right' },
+  ringStateText: { fontSize: isTablet ? 20 : 13, fontWeight: '700', color: '#FFFFFF' },
+  ringBar: { flexDirection: 'row', alignItems: 'center', gap: isTablet ? 14 : 10, marginTop: isTablet ? 58 : 20, width: '100%', maxWidth: isTablet ? 560 : 260 },
+  ringBarTrack: { flex: 1, height: isTablet ? 8 : 5, borderRadius: isTablet ? 4 : 3, backgroundColor: 'rgba(255,255,255,0.22)', overflow: 'hidden' },
+  ringBarFill: { height: isTablet ? 8 : 5, borderRadius: isTablet ? 4 : 3, backgroundColor: '#fff' },
+  ringBarPct: { fontSize: isTablet ? 16 : 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)', minWidth: isTablet ? 44 : 32, textAlign: 'right' },
 
   // Meta row
-  metaRow: { flexDirection: 'row', gap: 10 },
-  metaChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: S.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
-    borderWidth: 1, borderColor: S.cardBorder, flex: 1, justifyContent: 'center',
-    shadowColor: S.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 1,
+  metaRow: { flexDirection: 'row', gap: isTablet ? 18 : 10 },
+  metaCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: isTablet ? 12 : 10,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderRadius: isTablet ? 18 : 12,
+    paddingHorizontal: isTablet ? 16 : 12,
+    paddingVertical: isTablet ? 12 : 9,
+    borderWidth: 1,
+    borderColor: 'rgba(15,157,140,0.10)',
   },
-  metaChipText: { fontSize: 12, fontWeight: '600', color: S.sub, flexShrink: 1 },
-  presetRow: { flexDirection: 'row', gap: 5 },
+  metaIconWrap: {
+    width: isTablet ? 32 : 26,
+    height: isTablet ? 32 : 26,
+    borderRadius: isTablet ? 16 : 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,157,140,0.08)',
+    flexShrink: 0,
+  },
+  metaTextWrap: { flex: 1, minWidth: 0 },
+  metaLabel: {
+    fontSize: isTablet ? 12 : 10,
+    fontWeight: '800',
+    color: S.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  metaValue: {
+    marginTop: 3,
+    fontSize: isTablet ? 18 : 13,
+    fontWeight: '700',
+    color: S.ink,
+    flexShrink: 1,
+  },
+  audioCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: isTablet ? 16 : 10,
+    backgroundColor: S.card, borderRadius: isTablet ? 22 : 16, paddingHorizontal: isTablet ? 18 : 14, paddingVertical: isTablet ? 15 : 12,
+    borderWidth: 1, borderColor: 'rgba(15,157,140,0.18)',
+    shadowColor: S.teal, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2,
+  },
+  audioCardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: isTablet ? 14 : 10, minWidth: 0 },
+  audioToggle: {
+    width: isTablet ? 48 : 38, height: isTablet ? 48 : 38, borderRadius: isTablet ? 24 : 19,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: S.tealLt, borderWidth: 1, borderColor: `${S.teal}20`,
+  },
+  audioToggleActive: {
+    backgroundColor: S.teal, borderColor: S.teal,
+    shadowColor: S.teal, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 4,
+  },
+  audioMeta: { flex: 1, minWidth: 0 },
+  audioTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  audioTitleIcon: {
+    width: isTablet ? 24 : 20, height: isTablet ? 24 : 20, borderRadius: isTablet ? 12 : 10,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(148,163,184,0.12)',
+  },
+  audioTitleIconActive: { backgroundColor: 'rgba(15,157,140,0.12)' },
+  audioTitle: { fontSize: isTablet ? 17 : 13, fontWeight: '800', color: S.ink },
+  audioSub: { marginTop: 4, fontSize: isTablet ? 14 : 11, fontWeight: '600', color: S.muted },
+  audioChangeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0,
+    paddingHorizontal: isTablet ? 14 : 10, paddingVertical: isTablet ? 11 : 9,
+    borderRadius: isTablet ? 16 : 12, backgroundColor: S.bg1, borderWidth: 1, borderColor: 'rgba(15,157,140,0.14)',
+  },
+  audioChangeIcon: {
+    width: isTablet ? 28 : 22, height: isTablet ? 28 : 22, borderRadius: isTablet ? 14 : 11,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15,157,140,0.10)',
+  },
+  audioChangeText: { fontSize: isTablet ? 15 : 12, fontWeight: '800', color: S.teal },
+  presetRow: { flexDirection: 'row', gap: isTablet ? 12 : 5 },
   presetChip: {
     flex: 1,
-    paddingHorizontal: 4, paddingVertical: 11, borderRadius: 12,
+    paddingHorizontal: 8, paddingVertical: isTablet ? 20 : 11, borderRadius: isTablet ? 18 : 12,
     borderWidth: 1, borderColor: S.cardBorder, backgroundColor: S.card,
     alignItems: 'center', justifyContent: 'center',
   },
   presetChipActive: { backgroundColor: S.tealLt, borderColor: `${S.teal}40` },
-  presetChipText: { fontSize: 11, fontWeight: '700', color: S.sub, textAlign: 'center' },
+  presetChipText: { fontSize: isTablet ? 16 : 11, fontWeight: '700', color: S.sub, textAlign: 'center' },
   presetChipTextActive: { color: S.tealDk },
 
   // Controls
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginVertical: 4 },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: isTablet ? 36 : 20, marginVertical: isTablet ? 16 : 4 },
   ctrlSecondary: {
     alignItems: 'center', gap: 5, backgroundColor: S.card,
-    paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16,
-    borderWidth: 1, borderColor: S.cardBorder, minWidth: 72,
+    paddingHorizontal: isTablet ? 28 : 20, paddingVertical: isTablet ? 20 : 14, borderRadius: isTablet ? 22 : 16,
+    borderWidth: 1, borderColor: S.cardBorder, minWidth: isTablet ? 102 : 72,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1,
   },
-  ctrlSecondaryText: { fontSize: 11, fontWeight: '700', color: S.sub, textTransform: 'uppercase', letterSpacing: 0.4 },
+  ctrlSecondaryText: { fontSize: isTablet ? 15 : 11, fontWeight: '700', color: S.sub, textTransform: 'uppercase', letterSpacing: 0.4 },
   ctrlMain: {
-    borderRadius: 38,
+    borderRadius: isTablet ? 52 : 38,
     shadowColor: S.tealDk, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.38, shadowRadius: 16, elevation: 12,
   },
-  ctrlMainGrad: { width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center' },
+  ctrlMainGrad: { width: isTablet ? 104 : 76, height: isTablet ? 104 : 76, borderRadius: isTablet ? 52 : 38, justifyContent: 'center', alignItems: 'center' },
 
   // Complete
   completeBtn: {
-    backgroundColor: S.tealLt, borderRadius: 16,
+    backgroundColor: S.tealLt, borderRadius: isTablet ? 22 : 16,
     borderWidth: 1, borderColor: `${S.teal}25`, overflow: 'hidden',
     shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 6, elevation: 2,
   },
-  completeBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
-  completeBtnText: { fontSize: 14, fontWeight: '700', color: S.teal },
+  completeBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: isTablet ? 22 : 14 },
+  completeBtnText: { fontSize: isTablet ? 20 : 14, fontWeight: '700', color: S.teal },
 
   // Notes Tab
-  notesTab: { gap: 14 },
+  notesTab: { gap: isTablet ? 30 : 14 },
   notesCard: {
-    backgroundColor: S.card, borderRadius: 18, padding: 16,
+    backgroundColor: S.card, borderRadius: isTablet ? 22 : 18, padding: isTablet ? 20 : 16,
     borderWidth: 1, borderColor: S.cardBorder,
     shadowColor: S.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+    minHeight: isTablet ? 560 : undefined,
   },
   notesCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  notesCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  notesIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  notesCardTitle: { fontSize: 14, fontWeight: '700', color: S.ink },
-  notesCardSub: { fontSize: 12, color: S.muted, marginTop: 1 },
-  notesCountBadge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4 },
-  notesCountText: { fontSize: 11, fontWeight: '700' },
+  notesCardLeft: { flexDirection: 'row', alignItems: 'center', gap: isTablet ? 14 : 10 },
+  notesIcon: { width: isTablet ? 48 : 36, height: isTablet ? 48 : 36, borderRadius: isTablet ? 14 : 10, justifyContent: 'center', alignItems: 'center' },
+  notesCardTitle: { fontSize: isTablet ? 22 : 14, fontWeight: '700', color: S.ink },
+  notesCardSub: { fontSize: isTablet ? 17 : 12, color: S.muted, marginTop: 1 },
+  notesCountBadge: { borderRadius: isTablet ? 13 : 10, paddingHorizontal: isTablet ? 13 : 9, paddingVertical: isTablet ? 7 : 4 },
+  notesCountText: { fontSize: isTablet ? 14 : 11, fontWeight: '700' },
   notesInput: {
-    borderWidth: 1.5, borderRadius: 12, padding: 14,
-    fontSize: 15, lineHeight: 22, color: S.ink,
+    borderWidth: 1.5, borderRadius: isTablet ? 18 : 12, padding: isTablet ? 22 : 14,
+    fontSize: isTablet ? 21 : 15, lineHeight: isTablet ? 31 : 22, color: S.ink,
     backgroundColor: S.bg1, fontFamily: isIOS ? 'Georgia' : 'serif',
   },
-  tipsTitle: { fontSize: 12, fontWeight: '800', color: S.muted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 },
+  tipsTitle: { fontSize: isTablet ? 16 : 12, fontWeight: '800', color: S.muted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 4 },
   tipCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: S.card, borderRadius: 12, padding: 13,
+    backgroundColor: S.card, borderRadius: isTablet ? 18 : 12, padding: isTablet ? 18 : 13,
     borderWidth: 1, borderColor: S.cardBorder,
   },
-  tipIcon: { width: 32, height: 32, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
-  tipText: { flex: 1, fontSize: 13, color: S.sub, lineHeight: 18 },
+  tipIcon: { width: isTablet ? 42 : 32, height: isTablet ? 42 : 32, borderRadius: isTablet ? 12 : 9, justifyContent: 'center', alignItems: 'center' },
+  tipText: { flex: 1, fontSize: isTablet ? 18 : 13, color: S.sub, lineHeight: isTablet ? 25 : 18 },
   notesCompleteBtn: { borderRadius: 16, overflow: 'hidden', shadowColor: S.tealDk, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 8 },
-  notesCompleteBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: 16 },
-  notesCompleteBtnText: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
+  notesCompleteBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingVertical: isTablet ? 22 : 16 },
+  notesCompleteBtnText: { fontSize: isTablet ? 20 : 15, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
 
   outcomeCard: {
-    width: '90%', alignSelf: 'center', backgroundColor: S.card, borderRadius: 28,
-    paddingHorizontal: 18, paddingTop: 14, paddingBottom: 18, borderWidth: 1, borderColor: S.cardBorder,
+    width: isTablet ? '78%' : '90%', alignSelf: 'center', backgroundColor: S.card, borderRadius: isTablet ? 32 : 28,
+    paddingHorizontal: isTablet ? 24 : 18, paddingTop: isTablet ? 18 : 14, paddingBottom: isTablet ? 24 : 18, borderWidth: 1, borderColor: S.cardBorder,
   },
-  outcomeEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: S.teal, marginTop: 6 },
-  outcomeTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', color: S.ink, marginTop: 8 },
-  outcomeSub: { fontSize: 13, lineHeight: 20, color: S.sub, marginTop: 6 },
-  outcomeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+  outcomeEyebrow: { fontSize: isTablet ? 13 : 11, fontWeight: '800', letterSpacing: 1.2, color: S.teal, marginTop: 6 },
+  outcomeTitle: { fontSize: isTablet ? 28 : 22, lineHeight: isTablet ? 34 : 28, fontWeight: '800', color: S.ink, marginTop: 8 },
+  outcomeSub: { fontSize: isTablet ? 16 : 13, lineHeight: isTablet ? 24 : 20, color: S.sub, marginTop: 6 },
+  outcomeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: isTablet ? 14 : 10, marginTop: isTablet ? 22 : 18 },
   outcomeBtn: {
-    width: '48%', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 18,
+    width: '48%', borderRadius: isTablet ? 18 : 16, paddingHorizontal: 12, paddingVertical: isTablet ? 22 : 18,
     borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
   },
-  outcomeBtnText: { fontSize: 15, fontWeight: '700', color: S.ink, textAlign: 'center' },
+  outcomeBtnText: { fontSize: isTablet ? 18 : 15, fontWeight: '700', color: S.ink, textAlign: 'center' },
 
   // Modals overlay
   overlay: { flex: 1, backgroundColor: 'rgba(2,6,23,0.42)', justifyContent: 'flex-end', padding: 16 },
 
   // Duration modal
   modalCard: {
-    backgroundColor: S.card, borderRadius: 22, padding: 20,
+    backgroundColor: S.card, borderRadius: isTablet ? 26 : 22, padding: isTablet ? 26 : 20,
     borderWidth: 1, borderColor: S.cardBorder,
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 10,
   },
-  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: S.track, alignSelf: 'center', marginBottom: 18 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-  modalIconBox: { width: 44, height: 44, borderRadius: 13, justifyContent: 'center', alignItems: 'center' },
-  modalTitle: { fontSize: 17, fontWeight: '800', color: S.ink },
-  modalSub: { fontSize: 12, color: S.muted, marginTop: 2 },
-  durationGrid: { gap: 10, marginBottom: 20 },
-  durationRow: { flexDirection: 'row', gap: 10 },
+  modalHandle: { width: isTablet ? 44 : 36, height: 4, borderRadius: 2, backgroundColor: S.track, alignSelf: 'center', marginBottom: 18 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', gap: isTablet ? 16 : 12, marginBottom: isTablet ? 24 : 20 },
+  modalIconBox: { width: isTablet ? 52 : 44, height: isTablet ? 52 : 44, borderRadius: isTablet ? 15 : 13, justifyContent: 'center', alignItems: 'center' },
+  modalTitle: { fontSize: isTablet ? 22 : 17, fontWeight: '800', color: S.ink },
+  modalSub: { fontSize: isTablet ? 15 : 12, color: S.muted, marginTop: 2 },
+  durationGrid: { gap: isTablet ? 14 : 10, marginBottom: isTablet ? 24 : 20 },
+  durationRow: { flexDirection: 'row', gap: isTablet ? 14 : 10 },
   durationCell: {
     flex: 1,
-    paddingVertical: 20, borderRadius: 16,
+    paddingVertical: isTablet ? 24 : 20, borderRadius: isTablet ? 20 : 16,
     alignItems: 'center', backgroundColor: S.bg1,
     borderWidth: 1.5, borderColor: S.cardBorder,
   },
   durationCellActive: { backgroundColor: S.teal, borderColor: S.teal },
-  durationNum: { fontSize: 22, fontWeight: '900', color: S.ink },
-  durationUnit: { fontSize: 11, fontWeight: '600', color: S.muted, marginTop: 2 },
-  durationPresetLabel: { fontSize: 11, fontWeight: '700', color: S.sub, marginTop: 6 },
+  durationNum: { fontSize: isTablet ? 28 : 22, fontWeight: '900', color: S.ink },
+  durationUnit: { fontSize: isTablet ? 13 : 11, fontWeight: '600', color: S.muted, marginTop: 2 },
+  durationPresetLabel: { fontSize: isTablet ? 13 : 11, fontWeight: '700', color: S.sub, marginTop: 6 },
   modalCloseBtn: {
-    height: 46, borderRadius: 13, backgroundColor: S.bg1,
+    height: isTablet ? 52 : 46, borderRadius: isTablet ? 16 : 13, backgroundColor: S.bg1,
     borderWidth: 1, borderColor: S.cardBorder, alignItems: 'center', justifyContent: 'center',
   },
-  modalCloseBtnText: { fontSize: 14, fontWeight: '700', color: S.sub },
+  modalCloseBtnText: { fontSize: isTablet ? 17 : 14, fontWeight: '700', color: S.sub },
+  lofiModalCard: {
+    backgroundColor: '#081512', borderTopLeftRadius: isTablet ? 30 : 22, borderTopRightRadius: isTablet ? 30 : 22,
+    paddingHorizontal: isTablet ? 28 : 20, paddingTop: isTablet ? 18 : 14, paddingBottom: isTablet ? 28 : 22,
+    borderWidth: 1, borderColor: 'rgba(45,212,191,0.16)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 16,
+  },
+  lofiModalTitle: { fontSize: isTablet ? 24 : 20, fontWeight: '900', color: '#FFFFFF' },
+  lofiModalSub: { marginTop: 4, fontSize: isTablet ? 16 : 13, color: 'rgba(226,232,240,0.72)' },
+  lofiChannelList: { marginTop: isTablet ? 22 : 16, gap: isTablet ? 14 : 10 },
+  lofiChannelCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+    borderRadius: isTablet ? 20 : 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)', paddingHorizontal: isTablet ? 18 : 14, paddingVertical: isTablet ? 18 : 14,
+  },
+  lofiChannelCardActive: { borderColor: 'rgba(45,212,191,0.45)', backgroundColor: 'rgba(45,212,191,0.10)' },
+  lofiChannelMeta: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: isTablet ? 14 : 10 },
+  lofiChannelIcon: {
+    width: isTablet ? 42 : 34, height: isTablet ? 42 : 34, borderRadius: isTablet ? 21 : 17,
+    backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center',
+  },
+  lofiChannelIconActive: { backgroundColor: 'rgba(255,255,255,0.9)' },
+  lofiChannelTitle: { fontSize: isTablet ? 18 : 15, fontWeight: '800', color: '#FFFFFF' },
+  lofiChannelSub: { marginTop: 3, fontSize: isTablet ? 15 : 12, color: 'rgba(226,232,240,0.68)' },
+  lofiChannelRadio: {
+    width: isTablet ? 26 : 22, height: isTablet ? 26 : 22, borderRadius: isTablet ? 13 : 11,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.28)', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  lofiChannelRadioActive: { borderColor: '#2DD4BF', backgroundColor: 'rgba(45,212,191,0.12)' },
+  lofiChannelRadioDot: { width: isTablet ? 10 : 8, height: isTablet ? 10 : 8, borderRadius: isTablet ? 5 : 4, backgroundColor: '#2DD4BF' },
 
   // Completion modal
   completionCard: {
-    backgroundColor: S.card, borderRadius: 24,
+    backgroundColor: S.card, borderRadius: isTablet ? 28 : 24,
     borderWidth: 1, borderColor: S.cardBorder, overflow: 'hidden', width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12,
   },
   completionAccentBar: { height: 4, width: '100%' },
-  completionBody: { padding: 24 },
-  completionTitleBlock: { marginBottom: 20 },
-  completionEyebrow: { fontSize: 10, fontWeight: '800', color: S.teal, letterSpacing: 1.4, marginBottom: 8 },
-  completionTitle: { fontSize: 24, fontWeight: '900', color: S.ink, marginBottom: 4, letterSpacing: -0.5 },
-  completionSub: { fontSize: 13, color: S.sub, fontWeight: '500' },
-  completionDivider: { height: StyleSheet.hairlineWidth, backgroundColor: S.cardBorder, marginBottom: 20 },
-  completionStats: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  completionBody: { padding: isTablet ? 30 : 24 },
+  completionTitleBlock: { marginBottom: isTablet ? 24 : 20 },
+  completionEyebrow: { fontSize: isTablet ? 12 : 10, fontWeight: '800', color: S.teal, letterSpacing: 1.4, marginBottom: 8 },
+  completionTitle: { fontSize: isTablet ? 30 : 24, fontWeight: '900', color: S.ink, marginBottom: 4, letterSpacing: -0.5 },
+  completionSub: { fontSize: isTablet ? 16 : 13, color: S.sub, fontWeight: '500' },
+  completionDivider: { height: StyleSheet.hairlineWidth, backgroundColor: S.cardBorder, marginBottom: isTablet ? 24 : 20 },
+  completionStats: { flexDirection: 'row', alignItems: 'center', marginBottom: isTablet ? 24 : 20 },
   completionStatItem: { flex: 1, alignItems: 'center' },
-  completionStatDivider: { width: StyleSheet.hairlineWidth, height: 36, backgroundColor: S.cardBorder },
-  completionStatVal: { fontSize: 22, fontWeight: '900', color: S.ink, letterSpacing: -0.5, marginBottom: 3 },
-  completionStatLbl: { fontSize: 11, fontWeight: '600', color: S.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
-  completionMsg: { fontSize: 13, color: S.sub, lineHeight: 19, marginBottom: 22, paddingHorizontal: 2 },
-  completionActions: { flexDirection: 'row', gap: 10 },
+  completionStatDivider: { width: StyleSheet.hairlineWidth, height: isTablet ? 44 : 36, backgroundColor: S.cardBorder },
+  completionStatVal: { fontSize: isTablet ? 28 : 22, fontWeight: '900', color: S.ink, letterSpacing: -0.5, marginBottom: 3 },
+  completionStatLbl: { fontSize: isTablet ? 13 : 11, fontWeight: '600', color: S.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  completionMsg: { fontSize: isTablet ? 16 : 13, color: S.sub, lineHeight: isTablet ? 24 : 19, marginBottom: isTablet ? 26 : 22, paddingHorizontal: 2 },
+  completionActions: { flexDirection: 'row', gap: isTablet ? 14 : 10 },
   completionSecBtn: {
-    flex: 0.8, height: 48, borderRadius: 13, backgroundColor: S.bg1,
+    flex: 0.8, height: isTablet ? 56 : 48, borderRadius: isTablet ? 16 : 13, backgroundColor: S.bg1,
     borderWidth: 1, borderColor: S.cardBorder, justifyContent: 'center', alignItems: 'center',
   },
-  completionSecBtnText: { fontSize: 14, fontWeight: '700', color: S.sub },
-  completionPrimBtn: { flex: 1.5, borderRadius: 13, overflow: 'hidden' },
-  completionPrimBtnGrad: { height: 48, justifyContent: 'center', alignItems: 'center' },
-  completionPrimBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  completionSecBtnText: { fontSize: isTablet ? 17 : 14, fontWeight: '700', color: S.sub },
+  completionPrimBtn: { flex: 1.5, borderRadius: isTablet ? 16 : 13, overflow: 'hidden' },
+  completionPrimBtnGrad: { height: isTablet ? 56 : 48, justifyContent: 'center', alignItems: 'center' },
+  completionPrimBtnText: { fontSize: isTablet ? 17 : 14, fontWeight: '800', color: '#fff' },
 
   // Exit modal
   exitCard: {
-    backgroundColor: S.card, borderRadius: 22, padding: 24, alignItems: 'center',
+    backgroundColor: S.card, borderRadius: isTablet ? 26 : 22, padding: isTablet ? 30 : 24, alignItems: 'center',
     borderWidth: 1, borderColor: S.cardBorder,
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 20, elevation: 10,
   },
-  exitIconBox: { width: 60, height: 60, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
-  exitTitle: { fontSize: 18, fontWeight: '800', color: S.ink, marginBottom: 8 },
-  exitMsg: { fontSize: 13, color: S.sub, textAlign: 'center', lineHeight: 19, marginBottom: 22 },
-  exitActions: { flexDirection: 'row', gap: 12, width: '100%' },
+  exitIconBox: { width: isTablet ? 72 : 60, height: isTablet ? 72 : 60, borderRadius: isTablet ? 22 : 18, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  exitTitle: { fontSize: isTablet ? 24 : 18, fontWeight: '800', color: S.ink, marginBottom: 8 },
+  exitMsg: { fontSize: isTablet ? 16 : 13, color: S.sub, textAlign: 'center', lineHeight: isTablet ? 24 : 19, marginBottom: isTablet ? 26 : 22 },
+  exitActions: { flexDirection: 'row', gap: isTablet ? 14 : 12, width: '100%' },
   exitCancelBtn: {
-    flex: 1, height: 48, borderRadius: 13, backgroundColor: S.bg1,
+    flex: 1, height: isTablet ? 56 : 48, borderRadius: isTablet ? 16 : 13, backgroundColor: S.bg1,
     borderWidth: 1, borderColor: S.cardBorder, justifyContent: 'center', alignItems: 'center',
   },
-  exitCancelText: { fontSize: 14, fontWeight: '700', color: S.sub },
-  exitConfirmBtn: { flex: 1.3, borderRadius: 13, overflow: 'hidden' },
-  exitConfirmGrad: { height: 48, justifyContent: 'center', alignItems: 'center' },
-  exitConfirmText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  exitCancelText: { fontSize: isTablet ? 17 : 14, fontWeight: '700', color: S.sub },
+  exitConfirmBtn: { flex: 1.3, borderRadius: isTablet ? 16 : 13, overflow: 'hidden' },
+  exitConfirmGrad: { height: isTablet ? 56 : 48, justifyContent: 'center', alignItems: 'center' },
+  exitConfirmText: { fontSize: isTablet ? 17 : 14, fontWeight: '800', color: '#fff' },
 });

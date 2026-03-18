@@ -929,6 +929,32 @@ export const idMessages: AppMessages = {
     "complete_session": "Selesaikan Sesi",
     "back_dashboard": "Kembali ke Dashboard",
     "focus_duration": "Durasi Fokus",
+
+    "subject": "Mata pelajaran",
+
+    "focus_audio": "Audio fokus",
+
+    "audio_state_playing": "Diputar",
+
+    "audio_state_off": "Mati",
+
+    "change_audio": "Kanal",
+
+    "lofi_modal_title": "Radio fokus",
+
+    "lofi_modal_sub": "Pilih kanal yang cocok untuk sesi ini",
+
+    "lofi_channel_ambient": "Ambient",
+
+    "lofi_channel_ambient_sub": "Radio ambient yang lembut",
+
+    "lofi_channel_lofi": "Lofi",
+
+    "lofi_channel_lofi_sub": "Radio lofi yang santai",
+
+    "lofi_channel_deep": "Fokus Dalam",
+
+    "lofi_channel_deep_sub": "Audio fokus dalam berbasis drone",
     "select_focus_duration": "Pilih lama waktu fokus",
     "preset_quick_25": "Cepat 25",
     "preset_standard_45": "Fokus 45",

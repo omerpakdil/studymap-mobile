@@ -929,6 +929,32 @@ export const trMessages: AppMessages = {
     "complete_session": "Oturumu Tamamla",
     "back_dashboard": "Panele Dön",
     "focus_duration": "Odak Süresi",
+
+    "subject": "Ders",
+
+    "focus_audio": "Odak Sesi",
+
+    "audio_state_playing": "Çalıyor",
+
+    "audio_state_off": "Kapalı",
+
+    "change_audio": "Kanallar",
+
+    "lofi_modal_title": "Odak Radyosu",
+
+    "lofi_modal_sub": "Bu oturuma en uygun kanalı seç",
+
+    "lofi_channel_ambient": "Ambiyans",
+
+    "lofi_channel_ambient_sub": "Yumuşak ambiyans radyo",
+
+    "lofi_channel_lofi": "Lofi",
+
+    "lofi_channel_lofi_sub": "Rahat lofi radyo",
+
+    "lofi_channel_deep": "Derin Odak",
+
+    "lofi_channel_deep_sub": "Drone tabanlı derin odak",
     "select_focus_duration": "Ne kadar odaklanacağını seç",
     "preset_quick_25": "Hızlı 25",
     "preset_standard_45": "Odak 45",

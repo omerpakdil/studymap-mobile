@@ -929,6 +929,32 @@ export const zhHansMessages: AppMessages = {
     "complete_session": "完成本次学习",
     "back_dashboard": "返回仪表盘",
     "focus_duration": "专注时长",
+
+    "subject": "科目",
+
+    "focus_audio": "专注音频",
+
+    "audio_state_playing": "播放中",
+
+    "audio_state_off": "已关闭",
+
+    "change_audio": "频道",
+
+    "lofi_modal_title": "专注电台",
+
+    "lofi_modal_sub": "选择适合本次学习的频道",
+
+    "lofi_channel_ambient": "氛围",
+
+    "lofi_channel_ambient_sub": "柔和氛围电台",
+
+    "lofi_channel_lofi": "Lofi",
+
+    "lofi_channel_lofi_sub": "轻松 lofi 电台",
+
+    "lofi_channel_deep": "深度专注",
+
+    "lofi_channel_deep_sub": "基于 drone 的深度专注音频",
     "select_focus_duration": "选择专注时长",
     "preset_quick_25": "快速 25",
     "preset_standard_45": "专注 45",

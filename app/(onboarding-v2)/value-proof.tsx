@@ -15,6 +15,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 
@@ -75,6 +76,8 @@ const C = {
 };
 
 export default function OnboardingV2ValueProofScreen() {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const lang = resolveAppLanguage();
   const METRICS = [
     { value: t('onboarding.value_proof.metric_daily_label', { lang, fallback: 'Daily' }), label: t('onboarding.value_proof.metric_daily_sub', { lang, fallback: 'task list' }) },
@@ -150,8 +153,8 @@ export default function OnboardingV2ValueProofScreen() {
       <LinearGradient colors={[C.bg0, C.bg1, C.bg2, C.bg3]} locations={[0, 0.3, 0.65, 1]} style={StyleSheet.absoluteFill} />
 
       {/* Orbs */}
-      <Animated.View style={[styles.orbA, { backgroundColor: C.orbA, transform: [{ scale: orbPulse }] }]} />
-      <View style={[styles.orbB, { backgroundColor: C.orbB }]} />
+      <Animated.View style={[styles.orbA, isTablet && styles.orbATablet, { backgroundColor: C.orbA, transform: [{ scale: orbPulse }] }]} />
+      <View style={[styles.orbB, isTablet && styles.orbBTablet, { backgroundColor: C.orbB }]} />
 
       {/* Grid */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -164,20 +167,20 @@ export default function OnboardingV2ValueProofScreen() {
       </View>
 
       {/* ── Content ─────────────────────────────────────────── */}
-      <Animated.View style={[styles.inner, { opacity: entrance }]}>
+      <Animated.View style={[styles.inner, isTablet && styles.innerTablet, { opacity: entrance }]}>
 
         {/* Header */}
         <View style={styles.headerRow}>
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
+            style={[styles.backBtn, isTablet && styles.backBtnTablet, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
             onPress={handleBack}
             activeOpacity={0.7}
           >
-            <Text style={[styles.backArrow, { color: C.backArrow }]}>‹</Text>
+            <Text style={[styles.backArrow, isTablet && styles.backArrowTablet, { color: C.backArrow }]}>‹</Text>
           </TouchableOpacity>
           <View style={styles.brandRow}>
             <View style={[styles.brandMark, { backgroundColor: C.brand }]} />
-            <Text style={[styles.brandText, { color: C.brand }]}>StudyMap</Text>
+            <Text style={[styles.brandText, isTablet && styles.brandTextTablet, { color: C.brand }]}>StudyMap</Text>
           </View>
           <View style={styles.backBtn} />
         </View>
@@ -188,18 +191,18 @@ export default function OnboardingV2ValueProofScreen() {
             <LinearGradient colors={[C.btnA, C.btnB]} start={{ x:0,y:0 }} end={{ x:1,y:0 }} style={StyleSheet.absoluteFill} />
           </View>
         </View>
-        <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
+        <Text style={[styles.stepLabel, isTablet && styles.stepLabelTablet, { color: C.labelMuted }]}>
           {t('common.step_of', { lang, params: { current: 1, total: 13 } })}
         </Text>
 
         {/* Title */}
-        <Text style={[styles.title, { color: C.title }]}>{t('onboarding.value_proof.title', { lang })}</Text>
-        <Text style={[styles.sub, { color: C.sub }]}>
+        <Text style={[styles.title, isTablet && styles.titleTablet, { color: C.title }]}>{t('onboarding.value_proof.title', { lang })}</Text>
+        <Text style={[styles.sub, isTablet && styles.subTablet, { color: C.sub }]}>
           {t('onboarding.value_proof.subtitle', { lang })}
         </Text>
 
         {/* Metric board */}
-        <View style={[styles.board, { backgroundColor: C.boardBg, borderColor: C.boardBorder }]}>
+        <View style={[styles.board, isTablet && styles.boardTablet, { backgroundColor: C.boardBg, borderColor: C.boardBorder }]}>
           {METRICS.map((m, i) => (
             <React.Fragment key={m.value}>
               <Animated.View
@@ -213,8 +216,8 @@ export default function OnboardingV2ValueProofScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.metricVal, { color: C.metricVal }]}>{m.value}</Text>
-                <Text style={[styles.metricLbl, { color: C.metricLbl }]}>{m.label}</Text>
+                <Text style={[styles.metricVal, isTablet && styles.metricValTablet, { color: C.metricVal }]}>{m.value}</Text>
+                <Text style={[styles.metricLbl, isTablet && styles.metricLblTablet, { color: C.metricLbl }]}>{m.label}</Text>
               </Animated.View>
               {i < METRICS.length - 1 && (
                 <View style={[styles.metricDivider, { backgroundColor: C.divider }]} />
@@ -224,12 +227,13 @@ export default function OnboardingV2ValueProofScreen() {
         </View>
 
         {/* Feature cards */}
-        <View style={styles.cardList}>
+        <View style={[styles.cardList, isTablet && styles.cardListTablet]}>
           {CARDS.map((card, i) => (
             <Animated.View
               key={card.title}
               style={[
                 styles.card,
+                isTablet && styles.cardTablet,
                 { backgroundColor: C.cardBg, borderColor: C.cardBorder },
                 {
                   opacity: cardAnims[i],
@@ -239,22 +243,22 @@ export default function OnboardingV2ValueProofScreen() {
                 },
               ]}
             >
-              <View style={[styles.cardAccent, { backgroundColor: card.accent }]} />
+              <View style={[styles.cardAccent, isTablet && styles.cardAccentTablet, { backgroundColor: card.accent }]} />
               <View style={styles.cardBody}>
-                <Text style={[styles.cardTitle, { color: C.title }]}>{card.title}</Text>
-                <Text style={[styles.cardText, { color: C.sub }]}>{card.body}</Text>
+                <Text style={[styles.cardTitle, isTablet && styles.cardTitleTablet, { color: C.title }]}>{card.title}</Text>
+                <Text style={[styles.cardText, isTablet && styles.cardTextTablet, { color: C.sub }]}>{card.body}</Text>
               </View>
-              <View style={[styles.cardTag, { backgroundColor: card.accent + '20' }]}>
-                <Text style={[styles.cardTagText, { color: card.accent }]}>✓</Text>
+              <View style={[styles.cardTag, isTablet && styles.cardTagTablet, { backgroundColor: card.accent + '20' }]}>
+                <Text style={[styles.cardTagText, isTablet && styles.cardTagTextTablet, { color: card.accent }]}>✓</Text>
               </View>
             </Animated.View>
           ))}
         </View>
 
         {/* Bottom note */}
-        <Animated.View style={[styles.note, { backgroundColor: C.noteBg, borderColor: C.noteBorder, opacity: noteFade }]}>
-          <Text style={[styles.noteEmoji]}>→</Text>
-          <Text style={[styles.noteText, { color: C.sub }]}>
+        <Animated.View style={[styles.note, isTablet && styles.noteTablet, { backgroundColor: C.noteBg, borderColor: C.noteBorder, opacity: noteFade }]}>
+          <Text style={[styles.noteEmoji, isTablet && styles.noteEmojiTablet]}>→</Text>
+          <Text style={[styles.noteText, isTablet && styles.noteTextTablet, { color: C.sub }]}>
             {t('onboarding.value_proof.note', { lang })}
           </Text>
         </Animated.View>
@@ -262,11 +266,11 @@ export default function OnboardingV2ValueProofScreen() {
 
       {/* ── Footer CTA ──────────────────────────────────────── */}
       <Animated.View
-        style={[styles.footer, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}
+        style={[styles.footer, isTablet && styles.footerTablet, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}
       >
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={styles.cta}
+            style={[styles.cta, isTablet && styles.ctaTablet]}
             onPress={handleContinue}
             onPressIn={pressIn}
             onPressOut={pressOut}
@@ -274,8 +278,8 @@ export default function OnboardingV2ValueProofScreen() {
           >
             <LinearGradient colors={[C.btnA, C.btnB]} start={{ x:0,y:0 }} end={{ x:1,y:1 }} style={StyleSheet.absoluteFill} />
             <View style={styles.ctaSheen} />
-            <Text style={styles.ctaText}>{t('common.continue', { lang })}</Text>
-            <Text style={styles.ctaArrow}>→</Text>
+            <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet]}>{t('common.continue', { lang })}</Text>
+            <Text style={[styles.ctaArrow, isTablet && styles.ctaArrowTablet]}>→</Text>
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -287,25 +291,42 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#080C0B' },
   orbA: { position:'absolute', width:300, height:300, borderRadius:999, top:-80, right:-120 },
   orbB: { position:'absolute', width:200, height:200, borderRadius:999, bottom:160, left:-90 },
+  orbATablet: { width: 420, height: 420, top: -40, right: -80 },
+  orbBTablet: { width: 300, height: 300, bottom: 200, left: -70 },
 
   inner: { flex: 1, paddingHorizontal: 21, paddingTop: 9, paddingBottom: 104 },
+  innerTablet: {
+    paddingHorizontal: 44,
+    paddingTop: 28,
+    paddingBottom: 150,
+    maxWidth: 940,
+    width: '100%',
+    alignSelf: 'center',
+    justifyContent: 'space-between',
+  },
 
   // Header
   headerRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom: 14 },
   backBtn: { width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
+  backBtnTablet: { width: 46, height: 46, borderRadius: 14 },
   backArrow: { fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
+  backArrowTablet: { fontSize: 30, lineHeight: 34 },
   brandRow: { flexDirection:'row', alignItems:'center', gap:6 },
   brandMark: { width:7, height:7, borderRadius:2 },
   brandText: { fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTextTablet: { fontSize: 17 },
 
   // Progress
   progressTrack: { height:3, borderRadius:999, overflow:'hidden', marginBottom:7 },
   progressFill: { width:'9%', height:'100%', borderRadius:999, overflow:'hidden' },
   stepLabel: { fontSize:9, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:15, opacity:0.65 },
+  stepLabelTablet: { fontSize: 12, marginBottom: 20 },
 
   // Title
   title: { fontSize:31, fontWeight:'900', lineHeight:36, letterSpacing:-0.7, marginBottom:7 },
+  titleTablet: { fontSize: 58, lineHeight: 62, letterSpacing: -1.6, marginBottom: 14, maxWidth: 760 },
   sub: { fontSize:13, lineHeight:20, fontWeight:'400', marginBottom:17 },
+  subTablet: { fontSize: 22, lineHeight: 32, marginBottom: 28, maxWidth: 760 },
 
   // Board
   board: {
@@ -317,13 +338,22 @@ const styles = StyleSheet.create({
     paddingHorizontal:8,
     marginBottom:13,
   },
+  boardTablet: {
+    paddingVertical: 26,
+    paddingHorizontal: 22,
+    borderRadius: 22,
+    marginBottom: 20,
+  },
   metricCell: { flex:1, alignItems:'center', justifyContent:'center', paddingHorizontal:4 },
   metricVal: { fontSize:24, fontWeight:'900', letterSpacing:-0.7, lineHeight:28 },
+  metricValTablet: { fontSize: 36, lineHeight: 40 },
   metricLbl: { fontSize:10, fontWeight:'500', textAlign:'center', lineHeight:14, marginTop:3, letterSpacing:0.2 },
+  metricLblTablet: { fontSize: 13, lineHeight: 18, marginTop: 6 },
   metricDivider: { width:1, marginVertical:6 },
 
   // Cards
   cardList: { gap:8, marginBottom:13 },
+  cardListTablet: { gap: 14, marginBottom: 20 },
   card: {
     flexDirection:'row',
     alignItems:'center',
@@ -332,12 +362,22 @@ const styles = StyleSheet.create({
     padding:13,
     gap:10,
   },
+  cardTablet: {
+    borderRadius: 18,
+    padding: 18,
+    gap: 14,
+  },
   cardAccent: { width:3, borderRadius:99, alignSelf:'stretch', minHeight:36 },
+  cardAccentTablet: { width: 4, minHeight: 54 },
   cardBody: { flex:1, gap:4 },
   cardTitle: { fontSize:14, fontWeight:'800', letterSpacing:-0.1 },
+  cardTitleTablet: { fontSize: 21 },
   cardText: { fontSize:11, lineHeight:17, fontWeight:'400' },
+  cardTextTablet: { fontSize: 15, lineHeight: 22 },
   cardTag: { width:26, height:26, borderRadius:8, alignItems:'center', justifyContent:'center' },
+  cardTagTablet: { width: 34, height: 34, borderRadius: 10 },
   cardTagText: { fontSize:12, fontWeight:'700' },
+  cardTagTextTablet: { fontSize: 16 },
 
   // Note
   note: {
@@ -348,14 +388,26 @@ const styles = StyleSheet.create({
     borderRadius:13,
     padding:11,
   },
+  noteTablet: {
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
   noteEmoji: { fontSize:14, color:'#34D399', marginTop:1 },
+  noteEmojiTablet: { fontSize: 18 },
   noteText: { flex:1, fontSize:11, lineHeight:17, fontWeight:'400' },
+  noteTextTablet: { fontSize: 15, lineHeight: 22 },
 
   // Footer
   footer: {
     position:'absolute', left:0, right:0, bottom:0,
     paddingHorizontal:21, paddingTop:6, paddingBottom:36,
     borderTopWidth:StyleSheet.hairlineWidth,
+  },
+  footerTablet: {
+    paddingHorizontal: 44,
+    paddingTop: 14,
+    paddingBottom: 44,
   },
   cta: {
     height:48, borderRadius:FOOTER.ctaRadius, flexDirection:'row',
@@ -364,7 +416,13 @@ const styles = StyleSheet.create({
     shadowColor:'#10B981', shadowOffset:{width:0,height:6},
     shadowOpacity:0.36, shadowRadius:16, elevation:8,
   },
+  ctaTablet: {
+    height: 62,
+    borderRadius: 18,
+  },
   ctaSheen: { position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.12)' },
   ctaText: { color:'#fff', fontSize:15, fontWeight:'800', letterSpacing:0.2 },
+  ctaTextTablet: { fontSize: 20 },
   ctaArrow: { color:'rgba(255,255,255,0.75)', fontSize:16 },
+  ctaArrowTablet: { fontSize: 20 },
 });

@@ -18,6 +18,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,6 +42,7 @@ import {
   getLatestStudyActivityAt,
   getProgramMetadata,
   getSubjectProgress,
+  getTaskCompletions,
   getTasksForDate,
   rebalanceUpcomingTasks,
 } from '@/app/utils/studyProgramStorage';
@@ -126,6 +128,8 @@ function SubjectBar({
   subject: string; progress: number;
   completed: number; total: number; index: number; delay?: number;
 }) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const widthAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -139,22 +143,22 @@ function SubjectBar({
   const trend = progress >= 75 ? 'trending-up' : progress >= 40 ? 'remove' : 'trending-down';
 
   return (
-    <View style={styles.subjectRow}>
-      <View style={styles.subjectRowHeader}>
-        <View style={styles.subjectRowLeft}>
-          <View style={styles.subjectDot}>
-            <Text style={styles.subjectDotTxt}>{index + 1}</Text>
+    <View style={[styles.subjectRow, isTablet && styles.subjectRowTablet]}>
+      <View style={[styles.subjectRowHeader, isTablet && styles.subjectRowHeaderTablet]}>
+        <View style={[styles.subjectRowLeft, isTablet && styles.subjectRowLeftTablet]}>
+          <View style={[styles.subjectDot, isTablet && styles.subjectDotTablet]}>
+            <Text style={[styles.subjectDotTxt, isTablet && styles.subjectDotTxtTablet]}>{index + 1}</Text>
           </View>
-          <Text style={styles.subjectName}>{subject}</Text>
+          <Text style={[styles.subjectName, isTablet && styles.subjectNameTablet]}>{subject}</Text>
         </View>
-        <View style={styles.subjectRowRight}>
-          <Ionicons name={trend as any} size={13} color={DASH.teal} />
-          <Text style={styles.subjectPct}>{progress}%</Text>
-          <Text style={styles.subjectMeta}>{completed}/{total}</Text>
+        <View style={[styles.subjectRowRight, isTablet && styles.subjectRowRightTablet]}>
+          <Ionicons name={trend as any} size={isTablet ? 16 : 13} color={DASH.teal} />
+          <Text style={[styles.subjectPct, isTablet && styles.subjectPctTablet]}>{progress}%</Text>
+          <Text style={[styles.subjectMeta, isTablet && styles.subjectMetaTablet]}>{completed}/{total}</Text>
         </View>
       </View>
-      <View style={styles.subjectTrack}>
-        <Animated.View style={[styles.subjectFill, { width: animWidth }]} />
+      <View style={[styles.subjectTrack, isTablet && styles.subjectTrackTablet]}>
+        <Animated.View style={[styles.subjectFill, isTablet && styles.subjectFillTablet, { width: animWidth }]} />
       </View>
     </View>
   );
@@ -162,11 +166,14 @@ function SubjectBar({
 
 // ─── Task Card ───────────────────────────────────────────────────────────────
 function TaskCard({
-  task, isCompleted, onPress, typeColor, typeIcon, typeLabel, index, subjectLabel, doneLabel, appLang,
+  task, isCompleted, displayDuration, onPress, typeColor, typeIcon, typeLabel, index, subjectLabel, doneLabel, appLang,
 }: {
   task: StudyTask; isCompleted: boolean; onPress: () => void;
+  displayDuration: number;
   typeColor: string; typeIcon: string; typeLabel: string; index: number; subjectLabel: string; doneLabel: string; appLang: ReturnType<typeof resolveAppLanguage>;
 }) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const translateY = useRef(new Animated.Value(18)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -183,42 +190,43 @@ function TaskCard({
   return (
     <Animated.View style={{ transform: [{ translateY }], opacity }}>
       <TouchableOpacity
-        style={[styles.taskCard, isCompleted && styles.taskCardDone]}
+        style={[styles.taskCard, isTablet && styles.taskCardTablet, isCompleted && styles.taskCardDone]}
         onPress={onPress}
         activeOpacity={0.78}
       >
-        <View style={[styles.taskAccent, { backgroundColor: isCompleted ? DASH.teal : typeColor }]} />
+        <View style={[styles.taskAccent, isTablet && styles.taskAccentTablet, { backgroundColor: isCompleted ? DASH.teal : typeColor }]} />
 
         <View style={[
           styles.taskCircle,
+          isTablet && styles.taskCircleTablet,
           isCompleted
             ? { backgroundColor: DASH.teal, borderColor: DASH.teal }
             : { backgroundColor: typeColor + '15', borderColor: typeColor + '80' },
         ]}>
-          {isCompleted && <Ionicons name="checkmark" size={13} color="#fff" />}
+          {isCompleted && <Ionicons name="checkmark" size={isTablet ? 16 : 13} color="#fff" />}
         </View>
 
         <View style={styles.taskBody}>
-          <Text style={[styles.taskSubject, isCompleted && styles.taskSubjectDone]}>
+          <Text style={[styles.taskSubject, isTablet && styles.taskSubjectTablet, isCompleted && styles.taskSubjectDone]}>
             {subjectLabel}
           </Text>
-          <View style={styles.taskMeta}>
-            <View style={[styles.taskBadge, { backgroundColor: typeColor + '18' }]}>
-              <Ionicons name={typeIcon as any} size={11} color={typeColor} />
-              <Text style={[styles.taskBadgeText, { color: typeColor }]}>{typeLabel}</Text>
+          <View style={[styles.taskMeta, isTablet && styles.taskMetaTablet]}>
+            <View style={[styles.taskBadge, isTablet && styles.taskBadgeTablet, { backgroundColor: typeColor + '18' }]}>
+              <Ionicons name={typeIcon as any} size={isTablet ? 13 : 11} color={typeColor} />
+              <Text style={[styles.taskBadgeText, isTablet && styles.taskBadgeTextTablet, { color: typeColor }]}>{typeLabel}</Text>
             </View>
-            <Text style={styles.taskDuration}>{formatMinutesCompact(task.duration, appLang)}</Text>
+            <Text style={[styles.taskDuration, isTablet && styles.taskDurationTablet]}>{formatMinutesCompact(displayDuration, appLang)}</Text>
           </View>
         </View>
 
             {isCompleted ? (
-              <View style={styles.doneTag}>
-                <Ionicons name="checkmark-circle" size={13} color={DASH.teal} />
-                <Text style={styles.doneTagText}>{doneLabel}</Text>
+              <View style={[styles.doneTag, isTablet && styles.doneTagTablet]}>
+                <Ionicons name="checkmark-circle" size={isTablet ? 15 : 13} color={DASH.teal} />
+                <Text style={[styles.doneTagText, isTablet && styles.doneTagTextTablet]}>{doneLabel}</Text>
               </View>
             ) : (
-              <View style={[styles.playBtn, { backgroundColor: typeColor }]}>
-                <Ionicons name="play" size={13} color="#fff" />
+              <View style={[styles.playBtn, isTablet && styles.playBtnTablet, { backgroundColor: typeColor }]}>
+                <Ionicons name="play" size={isTablet ? 16 : 13} color="#fff" />
               </View>
             )}
       </TouchableOpacity>
@@ -228,6 +236,8 @@ function TaskCard({
 
 // ─── Main Dashboard ──────────────────────────────────────────────────────────
 export default function DashboardScreen() {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const { showAlert } = useAppAlert();
   const router = useRouter();
   const appLang = resolveAppLanguage();
@@ -246,7 +256,7 @@ export default function DashboardScreen() {
   const [dailyProgress, setDailyProgress] = useState({ completed: 0, total: 0, minutes: 0 });
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState(false);
-  const [taskCompletions, setTaskCompletions] = useState<Record<string, boolean>>({});
+  const [taskCompletions, setTaskCompletions] = useState<Record<string, { completed: boolean; duration?: number }>>({});
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   const [showTrialWarning, setShowTrialWarning] = useState(false);
   const [adaptiveReviewSignal, setAdaptiveReviewSignal] = useState<AdaptiveReviewSignal | null>(null);
@@ -392,10 +402,15 @@ export default function DashboardScreen() {
 
   const loadTaskCompletions = async () => {
     try {
-      const completions: Record<string, boolean> = {};
+      const storedCompletions = await getTaskCompletions();
+      const completions: Record<string, { completed: boolean; duration?: number }> = {};
       for (const task of todayTasks) {
         const val = await AsyncStorage.getItem(`session_completed_${task.id}`);
-        completions[task.id] = val === 'true' || task.completed;
+        const stored = storedCompletions[task.id];
+        completions[task.id] = {
+          completed: val === 'true' || task.completed || !!stored,
+          duration: stored?.duration,
+        };
       }
       setTaskCompletions(completions);
     } catch {}
@@ -534,7 +549,7 @@ export default function DashboardScreen() {
   }
 
   // ── Derived ──
-  const completedTasks = Object.values(taskCompletions).filter(Boolean).length;
+  const completedTasks = Object.values(taskCompletions).filter((entry) => entry?.completed).length;
   const todayGoalMins = todayTasks.reduce((t, tk) => t + tk.duration, 0);
   const progressPct = todayGoalMins > 0 ? Math.min(100, (dailyProgress.minutes / todayGoalMins) * 100) : 0;
   const taskPct = todayTasks.length > 0 ? Math.round((completedTasks / todayTasks.length) * 100) : 0;
@@ -573,35 +588,35 @@ export default function DashboardScreen() {
       <View style={styles.bgOrbB} />
 
       {/* ── Header ── */}
-      <Animated.View style={[styles.header, { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] }]}>
+      <Animated.View style={[styles.header, isTablet && styles.headerTablet, { opacity: headerOpacity, transform: [{ translateY: headerTranslateY }] }]}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.greetingKicker}>{t('tabs.dashboard.kicker', { lang: appLang, fallback: 'StudyMap Dashboard' })}</Text>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.greetingKicker, isTablet && styles.greetingKickerTablet]}>{t('tabs.dashboard.kicker', { lang: appLang, fallback: 'StudyMap Dashboard' })}</Text>
+          <Text style={[styles.headerTitle, isTablet && styles.headerTitleTablet]} numberOfLines={1}>
             {greeting}
           </Text>
           {!!userName && (
-            <Text style={styles.headerName} numberOfLines={1}>
+            <Text style={[styles.headerName, isTablet && styles.headerNameTablet]} numberOfLines={1}>
               {userName}
             </Text>
           )}
-          <Text style={styles.headerSub}>
+          <Text style={[styles.headerSub, isTablet && styles.headerSubTablet]}>
             {t('tabs.dashboard.focused_on', { lang: appLang, fallback: 'Focused on' })}{' '}
             <Text style={styles.headerExam}>{examType}</Text>
           </Text>
         </View>
-        <View style={styles.headerRight}>
-          <View style={styles.streakPill}>
-            <View style={styles.streakDot} />
-            <Text style={styles.streakTxt}>{t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' })}</Text>
-            <Text style={styles.streakNum}>{formatDaysCompact(currentStreak, appLang)}</Text>
+        <View style={[styles.headerRight, isTablet && styles.headerRightTablet]}>
+          <View style={[styles.streakPill, isTablet && styles.streakPillTablet]}>
+            <View style={[styles.streakDot, isTablet && styles.streakDotTablet]} />
+            <Text style={[styles.streakTxt, isTablet && styles.streakTxtTablet]}>{t('tabs.dashboard.metric_streak', { lang: appLang, fallback: 'Streak' })}</Text>
+            <Text style={[styles.streakNum, isTablet && styles.streakNumTablet]}>{formatDaysCompact(currentStreak, appLang)}</Text>
           </View>
           <TouchableOpacity
-            style={styles.notifBtn}
+            style={[styles.notifBtn, isTablet && styles.notifBtnTablet]}
             onPress={() => void handleNotificationPress()}
           >
             <Ionicons
               name={Device.isDevice ? (notificationPermission ? 'notifications' : 'notifications-off-outline') : 'notifications-outline'}
-              size={20}
+              size={isTablet ? 24 : 20}
               color={Device.isDevice ? (notificationPermission ? DASH.teal : '#94A3B8') : DASH.teal}
             />
           </TouchableOpacity>
@@ -632,52 +647,52 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       )}
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, isTablet && styles.scrollContentTablet]} showsVerticalScrollIndicator={false}>
 
         {/* ── Hero Card ── */}
-        <View style={styles.heroCard}>
+        <View style={[styles.heroCard, isTablet && styles.heroCardTablet]}>
           <LinearGradient
             colors={['#0F766E','#0F9D8C','#2DD4BF']}
-            style={styles.heroGradient}
+            style={[styles.heroGradient, isTablet && styles.heroGradientTablet]}
             start={{ x:0, y:0 }} end={{ x:1, y:1 }}
           >
-            <View style={styles.heroBlob1} />
-            <View style={styles.heroBlob2} />
-            <View style={styles.heroRow}>
+            <View style={[styles.heroBlob1, isTablet && styles.heroBlob1Tablet]} />
+            <View style={[styles.heroBlob2, isTablet && styles.heroBlob2Tablet]} />
+            <View style={[styles.heroRow, isTablet && styles.heroRowTablet]}>
               {/* Circular progress */}
               <CircularProgress
-                percentage={progressPct} size={108} strokeWidth={9}
+                percentage={progressPct} size={isTablet ? 148 : 108} strokeWidth={isTablet ? 12 : 9}
                 color="rgba(255,255,255,0.95)" bgColor="rgba(255,255,255,0.22)"
               >
-                <Text style={styles.heroCirclePct}>{Math.round(progressPct)}%</Text>
-                <Text style={styles.heroCircleLabel}>{t('tabs.dashboard.daily', { lang: appLang, fallback: 'Daily' })}</Text>
+                <Text style={[styles.heroCirclePct, isTablet && styles.heroCirclePctTablet]}>{Math.round(progressPct)}%</Text>
+                <Text style={[styles.heroCircleLabel, isTablet && styles.heroCircleLabelTablet]}>{t('tabs.dashboard.daily', { lang: appLang, fallback: 'Daily' })}</Text>
               </CircularProgress>
 
               {/* Right stats */}
               <View style={styles.heroStats}>
-                <Text style={styles.heroStatsTitle}>{t('tabs.dashboard.todays_progress', { lang: appLang, fallback: "Today's Progress" })}</Text>
-                <View style={styles.heroStatRow}>
+                <Text style={[styles.heroStatsTitle, isTablet && styles.heroStatsTitleTablet]}>{t('tabs.dashboard.todays_progress', { lang: appLang, fallback: "Today's Progress" })}</Text>
+                <View style={[styles.heroStatRow, isTablet && styles.heroStatRowTablet]}>
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatVal}>{dailyProgress.minutes}<Text style={styles.heroStatUnit}>{getMinuteUnitShort(appLang)}</Text></Text>
-                    <Text style={styles.heroStatLbl}>{t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' })}</Text>
+                    <Text style={[styles.heroStatVal, isTablet && styles.heroStatValTablet]}>{dailyProgress.minutes}<Text style={[styles.heroStatUnit, isTablet && styles.heroStatUnitTablet]}>{getMinuteUnitShort(appLang)}</Text></Text>
+                    <Text style={[styles.heroStatLbl, isTablet && styles.heroStatLblTablet]}>{t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' })}</Text>
                   </View>
-                  <View style={styles.heroStatSep} />
+                  <View style={[styles.heroStatSep, isTablet && styles.heroStatSepTablet]} />
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatVal}>{todayGoalMins}<Text style={styles.heroStatUnit}>{getMinuteUnitShort(appLang)}</Text></Text>
-                    <Text style={styles.heroStatLbl}>{t('tabs.dashboard.goal', { lang: appLang, fallback: 'Goal' })}</Text>
+                    <Text style={[styles.heroStatVal, isTablet && styles.heroStatValTablet]}>{todayGoalMins}<Text style={[styles.heroStatUnit, isTablet && styles.heroStatUnitTablet]}>{getMinuteUnitShort(appLang)}</Text></Text>
+                    <Text style={[styles.heroStatLbl, isTablet && styles.heroStatLblTablet]}>{t('tabs.dashboard.goal', { lang: appLang, fallback: 'Goal' })}</Text>
                   </View>
-                  <View style={styles.heroStatSep} />
+                  <View style={[styles.heroStatSep, isTablet && styles.heroStatSepTablet]} />
                   <View style={styles.heroStat}>
-                    <Text style={styles.heroStatVal}>{daysRemaining}</Text>
-                    <Text style={styles.heroStatLbl}>{t('tabs.dashboard.days_left', { lang: appLang, fallback: 'Days Left' })}</Text>
+                    <Text style={[styles.heroStatVal, isTablet && styles.heroStatValTablet]}>{daysRemaining}</Text>
+                    <Text style={[styles.heroStatLbl, isTablet && styles.heroStatLblTablet]}>{t('tabs.dashboard.days_left', { lang: appLang, fallback: 'Days Left' })}</Text>
                   </View>
                 </View>
                 {/* Tasks mini bar */}
-                <View style={styles.heroMiniBar}>
-                  <View style={styles.heroMiniTrack}>
-                    <View style={[styles.heroMiniFill, { width: `${taskPct}%` as any }]} />
+                <View style={[styles.heroMiniBar, isTablet && styles.heroMiniBarTablet]}>
+                  <View style={[styles.heroMiniTrack, isTablet && styles.heroMiniTrackTablet]}>
+                    <View style={[styles.heroMiniFill, isTablet && styles.heroMiniFillTablet, { width: `${taskPct}%` as any }]} />
                   </View>
-                  <Text style={styles.heroMiniText}>
+                  <Text style={[styles.heroMiniText, isTablet && styles.heroMiniTextTablet]}>
                     {t('tabs.dashboard.tasks_count', {
                       lang: appLang,
                       params: { completed: completedTasks, total: todayTasks.length },
@@ -691,7 +706,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* ── Stat Pills ── */}
-        <View style={styles.metricsBoard}>
+        <View style={[styles.metricsBoard, isTablet && styles.metricsBoardTablet]}>
           {[
             { label: t('tabs.dashboard.metric_tasks', { lang: appLang, fallback: 'Tasks' }), value: `${completedTasks}/${todayTasks.length}` },
             { label: t('tabs.dashboard.metric_studied', { lang: appLang, fallback: 'Studied' }), value: formatMinutesCompact(dailyProgress.minutes, appLang) },
@@ -700,42 +715,42 @@ export default function DashboardScreen() {
           ].map((m, i) => (
             <TouchableOpacity
               key={m.label}
-              style={[styles.metricCell, i > 0 && styles.metricCellSep]}
+              style={[styles.metricCell, isTablet && styles.metricCellTablet, i > 0 && styles.metricCellSep]}
               onPress={() => openMetricSheet(m.label, m.value)}
               activeOpacity={0.78}
             >
               <Text
-                style={styles.metricLabel}
+                style={[styles.metricLabel, isTablet && styles.metricLabelTablet]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.72}
               >
                 {m.label}
               </Text>
-              <Text style={styles.metricValue}>{m.value}</Text>
+              <Text style={[styles.metricValue, isTablet && styles.metricValueTablet]}>{m.value}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {/* ── Tab Toggle ── */}
-        <View style={styles.tabRow}>
+        <View style={[styles.tabRow, isTablet && styles.tabRowTablet]}>
           <AttachStep index={1}>
             <TouchableOpacity
-              style={[styles.tab, activeTab === 'tasks' && styles.tabActive]}
+              style={[styles.tab, isTablet && styles.tabTablet, activeTab === 'tasks' && styles.tabActive]}
               onPress={() => switchTab('tasks')}
             >
-              <Ionicons name="list" size={15} color={activeTab === 'tasks' ? DASH.teal : '#94A3B8'} />
-              <Text style={[styles.tabText, activeTab === 'tasks' && styles.tabTextActive]}>
+              <Ionicons name="list" size={isTablet ? 18 : 15} color={activeTab === 'tasks' ? DASH.teal : '#94A3B8'} />
+              <Text style={[styles.tabText, isTablet && styles.tabTextTablet, activeTab === 'tasks' && styles.tabTextActive]}>
                 {t('tabs.dashboard.tab_today_plan', { lang: appLang, fallback: "Today's Plan" })}
               </Text>
             </TouchableOpacity>
           </AttachStep>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'subjects' && styles.tabActive]}
+            style={[styles.tab, isTablet && styles.tabTablet, activeTab === 'subjects' && styles.tabActive]}
             onPress={() => switchTab('subjects')}
           >
-            <Ionicons name="bar-chart" size={15} color={activeTab === 'subjects' ? DASH.teal : '#94A3B8'} />
-            <Text style={[styles.tabText, activeTab === 'subjects' && styles.tabTextActive]}>
+            <Ionicons name="bar-chart" size={isTablet ? 18 : 15} color={activeTab === 'subjects' ? DASH.teal : '#94A3B8'} />
+            <Text style={[styles.tabText, isTablet && styles.tabTextTablet, activeTab === 'subjects' && styles.tabTextActive]}>
               {t('tabs.dashboard.tab_subjects', { lang: appLang, fallback: 'Subjects' })}
             </Text>
           </TouchableOpacity>
@@ -751,11 +766,11 @@ export default function DashboardScreen() {
         {activeTab === 'tasks' && (
           <>
             {/* Daily goal bar */}
-            <View style={styles.goalCard}>
-              <View style={styles.goalCardRow}>
+            <View style={[styles.goalCard, isTablet && styles.goalCardTablet]}>
+              <View style={[styles.goalCardRow, isTablet && styles.goalCardRowTablet]}>
                 <View>
-                  <Text style={styles.goalCardTitle}>{t('tabs.dashboard.daily_goal', { lang: appLang, fallback: 'Daily Goal' })}</Text>
-                  <Text style={styles.goalCardSub}>
+                  <Text style={[styles.goalCardTitle, isTablet && styles.goalCardTitleTablet]}>{t('tabs.dashboard.daily_goal', { lang: appLang, fallback: 'Daily Goal' })}</Text>
+                  <Text style={[styles.goalCardSub, isTablet && styles.goalCardSubTablet]}>
                     {t('tabs.dashboard.minutes_progress', {
                       lang: appLang,
                       params: { done: dailyProgress.minutes, total: todayGoalMins },
@@ -763,71 +778,76 @@ export default function DashboardScreen() {
                     })}
                   </Text>
                 </View>
-                <View style={[styles.goalBadge, { backgroundColor: progressPct >= 100 ? 'rgba(45,212,191,0.18)' : 'rgba(45,212,191,0.12)' }]}>
+                <View style={[styles.goalBadge, isTablet && styles.goalBadgeTablet, { backgroundColor: progressPct >= 100 ? 'rgba(45,212,191,0.18)' : 'rgba(45,212,191,0.12)' }]}>
                   {progressPct >= 100 ? (
                     <View style={styles.goalBadgeDoneRow}>
-                      <Ionicons name="checkmark-done-circle" size={13} color={DASH.teal} />
-                      <Text style={[styles.goalBadgeText, { color: DASH.tealDk }]}>
+                      <Ionicons name="checkmark-done-circle" size={isTablet ? 16 : 13} color={DASH.teal} />
+                      <Text style={[styles.goalBadgeText, isTablet && styles.goalBadgeTextTablet, { color: DASH.tealDk }]}>
                         {t('tabs.dashboard.metric_done', { lang: appLang, fallback: 'Done' })}
                       </Text>
                     </View>
                   ) : (
-                    <Text style={[styles.goalBadgeText, { color: DASH.tealDk }]}>
+                    <Text style={[styles.goalBadgeText, isTablet && styles.goalBadgeTextTablet, { color: DASH.tealDk }]}>
                       {`${Math.round(progressPct)}%`}
                     </Text>
                   )}
                 </View>
               </View>
-            <View style={styles.goalTrack}>
-              <View style={[styles.goalFill, { width: `${Math.min(progressPct, 100)}%` as any }]} />
+            <View style={[styles.goalTrack, isTablet && styles.goalTrackTablet]}>
+              <View style={[styles.goalFill, isTablet && styles.goalFillTablet, { width: `${Math.min(progressPct, 100)}%` as any }]} />
             </View>
           </View>
 
             {adaptiveReviewSignal?.active && adaptiveReviewLine ? (
-              <View style={styles.adaptCard}>
-                <View style={styles.adaptAccent} />
+              <View style={[styles.adaptCard, isTablet && styles.adaptCardTablet]}>
+                <View style={[styles.adaptAccent, isTablet && styles.adaptAccentTablet]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.adaptTag}>
+                  <Text style={[styles.adaptTag, isTablet && styles.adaptTagTablet]}>
                     {t('tabs.dashboard.adaptive_review_title', { lang: appLang, fallback: 'ADAPTIVE REVIEW' })}
                   </Text>
-                  <Text style={styles.adaptBody}>{adaptiveReviewLine}</Text>
+                  <Text style={[styles.adaptBody, isTablet && styles.adaptBodyTablet]}>{adaptiveReviewLine}</Text>
                 </View>
-                <Text style={styles.adaptCount}>{adaptiveReviewSignal.hardCount + adaptiveReviewSignal.incompleteCount}</Text>
+                <Text style={[styles.adaptCount, isTablet && styles.adaptCountTablet]}>{adaptiveReviewSignal.hardCount + adaptiveReviewSignal.incompleteCount}</Text>
               </View>
             ) : null}
 
             {/* Tasks */}
             {todayTasks.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <View style={styles.emptyIconBox}>
+              <View style={[styles.emptyCard, isTablet && styles.emptyCardTablet]}>
+                <View style={[styles.emptyIconBox, isTablet && styles.emptyIconBoxTablet]}>
                   <View style={styles.emptyGlyphBarA} />
                   <View style={styles.emptyGlyphBarB} />
                 </View>
-                <Text style={styles.emptyTitle}>{t('tabs.dashboard.empty_all_clear', { lang: appLang, fallback: 'All clear for today' })}</Text>
-                <Text style={styles.emptySub}>{t('tabs.dashboard.empty_no_sessions', { lang: appLang, fallback: "No sessions left. You can review tomorrow's plan now." })}</Text>
+                <Text style={[styles.emptyTitle, isTablet && styles.emptyTitleTablet]}>{t('tabs.dashboard.empty_all_clear', { lang: appLang, fallback: 'All clear for today' })}</Text>
+                <Text style={[styles.emptySub, isTablet && styles.emptySubTablet]}>{t('tabs.dashboard.empty_no_sessions', { lang: appLang, fallback: "No sessions left. You can review tomorrow's plan now." })}</Text>
                 <View style={styles.emptyList}>
                   <View style={styles.emptyListRow}>
                     <View style={styles.emptyListDot} />
-                    <Text style={styles.emptyListText}>{t('tabs.dashboard.empty_queue_done', { lang: appLang, fallback: "Today's queue is completed" })}</Text>
+                    <Text style={[styles.emptyListText, isTablet && styles.emptyListTextTablet]}>{t('tabs.dashboard.empty_queue_done', { lang: appLang, fallback: "Today's queue is completed" })}</Text>
                   </View>
                   <View style={styles.emptyListRow}>
                     <View style={styles.emptyListDot} />
-                    <Text style={styles.emptyListText}>{t('tabs.dashboard.empty_next_ready', { lang: appLang, fallback: 'Next sessions are ready on Calendar' })}</Text>
+                    <Text style={[styles.emptyListText, isTablet && styles.emptyListTextTablet]}>{t('tabs.dashboard.empty_next_ready', { lang: appLang, fallback: 'Next sessions are ready on Calendar' })}</Text>
                   </View>
                 </View>
-                <TouchableOpacity style={styles.emptyBtn} onPress={() => router.push('/(tabs)/calendar')}>
-                  <Ionicons name="calendar-outline" size={15} color={DASH.teal} />
-                  <Text style={styles.emptyBtnText}>{t('tabs.dashboard.view_calendar', { lang: appLang, fallback: 'View Calendar' })}</Text>
+                <TouchableOpacity style={[styles.emptyBtn, isTablet && styles.emptyBtnTablet]} onPress={() => router.push('/(tabs)/calendar')}>
+                  <Ionicons name="calendar-outline" size={isTablet ? 18 : 15} color={DASH.teal} />
+                  <Text style={[styles.emptyBtnText, isTablet && styles.emptyBtnTextTablet]}>{t('tabs.dashboard.view_calendar', { lang: appLang, fallback: 'View Calendar' })}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={{ gap: 7 }}>
+              <View style={{ gap: isTablet ? 10 : 7 }}>
                 {visibleTasks.map((task, i) => (
                   <TaskCard
                     key={task.id}
                     task={task}
                     subjectLabel={subjectLabel(task.subject)}
-                    isCompleted={taskCompletions[task.id] || false}
+                    isCompleted={taskCompletions[task.id]?.completed || false}
+                    displayDuration={
+                      taskCompletions[task.id]?.completed && taskCompletions[task.id]?.duration
+                        ? taskCompletions[task.id].duration as number
+                        : task.duration
+                    }
                     onPress={() => handleStartSession(task)}
                     typeColor={getTypeColor(task.type)}
                     typeIcon={getTypeIcon(task.type)}
@@ -839,11 +859,11 @@ export default function DashboardScreen() {
                 ))}
                 {canCollapseTasks && (
                   <TouchableOpacity
-                    style={styles.expandTasksRow}
+                    style={[styles.expandTasksRow, isTablet && styles.expandTasksRowTablet]}
                     onPress={() => setShowAllTasks((p) => !p)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.expandTasksText}>
+                    <Text style={[styles.expandTasksText, isTablet && styles.expandTasksTextTablet]}>
                       {showAllTasks
                         ? t('tabs.dashboard.show_less', { lang: appLang, fallback: 'Show less' })
                         : t('tabs.dashboard.continue_with_next_tasks', {
@@ -854,15 +874,15 @@ export default function DashboardScreen() {
                     </Text>
                     <Ionicons
                       name={showAllTasks ? 'chevron-up' : 'chevron-down'}
-                      size={14}
+                      size={isTablet ? 16 : 14}
                       color={DASH.teal}
                     />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity style={[styles.linkRow, styles.calendarLinkRow]} onPress={() => router.push('/(tabs)/calendar')}>
-                  <Ionicons name="calendar-outline" size={14} color={DASH.teal} />
-                  <Text style={styles.linkRowText}>{t('tabs.dashboard.view_full_calendar', { lang: appLang, fallback: 'View full calendar' })}</Text>
-                  <Ionicons name="chevron-forward" size={13} color={DASH.teal} />
+                <TouchableOpacity style={[styles.linkRow, isTablet && styles.linkRowTablet, styles.calendarLinkRow]} onPress={() => router.push('/(tabs)/calendar')}>
+                  <Ionicons name="calendar-outline" size={isTablet ? 16 : 14} color={DASH.teal} />
+                  <Text style={[styles.linkRowText, isTablet && styles.linkRowTextTablet]}>{t('tabs.dashboard.view_full_calendar', { lang: appLang, fallback: 'View full calendar' })}</Text>
+                  <Ionicons name="chevron-forward" size={isTablet ? 15 : 13} color={DASH.teal} />
                 </TouchableOpacity>
               </View>
             )}
@@ -873,12 +893,12 @@ export default function DashboardScreen() {
         {activeTab === 'subjects' && (
           <>
             {subjectEntries.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>{t('tabs.dashboard.empty_no_data', { lang: appLang, fallback: 'No data yet' })}</Text>
-                <Text style={styles.emptySub}>{t('tabs.dashboard.empty_complete_sessions', { lang: appLang, fallback: 'Complete study sessions to see per-subject progress.' })}</Text>
+              <View style={[styles.emptyCard, isTablet && styles.emptyCardTablet]}>
+                <Text style={[styles.emptyTitle, isTablet && styles.emptyTitleTablet]}>{t('tabs.dashboard.empty_no_data', { lang: appLang, fallback: 'No data yet' })}</Text>
+                <Text style={[styles.emptySub, isTablet && styles.emptySubTablet]}>{t('tabs.dashboard.empty_complete_sessions', { lang: appLang, fallback: 'Complete study sessions to see per-subject progress.' })}</Text>
               </View>
             ) : (
-              <View style={styles.subjectsCard}>
+              <View style={[styles.subjectsCard, isTablet && styles.subjectsCardTablet]}>
                 {subjectEntries.map(([sub, prog]: [string, any], idx) => (
                   <SubjectBar
                     key={sub}
@@ -890,10 +910,10 @@ export default function DashboardScreen() {
                     delay={idx * 90}
                   />
                 ))}
-                <TouchableOpacity style={styles.linkRow} onPress={() => router.push('/(tabs)/progress')}>
-                  <Ionicons name="stats-chart-outline" size={14} color={DASH.teal} />
-                  <Text style={styles.linkRowText}>{t('tabs.dashboard.view_detailed_progress', { lang: appLang, fallback: 'View detailed progress' })}</Text>
-                  <Ionicons name="chevron-forward" size={13} color={DASH.teal} />
+                <TouchableOpacity style={[styles.linkRow, isTablet && styles.linkRowTablet]} onPress={() => router.push('/(tabs)/progress')}>
+                  <Ionicons name="stats-chart-outline" size={isTablet ? 16 : 14} color={DASH.teal} />
+                  <Text style={[styles.linkRowText, isTablet && styles.linkRowTextTablet]}>{t('tabs.dashboard.view_detailed_progress', { lang: appLang, fallback: 'View detailed progress' })}</Text>
+                  <Ionicons name="chevron-forward" size={isTablet ? 15 : 13} color={DASH.teal} />
                 </TouchableOpacity>
               </View>
             )}
@@ -947,20 +967,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: isIOS ? 6 : 14, paddingBottom: 10, backgroundColor: 'transparent',
   },
+  headerTablet: {
+    paddingHorizontal: 36,
+    paddingTop: isIOS ? 14 : 20,
+    paddingBottom: 18,
+    maxWidth: 1180,
+    width: '100%',
+    alignSelf: 'center',
+  },
   greetingKicker: { fontSize: 10, fontWeight: '700', color: DASH.muted, letterSpacing: 1.1, textTransform: 'uppercase', marginBottom: 4 },
+  greetingKickerTablet: { fontSize: 13, marginBottom: 7 },
   headerTitle: { fontSize: 21, fontWeight: '800', color: DASH.ink, lineHeight: 25 },
+  headerTitleTablet: { fontSize: 33, lineHeight: 37 },
   headerName: { marginTop: 1, fontSize: 20, fontWeight: '800', color: DASH.ink, lineHeight: 24 },
+  headerNameTablet: { fontSize: 31, lineHeight: 35, marginTop: 3 },
   headerSub: { marginTop: 1, fontSize: 12, fontWeight: '500', color: DASH.sub },
+  headerSubTablet: { marginTop: 5, fontSize: 16, lineHeight: 22 },
   headerExam: { color: DASH.teal, fontWeight: '800' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerRightTablet: { gap: 14 },
   streakPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: 'rgba(45,212,191,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: DASH.cardBorder,
   },
+  streakPillTablet: { borderRadius: 26, paddingHorizontal: 16, paddingVertical: 9, gap: 8 },
   streakDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: DASH.teal },
+  streakDotTablet: { width: 9, height: 9, borderRadius: 5 },
   streakTxt: { fontSize: 10, fontWeight: '700', color: DASH.sub, letterSpacing: 0.4, textTransform: 'uppercase' },
+  streakTxtTablet: { fontSize: 12 },
   streakNum: { fontSize: 12, fontWeight: '800', color: DASH.ink },
+  streakNumTablet: { fontSize: 16 },
   notifBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, justifyContent: 'center', alignItems: 'center' },
+  notifBtnTablet: { width: 50, height: 50, borderRadius: 25 },
 
   // Trial
   trialBanner: {
@@ -972,30 +1010,48 @@ const styles = StyleSheet.create({
   // Scroll
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 2 },
+  scrollContentTablet: { paddingHorizontal: 36, paddingTop: 10, paddingBottom: 128, maxWidth: 1180, width: '100%', alignSelf: 'center' },
 
   // Hero Card
   heroCard: {
     borderRadius: 22, overflow: 'hidden', marginBottom: 12,
     shadowColor: '#6366F1', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 18, elevation: 12,
   },
+  heroCardTablet: { borderRadius: 30, marginBottom: 20 },
   heroGradient: { padding: 19 },
+  heroGradientTablet: { padding: 32 },
   heroBlob1: { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)', top: -40, right: -30 },
+  heroBlob1Tablet: { width: 220, height: 220, borderRadius: 110, top: -56, right: -40 },
   heroBlob2: { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)', bottom: -20, left: 60 },
+  heroBlob2Tablet: { width: 140, height: 140, borderRadius: 70, bottom: -30, left: 90 },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: 17 },
+  heroRowTablet: { gap: 32 },
   heroCirclePct: { fontSize: 22, fontWeight: '800', color: '#FFF' },
+  heroCirclePctTablet: { fontSize: 33, lineHeight: 37 },
   heroCircleLabel: { fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.8)' },
+  heroCircleLabelTablet: { fontSize: 14 },
   heroStats: { flex: 1 },
   heroStatsTitle: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.85)', marginBottom: 10 },
+  heroStatsTitleTablet: { fontSize: 20, marginBottom: 16 },
   heroStatRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  heroStatRowTablet: { marginBottom: 16 },
   heroStat: { flex: 1, alignItems: 'center' },
   heroStatVal: { fontSize: 20, fontWeight: '800', color: '#FFF' },
+  heroStatValTablet: { fontSize: 31 },
   heroStatUnit: { fontSize: 13, fontWeight: '600' },
+  heroStatUnitTablet: { fontSize: 18 },
   heroStatLbl: { fontSize: 10, fontWeight: '500', color: 'rgba(255,255,255,0.75)', marginTop: 1 },
+  heroStatLblTablet: { fontSize: 13, marginTop: 2 },
   heroStatSep: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.3)' },
+  heroStatSepTablet: { height: 40 },
   heroMiniBar: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroMiniBarTablet: { gap: 10 },
   heroMiniTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+  heroMiniTrackTablet: { height: 7, borderRadius: 4 },
   heroMiniFill: { height: 5, borderRadius: 3, backgroundColor: '#FFF' },
+  heroMiniFillTablet: { height: 7, borderRadius: 4 },
   heroMiniText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.9)', minWidth: 52, textAlign: 'right' },
+  heroMiniTextTablet: { fontSize: 15, minWidth: 78 },
 
   // Metrics Board
   metricsBoard: {
@@ -1007,6 +1063,7 @@ const styles = StyleSheet.create({
     borderColor: DASH.cardBorder,
     overflow: 'hidden',
   },
+  metricsBoardTablet: { marginBottom: 18, borderRadius: 20 },
   metricCell: {
     flex: 1,
     paddingVertical: 10,
@@ -1015,6 +1072,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 3,
   },
+  metricCellTablet: { paddingVertical: 18, paddingHorizontal: 14, gap: 6 },
   metricCellSep: {
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: DASH.cardBorder,
@@ -1028,26 +1086,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: '100%',
   },
+  metricLabelTablet: { fontSize: 13, letterSpacing: 0.6 },
   metricValue: {
     fontSize: 17,
     fontWeight: '900',
     color: DASH.ink,
     letterSpacing: -0.2,
   },
+  metricValueTablet: { fontSize: 26 },
 
   // Tab
   tabRow: {
     flexDirection: 'row', backgroundColor: DASH.card, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 8, marginBottom: 10, borderWidth: 1, borderColor: DASH.cardBorder,
   },
+  tabRowTablet: { borderRadius: 18, paddingVertical: 7, paddingHorizontal: 12, marginBottom: 16 },
   tab: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 9,
   },
+  tabTablet: { gap: 8, paddingVertical: 13, paddingHorizontal: 18, borderRadius: 14 },
   tabActive: {
     backgroundColor: 'rgba(45,212,191,0.12)',
     shadowColor: DASH.teal, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.14, shadowRadius: 4, elevation: 2,
   },
   tabText: { fontSize: 13, fontWeight: '600', color: DASH.muted },
+  tabTextTablet: { fontSize: 17 },
   tabTextActive: { color: DASH.teal },
 
   // Goal Card
@@ -1055,14 +1118,22 @@ const styles = StyleSheet.create({
     backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, borderRadius: 14, padding: 12, marginBottom: 8,
     shadowColor: DASH.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
   },
+  goalCardTablet: { borderRadius: 20, padding: 20, marginBottom: 14 },
   goalCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  goalCardRowTablet: { marginBottom: 14 },
   goalCardTitle: { fontSize: 14, fontWeight: '700', color: DASH.ink },
+  goalCardTitleTablet: { fontSize: 19 },
   goalCardSub: { fontSize: 12, color: DASH.sub, marginTop: 2 },
+  goalCardSubTablet: { fontSize: 16, lineHeight: 22, marginTop: 4 },
   goalBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  goalBadgeTablet: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
   goalBadgeDoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   goalBadgeText: { fontSize: 12, fontWeight: '700' },
+  goalBadgeTextTablet: { fontSize: 16 },
   goalTrack: { height: 8, borderRadius: 4, backgroundColor: DASH.track, overflow: 'hidden' },
+  goalTrackTablet: { height: 10, borderRadius: 5 },
   goalFill: { height: 8, borderRadius: 4, backgroundColor: DASH.teal },
+  goalFillTablet: { height: 10, borderRadius: 5 },
   adaptCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1080,10 +1151,15 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  adaptCardTablet: { gap: 16, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 16, marginBottom: 16 },
   adaptAccent: { width: 3, alignSelf: 'stretch', backgroundColor: DASH.teal, borderRadius: 2 },
+  adaptAccentTablet: { width: 4, borderRadius: 3 },
   adaptTag: { fontSize: 9, fontWeight: '800', color: DASH.muted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 },
+  adaptTagTablet: { fontSize: 12, marginBottom: 4 },
   adaptBody: { fontSize: 13, color: DASH.sub, lineHeight: 18 },
+  adaptBodyTablet: { fontSize: 17, lineHeight: 23 },
   adaptCount: { fontSize: 22, fontWeight: '900', color: DASH.teal, letterSpacing: -0.5 },
+  adaptCountTablet: { fontSize: 30 },
 
   // Task Card
   taskCard: {
@@ -1092,19 +1168,27 @@ const styles = StyleSheet.create({
     shadowColor: DASH.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
     paddingRight: 14, paddingVertical: 10,
   },
+  taskCardTablet: { borderRadius: 20, paddingRight: 20, paddingVertical: 16 },
   taskCardDone: { opacity: 0.62 },
   taskAccent: { width: 4, alignSelf: 'stretch', marginRight: 14 },
+  taskAccentTablet: { width: 5, marginRight: 16 },
   taskCircle: {
     width: 26, height: 26, borderRadius: 13, borderWidth: 2,
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
+  taskCircleTablet: { width: 34, height: 34, borderRadius: 17, marginRight: 15 },
   taskBody: { flex: 1 },
   taskSubject: { fontSize: 15, fontWeight: '700', color: DASH.ink, marginBottom: 4 },
+  taskSubjectTablet: { fontSize: 20, marginBottom: 6 },
   taskSubjectDone: { textDecorationLine: 'line-through', color: DASH.muted },
   taskMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  taskMetaTablet: { gap: 10 },
   taskBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  taskBadgeTablet: { gap: 5, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8 },
   taskBadgeText: { fontSize: 11, fontWeight: '600', textTransform: 'capitalize' },
+  taskBadgeTextTablet: { fontSize: 14 },
   taskDuration: { fontSize: 12, color: DASH.muted, fontWeight: '500' },
+  taskDurationTablet: { fontSize: 15 },
   doneTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1114,8 +1198,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
+  doneTagTablet: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, gap: 5 },
   doneTagText: { fontSize: 12, fontWeight: '700', color: DASH.tealDk },
+  doneTagTextTablet: { fontSize: 15 },
   playBtn: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  playBtnTablet: { width: 40, height: 40, borderRadius: 13 },
 
   // Expand Tasks
   expandTasksRow: {
@@ -1130,46 +1217,69 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 12,
   },
+  expandTasksRowTablet: { borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, gap: 8 },
   expandTasksText: { fontSize: 12, fontWeight: '700', color: DASH.tealDk, letterSpacing: 0.1 },
+  expandTasksTextTablet: { fontSize: 15 },
 
   // Link Row
   linkRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, paddingVertical: 7,
   },
+  linkRowTablet: { gap: 8, paddingVertical: 10 },
   calendarLinkRow: { marginTop: 0 },
   linkRowText: { fontSize: 13, fontWeight: '600', color: DASH.teal },
+  linkRowTextTablet: { fontSize: 16 },
 
   // Empty
   emptyCard: { backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center' },
+  emptyCardTablet: { borderRadius: 22, paddingHorizontal: 30, paddingVertical: 26 },
   emptyIconBox: { width: 64, height: 64, borderRadius: 16, borderWidth: 1, borderColor: DASH.cardBorder, backgroundColor: 'rgba(45,212,191,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 10, gap: 6 },
+  emptyIconBoxTablet: { width: 78, height: 78, borderRadius: 18, marginBottom: 14 },
   emptyGlyphBarA: { width: 30, height: 4, borderRadius: 2, backgroundColor: DASH.teal },
   emptyGlyphBarB: { width: 22, height: 4, borderRadius: 2, backgroundColor: 'rgba(45,212,191,0.45)' },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: DASH.ink, marginBottom: 5 },
+  emptyTitleTablet: { fontSize: 22, marginBottom: 8 },
   emptySub: { fontSize: 12, color: DASH.sub, textAlign: 'center', lineHeight: 17, marginBottom: 10 },
+  emptySubTablet: { fontSize: 16, lineHeight: 23, marginBottom: 15 },
   emptyList: { width: '100%', gap: 4, marginBottom: 10 },
   emptyListRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   emptyListDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: DASH.teal },
   emptyListText: { fontSize: 11.5, color: DASH.sub, fontWeight: '500' },
+  emptyListTextTablet: { fontSize: 15 },
   emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(45,212,191,0.12)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
+  emptyBtnTablet: { gap: 8, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
   emptyBtnText: { fontSize: 12, fontWeight: '600', color: DASH.teal },
+  emptyBtnTextTablet: { fontSize: 15 },
 
   // Subjects
   subjectsCard: {
     backgroundColor: DASH.card, borderWidth: 1, borderColor: DASH.cardBorder, borderRadius: 16, padding: 16,
     shadowColor: DASH.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
   },
+  subjectsCardTablet: { borderRadius: 22, padding: 24 },
   subjectRow: { marginBottom: 12, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: DASH.cardBorder },
+  subjectRowTablet: { marginBottom: 18, paddingBottom: 18 },
   subjectRowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  subjectRowHeaderTablet: { marginBottom: 10 },
   subjectRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subjectRowLeftTablet: { gap: 10 },
   subjectDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: DASH.cardBorder, backgroundColor: 'rgba(45,212,191,0.10)', justifyContent: 'center', alignItems: 'center' },
+  subjectDotTablet: { width: 24, height: 24, borderRadius: 12 },
   subjectDotTxt: { fontSize: 10, fontWeight: '800', color: DASH.teal },
+  subjectDotTxtTablet: { fontSize: 12 },
   subjectName: { fontSize: 13, fontWeight: '600', color: DASH.ink },
+  subjectNameTablet: { fontSize: 18 },
   subjectRowRight: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  subjectRowRightTablet: { gap: 7 },
   subjectPct: { fontSize: 12, fontWeight: '700', color: DASH.teal },
+  subjectPctTablet: { fontSize: 15 },
   subjectMeta: { fontSize: 11, color: DASH.muted, fontWeight: '500' },
+  subjectMetaTablet: { fontSize: 14 },
   subjectTrack: { height: 7, borderRadius: 4, backgroundColor: DASH.track, overflow: 'hidden' },
+  subjectTrackTablet: { height: 9, borderRadius: 5 },
   subjectFill: { height: 7, borderRadius: 4, backgroundColor: DASH.teal },
+  subjectFillTablet: { height: 9, borderRadius: 5 },
 
   // Metric Sheet
   sheetOverlay: {

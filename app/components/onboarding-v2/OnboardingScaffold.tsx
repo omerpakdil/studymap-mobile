@@ -51,6 +51,7 @@ export function OnboardingScaffold({
 }: OnboardingScaffoldProps) {
   const { width } = useWindowDimensions();
   const tokens = getOnboardingV2Tokens(width);
+  const isTablet = tokens.deviceClass === 'tablet';
   const bg = onboardingV2Backgrounds[backgroundVariant] ?? onboardingV2Backgrounds.slate ?? Object.values(onboardingV2Backgrounds)[0];
 
   // Entrance
@@ -88,6 +89,8 @@ export function OnboardingScaffold({
           maxWidth: tokens.maxContentWidth,
           alignSelf: 'center',
           width: '100%',
+          paddingTop: isTablet ? 26 : 10,
+          paddingBottom: isTablet ? 182 : 140,
           opacity: fadeIn,
           transform: [{ translateY: slideUp }],
         },
@@ -99,6 +102,7 @@ export function OnboardingScaffold({
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={[
             styles.backBtn,
+            isTablet && styles.backBtnTablet,
             bg.isDark ? styles.backBtnDark : styles.backBtnLight,
             { opacity: onBack ? 1 : 0 },
           ]}
@@ -111,7 +115,7 @@ export function OnboardingScaffold({
 
         <View style={styles.brandRow}>
           <View style={[styles.brandMark, { backgroundColor: bg.accent }]} />
-          <Text style={[styles.brandText, { color: bg.brandColor }]}>StudyMap</Text>
+          <Text style={[styles.brandText, isTablet && styles.brandTextTablet, { color: bg.brandColor }]}>StudyMap</Text>
         </View>
 
         <View style={styles.backBtn} />
@@ -163,7 +167,7 @@ export function OnboardingScaffold({
 
       {/* Subtitle */}
       {!!subtitle && (
-        <Text style={[styles.subtitle, { color: bg.subtitleColor, fontSize: tokens.subtitleSize }]}>
+        <Text style={[styles.subtitle, isTablet && styles.subtitleTablet, { color: bg.subtitleColor, fontSize: tokens.subtitleSize }]}>
           {subtitle}
         </Text>
       )}
@@ -220,6 +224,7 @@ export function OnboardingScaffold({
           <View
             style={[
               styles.footer,
+              isTablet && styles.footerTablet,
               {
                 paddingHorizontal: hp,
                 backgroundColor: bg.isDark
@@ -423,6 +428,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  backBtnTablet: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+  },
   backBtnLight: {
     backgroundColor: 'rgba(0,0,0,0.04)',
     borderWidth: 1,
@@ -454,6 +464,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.4,
+  },
+  brandTextTablet: {
+    fontSize: 17,
   },
 
   progressSection: {
@@ -497,6 +510,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     letterSpacing: 0.1,
   },
+  subtitleTablet: {
+    lineHeight: 32,
+    marginBottom: 34,
+    maxWidth: 760,
+  },
   content: {},
 
   orb: { position: 'absolute', borderRadius: 999 },
@@ -514,6 +532,10 @@ const styles = StyleSheet.create({
     paddingTop: FOOTER.paddingTop,
     paddingBottom: FOOTER.paddingBottom,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  footerTablet: {
+    paddingTop: 14,
+    paddingBottom: 46,
   },
 
   primaryBtn: {

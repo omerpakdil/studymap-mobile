@@ -78,6 +78,7 @@ export default function OnboardingV2FocusScreen() {
     countryDefaultLanguage: getCountryByCode(draft.countryCode)?.defaultLanguage ?? null,
   });
   const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [activeSubject, setActiveSubject] = useState('');
   const [animKey, setAnimKey] = useState(0);
 
@@ -89,17 +90,20 @@ export default function OnboardingV2FocusScreen() {
   }, [draft.examId]);
 
   const subjectIntensity = useMemo(() => draft.subjectIntensity || {}, [draft.subjectIntensity]);
-  const shouldScrollSubjects = subjects.length > 4;
+  const shouldScrollSubjects = !isTablet && subjects.length > 4;
   const subjectChipWidth = useMemo(() => {
     const horizontalPadding = 44; // inner paddingHorizontal * 2
     const gap = 7;
     const contentWidth = Math.max(280, width - horizontalPadding);
+    if (isTablet) {
+      return Math.floor((contentWidth - gap * Math.max(subjects.length - 1, 0)) / Math.max(subjects.length, 1));
+    }
     if (subjects.length <= 1) return contentWidth;
     if (subjects.length <= 4) {
       return Math.floor((contentWidth - gap * (subjects.length - 1)) / subjects.length);
     }
     return 118;
-  }, [subjects.length, width]);
+  }, [isTablet, subjects.length, width]);
 
   useEffect(() => { void trackOnboardingStepView('focus'); }, []);
 
@@ -233,18 +237,18 @@ export default function OnboardingV2FocusScreen() {
         {[0,1,2,3,4,5,6,7].map(i=><View key={i} style={{position:'absolute',left:0,right:0,top:`${i*12.5}%`,height:StyleSheet.hairlineWidth,backgroundColor:C.grid}}/>)}
       </View>
 
-      <Animated.View style={[s.inner,{opacity:entrance}]}>
+      <Animated.View style={[s.inner, isTablet && s.innerTablet,{opacity:entrance}]}>
 
         {/* Header */}
-        <View style={s.headerRow}>
-          <TouchableOpacity style={[s.backBtn,{backgroundColor:C.backBg,borderColor:C.backBorder}]} onPress={()=>{void trackOnboardingStepBack('focus');router.back();}} activeOpacity={0.7}>
-            <Text style={[s.backArrowTxt,{color:C.backArrow}]}>‹</Text>
+        <View style={[s.headerRow, isTablet && s.headerRowTablet]}>
+          <TouchableOpacity style={[s.backBtn, isTablet && s.backBtnTablet,{backgroundColor:C.backBg,borderColor:C.backBorder}]} onPress={()=>{void trackOnboardingStepBack('focus');router.back();}} activeOpacity={0.7}>
+            <Text style={[s.backArrowTxt, isTablet && s.backArrowTxtTablet,{color:C.backArrow}]}>‹</Text>
           </TouchableOpacity>
           <View style={s.brandRow}>
             <View style={[s.brandMark,{backgroundColor:C.brand}]}/>
-            <Text style={[s.brandTxt,{color:C.brand}]}>StudyMap</Text>
+            <Text style={[s.brandTxt, isTablet && s.brandTxtTablet,{color:C.brand}]}>StudyMap</Text>
           </View>
-          <View style={s.backBtn}/>
+          <View style={[s.backBtn, isTablet && s.backBtnTablet]}/>
         </View>
 
         {/* Progress */}
@@ -254,25 +258,25 @@ export default function OnboardingV2FocusScreen() {
             <View style={s.progressSheen}/>
           </View>
         </View>
-        <Text style={[s.stepLabel,{color:C.labelMuted}]}>
+        <Text style={[s.stepLabel, isTablet && s.stepLabelTablet,{color:C.labelMuted}]}>
           {t('common.step_of', { lang, params: { current: 9, total: 13 } })}
         </Text>
 
         {/* Title row + presets */}
-        <View style={s.titleRow}>
+        <View style={[s.titleRow, isTablet && s.titleRowTablet]}>
           <View>
-            <Text style={[s.title,{color:C.title}]}>
+            <Text style={[s.title, isTablet && s.titleTablet,{color:C.title}]}>
               {t('onboarding.focus.title', { lang, fallback: 'Subject focus.' })}
             </Text>
-            <Text style={[s.sub,{color:C.sub}]}>
+            <Text style={[s.sub, isTablet && s.subTablet,{color:C.sub}]}>
               {t('onboarding.focus.avg_pressure', { lang, fallback: 'Avg pressure' })}:{' '}
               <Text style={{color:C.teal,fontWeight:'800'}}>{avgLevel}/3</Text>
             </Text>
           </View>
-          <View style={s.presetRow}>
+          <View style={[s.presetRow, isTablet && s.presetRowTablet]}>
             {PRESETS.map(p => (
-              <TouchableOpacity key={p.id} style={[s.presetBtn,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]} onPress={()=>applyPreset(p.id)} activeOpacity={0.75}>
-                <Text style={[s.presetTxt,{color:C.teal}]}>{getPresetLabel(p.id)}</Text>
+              <TouchableOpacity key={p.id} style={[s.presetBtn, isTablet && s.presetBtnTablet,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]} onPress={()=>applyPreset(p.id)} activeOpacity={0.75}>
+                <Text style={[s.presetTxt, isTablet && s.presetTxtTablet,{color:C.teal}]}>{getPresetLabel(p.id)}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -312,7 +316,7 @@ export default function OnboardingV2FocusScreen() {
             })}
           </ScrollView>
         ) : (
-          <View style={s.subjectRowStatic}>
+          <View style={[s.subjectRowStatic, isTablet && s.subjectRowStaticTablet]}>
             {subjects.map((subj, i) => {
               const isActive  = subj === activeSubject;
               const isDone    = i < activeIdx;
@@ -323,6 +327,7 @@ export default function OnboardingV2FocusScreen() {
                   key={subj}
                   style={[
                     s.subjectChip,
+                    isTablet && s.subjectChipTablet,
                     { width: subjectChipWidth },
                     isActive  ? { backgroundColor: C.teal,     borderColor: C.teal }
                     : isDone  ? { backgroundColor: C.tealSoft, borderColor: C.tealBorder }
@@ -331,9 +336,9 @@ export default function OnboardingV2FocusScreen() {
                   onPress={() => switchSubject(subj, i)}
                   activeOpacity={0.82}
                 >
-                  <Text style={[s.subjectChipNum,{color: isActive ? 'rgba(255,255,255,0.70)' : C.muted}]}>{i+1}</Text>
-                  <Text style={[s.subjectChipTxt,{color: isActive ? '#fff' : isDone ? C.teal : C.sub}]} numberOfLines={1}>{subjectLabel(subj)}</Text>
-                  {isDone && <Text style={[s.subjectChipLvl,{color:C.teal}]}>{lvlLabel}</Text>}
+                  <Text style={[s.subjectChipNum, isTablet && s.subjectChipNumTablet,{color: isActive ? 'rgba(255,255,255,0.70)' : C.muted}]}>{i+1}</Text>
+                  <Text style={[s.subjectChipTxt, isTablet && s.subjectChipTxtTablet,{color: isActive ? '#fff' : isDone ? C.teal : C.sub}]} numberOfLines={1}>{subjectLabel(subj)}</Text>
+                  {isDone && <Text style={[s.subjectChipLvl, isTablet && s.subjectChipLvlTablet,{color:C.teal}]}>{lvlLabel}</Text>}
                 </TouchableOpacity>
               );
             })}
@@ -341,7 +346,7 @@ export default function OnboardingV2FocusScreen() {
         )}
 
         {/* Step pips */}
-        <View style={s.pips}>
+        <View style={[s.pips, isTablet && s.pipsTablet]}>
           {subjects.map((subj, i) => (
             <View
               key={subj}
@@ -356,22 +361,22 @@ export default function OnboardingV2FocusScreen() {
         </View>
 
         {/* ── Active subject card ── */}
-        <Animated.View key={animKey} style={[s.activeCard,{opacity:cardFade}]}>
+        <Animated.View key={animKey} style={[s.activeCard, isTablet && s.activeCardTablet,{opacity:cardFade}]}>
 
           {/* Subject name + current level */}
-          <View style={s.activeHeader}>
+          <View style={[s.activeHeader, isTablet && s.activeHeaderTablet]}>
             <View style={s.activeLeft}>
-              <Text style={[s.activeNum,{color:C.muted}]}>{activeIdx + 1} / {subjects.length}</Text>
-              <Text style={[s.activeName,{color:C.title}]} numberOfLines={1}>{activeSubject ? subjectLabel(activeSubject) : '—'}</Text>
+              <Text style={[s.activeNum, isTablet && s.activeNumTablet,{color:C.muted}]}>{activeIdx + 1} / {subjects.length}</Text>
+              <Text style={[s.activeName, isTablet && s.activeNameTablet,{color:C.title}]} numberOfLines={1}>{activeSubject ? subjectLabel(activeSubject) : '—'}</Text>
             </View>
-            <View style={[s.activeLevelBadge,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
-              <Text style={[s.activeLevelTxt,{color:C.teal}]}>{getLevelLabel(activeLevel.id)}</Text>
-              <Text style={[s.activeLevelDesc,{color:C.muted}]}>{getLevelDesc(activeLevel.id)}</Text>
+            <View style={[s.activeLevelBadge, isTablet && s.activeLevelBadgeTablet,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
+              <Text style={[s.activeLevelTxt, isTablet && s.activeLevelTxtTablet,{color:C.teal}]}>{getLevelLabel(activeLevel.id)}</Text>
+              <Text style={[s.activeLevelDesc, isTablet && s.activeLevelDescTablet,{color:C.muted}]}>{getLevelDesc(activeLevel.id)}</Text>
             </View>
           </View>
 
           {/* Level buttons */}
-          <View style={s.levelGrid}>
+          <View style={[s.levelGrid, isTablet && s.levelGridTablet]}>
             {LEVELS.map((lvl, i) => {
               const sel = lvl.id === activeValue;
               return (
@@ -386,6 +391,7 @@ export default function OnboardingV2FocusScreen() {
                   <TouchableOpacity
                     style={[
                       s.levelBtn,
+                      isTablet && s.levelBtnTablet,
                       sel
                         ? { backgroundColor: C.tealSoft, borderColor: C.teal, borderWidth: 1.5,
                             shadowColor: C.teal, shadowOffset:{width:0,height:3}, shadowOpacity:0.18, shadowRadius:8, elevation:4 }
@@ -398,8 +404,8 @@ export default function OnboardingV2FocusScreen() {
                     {sel && (
                       <LinearGradient colors={[C.teal,C.tealDk]} start={{x:0,y:0}} end={{x:1,y:0}} style={s.levelBtnBar}/>
                     )}
-                    <Text style={[s.levelBtnLabel,{color: sel ? C.title : C.sub}]}>{getLevelLabel(lvl.id)}</Text>
-                    <Text style={[s.levelBtnDesc, {color: sel ? C.teal   : C.muted}]}>{getLevelDesc(lvl.id)}</Text>
+                    <Text style={[s.levelBtnLabel, isTablet && s.levelBtnLabelTablet,{color: sel ? C.title : C.sub}]}>{getLevelLabel(lvl.id)}</Text>
+                    <Text style={[s.levelBtnDesc, isTablet && s.levelBtnDescTablet, {color: sel ? C.teal   : C.muted}]}>{getLevelDesc(lvl.id)}</Text>
                   </TouchableOpacity>
                 </Animated.View>
               );
@@ -408,8 +414,8 @@ export default function OnboardingV2FocusScreen() {
         </Animated.View>
 
         {/* ── Distribution bars ── */}
-        <View style={[s.distCard,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
-          <Text style={[s.distTitle,{color:C.muted}]}>
+        <View style={[s.distCard, isTablet && s.distCardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+          <Text style={[s.distTitle, isTablet && s.distTitleTablet,{color:C.muted}]}>
             {t('onboarding.focus.all_subjects', { lang, fallback: 'All subjects' })}
           </Text>
           <View style={s.distList}>
@@ -418,8 +424,8 @@ export default function OnboardingV2FocusScreen() {
               const fill = LEVELS.find(l => l.id === lvl)?.fill ?? 0.5;
               const isAct = subj === activeSubject;
               return (
-                <View key={subj} style={s.distRow}>
-                  <Text style={[s.distLabel,{color: isAct ? C.title : C.sub, fontWeight: isAct ? '700' : '400'}]} numberOfLines={1}>
+                <View key={subj} style={[s.distRow, isTablet && s.distRowTablet]}>
+                  <Text style={[s.distLabel, isTablet && s.distLabelTablet,{color: isAct ? C.title : C.sub, fontWeight: isAct ? '700' : '400'}]} numberOfLines={1}>
                     {subjectLabel(subj)}
                   </Text>
                   <View style={[s.distTrack,{backgroundColor:'rgba(13,148,136,0.08)'}]}>
@@ -430,7 +436,7 @@ export default function OnboardingV2FocusScreen() {
                       ]}
                     />
                   </View>
-                  <Text style={[s.distLvlTxt,{color: isAct ? C.teal : C.muted}]}>
+                  <Text style={[s.distLvlTxt, isTablet && s.distLvlTxtTablet,{color: isAct ? C.teal : C.muted}]}>
                     {getLevelLabel(lvl)}
                   </Text>
                 </View>
@@ -439,23 +445,23 @@ export default function OnboardingV2FocusScreen() {
           </View>
         </View>
 
-        <View style={s.bottomInsights}>
-          <View style={[s.insightCard,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
-            <Text style={[s.insightLabel,{color:C.muted}]}>
+        <View style={[s.bottomInsights, isTablet && s.bottomInsightsTablet]}>
+          <View style={[s.insightCard, isTablet && s.insightCardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+            <Text style={[s.insightLabel, isTablet && s.insightLabelTablet,{color:C.muted}]}>
               {t('onboarding.focus.coverage', { lang, fallback: 'Coverage' })}
             </Text>
-            <Text style={[s.insightValue,{color:C.title}]}>
+            <Text style={[s.insightValue, isTablet && s.insightValueTablet,{color:C.title}]}>
               {configuredCount}/{subjects.length}
             </Text>
           </View>
-          <View style={[s.insightCard,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
-            <Text style={[s.insightLabel,{color:C.muted}]}>
+          <View style={[s.insightCard, isTablet && s.insightCardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+            <Text style={[s.insightLabel, isTablet && s.insightLabelTablet,{color:C.muted}]}>
               {t('onboarding.focus.avg_pressure', { lang, fallback: 'Avg pressure' })}
             </Text>
-            <Text style={[s.insightValue,{color:C.teal}]}>{avgLevel}/3</Text>
+            <Text style={[s.insightValue, isTablet && s.insightValueTablet,{color:C.teal}]}>{avgLevel}/3</Text>
           </View>
         </View>
-        <Text style={[s.bottomHint,{color:C.muted}]}>
+        <Text style={[s.bottomHint, isTablet && s.bottomHintTablet,{color:C.muted}]}>
           {t('onboarding.focus.bottom_hint', {
             lang,
             fallback: 'Tap Continue to move through each subject and finalize your focus.',
@@ -465,12 +471,12 @@ export default function OnboardingV2FocusScreen() {
       </Animated.View>
 
       {/* Footer */}
-      <Animated.View style={[s.footer,{backgroundColor:C.footer,borderTopColor:C.footerBorder,opacity:ctaFade}]}>
+      <Animated.View style={[s.footer, isTablet && s.footerTablet,{backgroundColor:C.footer,borderTopColor:C.footerBorder,opacity:ctaFade}]}>
         <Animated.View style={{transform:[{scale:ctaScale}]}}>
-          <TouchableOpacity style={s.cta} onPress={handleContinue} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
+          <TouchableOpacity style={[s.cta, isTablet && s.ctaTablet]} onPress={handleContinue} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
             <LinearGradient colors={[C.teal,C.tealDk]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
             <View style={s.ctaSheen}/>
-            <Text style={s.ctaTxt}>
+            <Text style={[s.ctaTxt, isTablet && s.ctaTxtTablet]}>
               {isLastSubj
                 ? t('common.continue', { lang })
                 : t('onboarding.focus.next_subject', {
@@ -479,7 +485,7 @@ export default function OnboardingV2FocusScreen() {
                     fallback: `Next: ${subjectLabel(subjects[activeIdx + 1])}`,
                   })}
             </Text>
-            <Text style={s.ctaArrow}>→</Text>
+            <Text style={[s.ctaArrow, isTablet && s.ctaArrowTablet]}>→</Text>
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -492,83 +498,126 @@ const s = StyleSheet.create({
   orbA:{ position:'absolute', width:260, height:260, borderRadius:999, top:-80, right:-100 },
   orbB:{ position:'absolute', width:160, height:160, borderRadius:999, bottom:200, left:-70 },
   inner:{ flex:1, paddingHorizontal:22, paddingTop:10, paddingBottom:96 },
+  innerTablet:{paddingHorizontal:36,paddingTop:20,paddingBottom:126,maxWidth:1100,width:'100%',alignSelf:'center'},
 
   headerRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12 },
+  headerRowTablet:{marginBottom:18},
   backBtn:{ width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
+  backBtnTablet:{width:48,height:48,borderRadius:14},
   backArrowTxt:{ fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
+  backArrowTxtTablet:{fontSize:32,lineHeight:36},
   brandRow:{ flexDirection:'row', alignItems:'center', gap:6 },
   brandMark:{ width:7, height:7, borderRadius:2 },
   brandTxt:{ fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTxtTablet:{fontSize:18},
 
   progressTrack:{ height:3, borderRadius:99, overflow:'hidden', marginBottom:6 },
   progressFill:{ height:'100%', borderRadius:99, overflow:'hidden' },
   progressSheen:{ position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.28)' },
   stepLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:12, opacity:0.65 },
+  stepLabelTablet:{fontSize:13,marginBottom:18},
 
   titleRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:13 },
+  titleRowTablet:{marginBottom:18},
   title:{ fontSize:26, fontWeight:'900', letterSpacing:-0.6 },
+  titleTablet:{fontSize:44,lineHeight:48,maxWidth:520},
   sub:{ fontSize:12, fontWeight:'400', marginTop:3 },
+  subTablet:{fontSize:17,marginTop:6},
   presetRow:{ gap:5 },
+  presetRowTablet:{gap:8},
   presetBtn:{ borderWidth:1, borderRadius:8, paddingHorizontal:9, paddingVertical:5 },
+  presetBtnTablet:{borderRadius:12,paddingHorizontal:14,paddingVertical:9},
   presetTxt:{ fontSize:10, fontWeight:'700' },
+  presetTxtTablet:{fontSize:13},
 
   // Subject scroll
   subjectScroll:{ gap:7, paddingBottom:2, marginBottom:10 },
   subjectRowStatic:{ flexDirection:'row', gap:7, marginBottom:10 },
+  subjectRowStaticTablet:{gap:8,marginBottom:14,flexWrap:'nowrap',justifyContent:'space-between'},
   subjectChip:{
     flexDirection:'row', alignItems:'center', gap:5,
     borderWidth:1, borderRadius:20,
     paddingHorizontal:12, paddingVertical:7,
   },
+  subjectChipTablet:{paddingHorizontal:10,paddingVertical:14,borderRadius:24,minHeight:64,justifyContent:'center'},
   subjectChipNum:{ fontSize:9, fontWeight:'700' },
+  subjectChipNumTablet:{fontSize:11},
   subjectChipTxt:{ flexShrink:1, fontSize:12, fontWeight:'700' },
+  subjectChipTxtTablet:{fontSize:16},
   subjectChipLvl:{ fontSize:9, fontWeight:'600' },
+  subjectChipLvlTablet:{fontSize:11},
 
   // Pips
   pips:{ flexDirection:'row', gap:4, marginBottom:12 },
+  pipsTablet:{gap:6,marginBottom:16},
   pip:{ flex:1, height:2.5, borderRadius:99 },
 
   // Active card
   activeCard:{ marginBottom:12, gap:11 },
+  activeCardTablet:{marginBottom:16,gap:16},
   activeHeader:{ flexDirection:'row', alignItems:'flex-start', justifyContent:'space-between', gap:12 },
+  activeHeaderTablet:{gap:16},
   activeLeft:{ flex:1, gap:2 },
   activeNum:{ fontSize:10, fontWeight:'600', letterSpacing:0.4, textTransform:'uppercase' },
+  activeNumTablet:{fontSize:13},
   activeName:{ fontSize:22, fontWeight:'900', letterSpacing:-0.5 },
+  activeNameTablet:{fontSize:34,lineHeight:38},
   activeLevelBadge:{ borderWidth:1, borderRadius:12, paddingHorizontal:11, paddingVertical:7, alignItems:'flex-end', gap:1 },
+  activeLevelBadgeTablet:{borderRadius:16,paddingHorizontal:14,paddingVertical:10},
   activeLevelTxt:{ fontSize:13, fontWeight:'800' },
+  activeLevelTxtTablet:{fontSize:17},
   activeLevelDesc:{ fontSize:10, fontWeight:'400' },
+  activeLevelDescTablet:{fontSize:12},
 
   // Level grid
   levelGrid:{ flexDirection:'row', gap:8 },
+  levelGridTablet:{gap:12},
   levelBtn:{
     minHeight:84,
     borderRadius:14, paddingVertical:13, paddingHorizontal:7,
     alignItems:'center', gap:4, overflow:'hidden',
   },
+  levelBtnTablet:{minHeight:112,borderRadius:18,paddingVertical:18,paddingHorizontal:12},
   levelBtnBar:{ position:'absolute', top:0, left:0, right:0, height:2 },
   levelBtnLabel:{ fontSize:13, fontWeight:'800', letterSpacing:-0.1 },
+  levelBtnLabelTablet:{fontSize:18},
   levelBtnDesc:{ fontSize:10, fontWeight:'500', textAlign:'center', letterSpacing:0.1 },
+  levelBtnDescTablet:{fontSize:13,lineHeight:18},
 
   // Distribution
   distCard:{ marginTop:8, borderWidth:1, borderRadius:14, padding:14, gap:9 },
+  distCardTablet:{marginTop:12,borderRadius:18,padding:18,gap:12},
   distTitle:{ fontSize:10, fontWeight:'600', letterSpacing:0.7, textTransform:'uppercase' },
+  distTitleTablet:{fontSize:13},
   distList:{ gap:7 },
   distRow:{ flexDirection:'row', alignItems:'center', gap:8 },
+  distRowTablet:{gap:12},
   distLabel:{ width:74, fontSize:11 },
+  distLabelTablet:{width:124,fontSize:16},
   distTrack:{ flex:1, height:5, borderRadius:99, overflow:'hidden' },
   distFill:{ height:'100%', borderRadius:99 },
   distLvlTxt:{ width:52, fontSize:10, fontWeight:'600', textAlign:'right' },
+  distLvlTxtTablet:{width:82,fontSize:13},
   bottomInsights:{ flexDirection:'row', gap:8, marginTop:8 },
+  bottomInsightsTablet:{gap:12,marginTop:12},
   insightCard:{ flex:1, borderWidth:1, borderRadius:12, paddingVertical:10, paddingHorizontal:11 },
+  insightCardTablet:{borderRadius:16,paddingVertical:14,paddingHorizontal:16},
   insightLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.5, textTransform:'uppercase' },
+  insightLabelTablet:{fontSize:12},
   insightValue:{ marginTop:4, fontSize:17, fontWeight:'900', letterSpacing:-0.2 },
+  insightValueTablet:{fontSize:24},
   bottomHint:{ marginTop:8, fontSize:11, lineHeight:15, textAlign:'center' },
+  bottomHintTablet:{marginTop:12,fontSize:14,lineHeight:20},
 
   // Footer
   footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  footerTablet:{paddingHorizontal:36,paddingTop:16,paddingBottom:42},
   cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#0D9488', shadowOffset:{width:0,height:5}, shadowOpacity:0.24, shadowRadius:14, elevation:7 },
+  ctaTablet:{height:68,borderRadius:20},
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },
   ctaTxt:{ color:'#fff', fontSize:15, fontWeight:'800', letterSpacing:0.1 },
+  ctaTxtTablet:{fontSize:22},
   ctaArrow:{ color:'rgba(255,255,255,0.72)', fontSize:16 },
+  ctaArrowTablet:{fontSize:22},
 });

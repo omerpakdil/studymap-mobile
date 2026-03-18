@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -166,6 +167,8 @@ export default function OnboardingV2SessionLengthScreen() {
   const lang = resolveAppLanguage({
     countryDefaultLanguage: getCountryByCode(draft.countryCode)?.defaultLanguage ?? null,
   });
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
 
   const entrance = useRef(new Animated.Value(0)).current;
   const ctaFade = useRef(new Animated.Value(0)).current;
@@ -200,20 +203,20 @@ export default function OnboardingV2SessionLengthScreen() {
         {[0,1,2,3,4,5,6,7].map(i => <View key={`h${i}`} style={{ position:'absolute', left:0, right:0, top:`${i*12.5}%`, height:StyleSheet.hairlineWidth, backgroundColor:C.grid }} />)}
       </View>
 
-      <Animated.View style={[s.inner, { opacity: entrance }]}>
-        <View style={s.headerRow}>
+      <Animated.View style={[s.inner, isTablet && s.innerTablet, { opacity: entrance }]}>
+        <View style={[s.headerRow, isTablet && s.headerRowTablet]}>
           <TouchableOpacity
-            style={[s.backBtn, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
+            style={[s.backBtn, isTablet && s.backBtnTablet, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
             onPress={() => { void trackOnboardingStepBack('session_length'); router.back(); }}
             activeOpacity={0.7}
           >
-            <Text style={[s.backArrow, { color: C.backArrow }]}>‹</Text>
+            <Text style={[s.backArrow, isTablet && s.backArrowTablet, { color: C.backArrow }]}>‹</Text>
           </TouchableOpacity>
           <View style={s.brandRow}>
             <View style={[s.brandMark, { backgroundColor: C.brand }]} />
-            <Text style={[s.brandText, { color: C.brand }]}>StudyMap</Text>
+            <Text style={[s.brandText, isTablet && s.brandTextTablet, { color: C.brand }]}>StudyMap</Text>
           </View>
-          <View style={s.backBtn} />
+          <View style={[s.backBtn, isTablet && s.backBtnTablet]} />
         </View>
 
         <View style={[s.progressTrack, { backgroundColor: C.tealSoft }]}>
@@ -221,18 +224,18 @@ export default function OnboardingV2SessionLengthScreen() {
             <LinearGradient colors={[C.teal, C.tealDk]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
           </View>
         </View>
-        <Text style={[s.stepLabel, { color: C.labelMuted }]}>
+        <Text style={[s.stepLabel, isTablet && s.stepLabelTablet, { color: C.labelMuted }]}>
           {t('common.step_of', { lang, params: { current: 7, total: 13 } })}
         </Text>
 
-        <Text style={[s.title, { color: C.title }]}>
+        <Text style={[s.title, isTablet && s.titleTablet, { color: C.title }]}>
           {copy.title}
         </Text>
-        <Text style={[s.sub, { color: C.sub }]}>
+        <Text style={[s.sub, isTablet && s.subTablet, { color: C.sub }]}>
           {copy.subtitle}
         </Text>
 
-        <View style={s.cardList}>
+        <View style={[s.cardList, isTablet && s.cardListTablet]}>
           {OPTIONS.map((opt, i) => {
             const active = opt.id === selected.id;
             return (
@@ -246,6 +249,7 @@ export default function OnboardingV2SessionLengthScreen() {
                 <TouchableOpacity
                   style={[
                     s.card,
+                    isTablet && s.cardTablet,
                     active
                       ? { backgroundColor: C.tealSoft, borderColor: C.teal, borderWidth: 1.5 }
                       : { backgroundColor: C.cardBg, borderColor: C.cardBorder, borderWidth: 1 },
@@ -259,22 +263,22 @@ export default function OnboardingV2SessionLengthScreen() {
                     end={{ x: 0, y: 1 }}
                     style={[s.rail, { opacity: active ? 1 : 0.2 }]}
                   />
-                  <View style={s.cardBody}>
-                    <View style={s.topRow}>
-                      <Text style={[s.cardTitle, { color: active ? C.tealDk : C.title }]}>
+                  <View style={[s.cardBody, isTablet && s.cardBodyTablet]}>
+                    <View style={[s.topRow, isTablet && s.topRowTablet]}>
+                      <Text style={[s.cardTitle, isTablet && s.cardTitleTablet, { color: active ? C.tealDk : C.title }]}>
                         {copy.options[opt.key].label}
                       </Text>
-                      <View style={[s.badge, { backgroundColor: active ? `${C.teal}18` : 'rgba(0,0,0,0.05)' }]}>
-                        <Text style={[s.badgeText, { color: active ? C.tealDk : C.sub }]}>{opt.id} {getMinuteUnitShort(lang)}</Text>
+                      <View style={[s.badge, isTablet && s.badgeTablet, { backgroundColor: active ? `${C.teal}18` : 'rgba(0,0,0,0.05)' }]}>
+                        <Text style={[s.badgeText, isTablet && s.badgeTextTablet, { color: active ? C.tealDk : C.sub }]}>{opt.id} {getMinuteUnitShort(lang)}</Text>
                       </View>
                     </View>
-                    <Text style={[s.cardDesc, { color: C.sub }]}>
+                    <Text style={[s.cardDesc, isTablet && s.cardDescTablet, { color: C.sub }]}>
                       {copy.options[opt.key].desc}
                     </Text>
                   </View>
                   {active && (
-                    <View style={s.checkWrap}>
-                      <Text style={s.checkText}>✓</Text>
+                    <View style={[s.checkWrap, isTablet && s.checkWrapTablet]}>
+                      <Text style={[s.checkText, isTablet && s.checkTextTablet]}>✓</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -284,20 +288,20 @@ export default function OnboardingV2SessionLengthScreen() {
         </View>
       </Animated.View>
 
-      <Animated.View style={[s.footer, { opacity: ctaFade, backgroundColor: C.footer, borderTopColor: C.footerBorder }]}>
+      <Animated.View style={[s.footer, isTablet && s.footerTablet, { opacity: ctaFade, backgroundColor: C.footer, borderTopColor: C.footerBorder }]}>
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={s.cta}
+            style={[s.cta, isTablet && s.ctaTablet]}
             onPress={() => { void trackOnboardingStepContinue('session_length'); router.push('/(onboarding-v2)/goal-intensity'); }}
             onPressIn={() => Animated.spring(ctaScale, { toValue: 0.97, damping: 20, stiffness: 400, useNativeDriver: true }).start()}
             onPressOut={() => Animated.spring(ctaScale, { toValue: 1, damping: 18, stiffness: 360, useNativeDriver: true }).start()}
             activeOpacity={1}
           >
             <LinearGradient colors={[C.teal, C.tealDk]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-            <Text style={s.ctaText}>
+            <Text style={[s.ctaText, isTablet && s.ctaTextTablet]}>
               {t('common.continue', { lang })} · {selected.id} {getMinuteUnitShort(lang)}
             </Text>
-            <Text style={s.ctaArrow}>→</Text>
+            <Text style={[s.ctaArrow, isTablet && s.ctaArrowTablet]}>→</Text>
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -308,32 +312,54 @@ export default function OnboardingV2SessionLengthScreen() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FAFBFC' },
   inner: { flex: 1, paddingHorizontal: 22, paddingTop: 10, paddingBottom: 110 },
+  innerTablet:{paddingHorizontal:36,paddingTop:20,paddingBottom:132,maxWidth:980,width:'100%',alignSelf:'center'},
   orbA: { position: 'absolute', width: 240, height: 240, borderRadius: 999, top: -70, right: -90 },
   orbB: { position: 'absolute', width: 160, height: 160, borderRadius: 999, bottom: 180, left: -70 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  headerRowTablet:{marginBottom:18},
   backBtn: { width: 36, height: 36, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  backBtnTablet:{width:48,height:48,borderRadius:14},
   backArrow: { fontSize: 26, fontWeight: '300', lineHeight: 30, marginTop: -1 },
+  backArrowTablet:{fontSize:32,lineHeight:36},
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandMark: { width: 7, height: 7, borderRadius: 2 },
   brandText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.4 },
+  brandTextTablet:{fontSize:18},
   progressTrack: { height: 3, borderRadius: 999, overflow: 'hidden', marginBottom: 6 },
   progressFill: { height: '100%', borderRadius: 999, overflow: 'hidden' },
   stepLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 14, opacity: 0.65 },
+  stepLabelTablet:{fontSize:13,marginBottom:18},
   title: { fontSize: 30, fontWeight: '900', lineHeight: 36, letterSpacing: -0.7, marginBottom: 6 },
+  titleTablet:{fontSize:54,lineHeight:60,marginBottom:10,maxWidth:720},
   sub: { fontSize: 13, lineHeight: 19, fontWeight: '400', marginBottom: 16 },
+  subTablet:{fontSize:21,lineHeight:30,marginBottom:22,maxWidth:840},
   cardList: { gap: 10 },
+  cardListTablet:{gap:14},
   card: { borderRadius: 16, flexDirection: 'row', alignItems: 'center', overflow: 'hidden', paddingVertical: 14, paddingRight: 14 },
+  cardTablet:{borderRadius:20,paddingVertical:18,paddingRight:18},
   rail: { width: 4, alignSelf: 'stretch', borderRadius: 2, marginRight: 14 },
   cardBody: { flex: 1, gap: 6 },
+  cardBodyTablet:{gap:10},
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  topRowTablet:{gap:14},
   cardTitle: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  cardTitleTablet:{fontSize:22},
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  badgeTablet:{borderRadius:12,paddingHorizontal:12,paddingVertical:8},
   badgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.1 },
+  badgeTextTablet:{fontSize:13},
   cardDesc: { fontSize: 12, lineHeight: 17 },
+  cardDescTablet:{fontSize:15,lineHeight:22},
   checkWrap: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: `${C.teal}18`, marginLeft: 8 },
+  checkWrapTablet:{width:38,height:38,borderRadius:12},
   checkText: { color: C.tealDk, fontSize: 14, fontWeight: '700' },
+  checkTextTablet:{fontSize:20},
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 6, paddingBottom: 36, borderTopWidth: StyleSheet.hairlineWidth },
+  footerTablet:{paddingHorizontal:36,paddingTop:16,paddingBottom:42},
   cta: { height: FOOTER.ctaHeight, borderRadius: FOOTER.ctaRadius, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden' },
+  ctaTablet:{height:68,borderRadius:20},
   ctaText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+  ctaTextTablet:{fontSize:22},
   ctaArrow: { color: 'rgba(255,255,255,0.78)', fontSize: 17 },
+  ctaArrowTablet:{fontSize:22},
 });

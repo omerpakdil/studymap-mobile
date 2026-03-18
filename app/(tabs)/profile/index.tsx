@@ -46,6 +46,7 @@ import {
 
 const { width } = Dimensions.get('window');
 const isIOS = Platform.OS === 'ios';
+const isTablet = width >= 768;
 
 const T = {
   bg:         '#F4FAFA',
@@ -749,161 +750,161 @@ const styles = StyleSheet.create({
 
   loadWrap:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadOrb:   { width: 76, height: 76, borderRadius: 38, justifyContent: 'center', alignItems: 'center', marginBottom: 20, shadowColor: T.teal, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.32, shadowRadius: 16, elevation: 10 },
-  loadTitle: { fontSize: 19, fontWeight: '700', color: T.ink, marginBottom: 4 },
-  loadSub:   { fontSize: 13, color: T.sub },
+  loadTitle: { fontSize: isTablet ? 28 : 19, fontWeight: '700', color: T.ink, marginBottom: 4 },
+  loadSub:   { fontSize: isTablet ? 18 : 13, color: T.sub },
 
   topBar: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 22, paddingTop: isIOS ? 6 : 14, paddingBottom: 12,
+    paddingHorizontal: 22, paddingTop: isIOS ? (isTablet ? 10 : 6) : (isTablet ? 18 : 14), paddingBottom: isTablet ? 18 : 12,
   },
-  topKicker:    { fontSize: 10, fontWeight: '700', color: T.muted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 3 },
-  topTitle:     { fontSize: 24, fontWeight: '800', color: T.ink, letterSpacing: -0.4 },
+  topKicker:    { fontSize: isTablet ? 14 : 10, fontWeight: '700', color: T.muted, letterSpacing: isTablet ? 1.5 : 1.2, textTransform: 'uppercase', marginBottom: 3 },
+  topTitle:     { fontSize: isTablet ? 34 : 24, fontWeight: '800', color: T.ink, letterSpacing: -0.4 },
   editChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: T.tealLt, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: T.tealLt, borderRadius: isTablet ? 26 : 22, paddingHorizontal: isTablet ? 18 : 14, paddingVertical: isTablet ? 11 : 8,
     borderWidth: 1, borderColor: T.border,
   },
-  editChipText: { fontSize: 13, fontWeight: '700', color: T.teal },
+  editChipText: { fontSize: isTablet ? 16 : 13, fontWeight: '700', color: T.teal },
 
   scroll:        { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 4 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: isTablet ? 8 : 4, paddingBottom: isTablet ? 28 : 0 },
 
   // Hero
   heroCard: {
-    borderRadius: 24, overflow: 'hidden', marginBottom: 14,
+    borderRadius: isTablet ? 30 : 24, overflow: 'hidden', marginBottom: isTablet ? 18 : 14,
     shadowColor: T.tealDk, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.22, shadowRadius: 20, elevation: 14,
   },
-  heroGrad: { padding: 22, paddingBottom: 0, overflow: 'hidden' },
+  heroGrad: { padding: isTablet ? 30 : 22, paddingBottom: 0, overflow: 'hidden' },
 
   heroRingA: { position: 'absolute', width: 220, height: 220, borderRadius: 110, top: -90, right: -70, borderWidth: 40, borderColor: 'rgba(255,255,255,0.06)' },
   heroRingB: { position: 'absolute', width: 160, height: 160, borderRadius: 80, top: -30, right: 40, borderWidth: 20, borderColor: 'rgba(255,255,255,0.05)' },
   heroRingC: { position: 'absolute', width: 100, height: 100, borderRadius: 50, bottom: 10, left: -20, borderWidth: 15, borderColor: 'rgba(255,255,255,0.07)' },
 
-  heroIdentity: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
+  heroIdentity: { flexDirection: 'row', alignItems: 'flex-start', gap: isTablet ? 22 : 16, marginBottom: isTablet ? 28 : 22 },
 
   avatarWrap:       { position: 'relative' },
-  avatarRingOuter:  { width: 66, height: 66, borderRadius: 33, padding: 3, backgroundColor: 'rgba(255,255,255,0.25)' },
-  avatarInner:      { flex: 1, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.94)', justifyContent: 'center', alignItems: 'center' },
-  avatarInitials:   { fontSize: 24, fontWeight: '800', color: T.tealDk },
-  avatarBadge:      { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#22C55E', borderWidth: 2.5, borderColor: T.tealDk, justifyContent: 'center', alignItems: 'center' },
+  avatarRingOuter:  { width: isTablet ? 86 : 66, height: isTablet ? 86 : 66, borderRadius: isTablet ? 43 : 33, padding: 3, backgroundColor: 'rgba(255,255,255,0.25)' },
+  avatarInner:      { flex: 1, borderRadius: isTablet ? 38 : 28, backgroundColor: 'rgba(255,255,255,0.94)', justifyContent: 'center', alignItems: 'center' },
+  avatarInitials:   { fontSize: isTablet ? 32 : 24, fontWeight: '800', color: T.tealDk },
+  avatarBadge:      { position: 'absolute', bottom: 2, right: 2, width: isTablet ? 18 : 14, height: isTablet ? 18 : 14, borderRadius: isTablet ? 9 : 7, backgroundColor: '#22C55E', borderWidth: 2.5, borderColor: T.tealDk, justifyContent: 'center', alignItems: 'center' },
   avatarBadgeDot:   { width: 5, height: 5, borderRadius: 3, backgroundColor: '#fff' },
 
   heroMeta:       { flex: 1, paddingTop: 4 },
-  heroName:       { fontSize: 19, fontWeight: '800', color: '#fff', marginBottom: 3, letterSpacing: -0.2 },
-  heroEmail:      { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 9 },
+  heroName:       { fontSize: isTablet ? 28 : 19, fontWeight: '800', color: '#fff', marginBottom: 3, letterSpacing: -0.2 },
+  heroEmail:      { fontSize: isTablet ? 16 : 12, color: 'rgba(255,255,255,0.72)', marginBottom: isTablet ? 12 : 9 },
   examChipRow:    { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 6, alignSelf: 'flex-start', maxWidth: '100%' },
-  examChip:       { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', maxWidth: '100%' },
+  examChip:       { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: isTablet ? 24 : 20, paddingHorizontal: isTablet ? 14 : 10, paddingVertical: isTablet ? 8 : 5, alignSelf: 'flex-start', maxWidth: '100%' },
   examChipPrimary:{ maxWidth: '100%' },
-  examChipText:   { fontSize: 11, fontWeight: '700', color: '#fff', flexShrink: 1 },
+  examChipText:   { fontSize: isTablet ? 14 : 11, fontWeight: '700', color: '#fff', flexShrink: 1 },
 
-  statsStrip: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.14)', paddingVertical: 14, paddingHorizontal: 6, marginHorizontal: -22, marginTop: 4 },
+  statsStrip: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.14)', paddingVertical: isTablet ? 18 : 14, paddingHorizontal: isTablet ? 10 : 6, marginHorizontal: isTablet ? -30 : -22, marginTop: 4 },
   statsDiv:   { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
   statTile:   { flex: 1, alignItems: 'center' },
-  statTileVal: { fontSize: 21, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
-  statTileLbl: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.68)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.4 },
+  statTileVal: { fontSize: isTablet ? 30 : 21, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
+  statTileLbl: { fontSize: isTablet ? 13 : 10, fontWeight: '600', color: 'rgba(255,255,255,0.68)', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.4 },
 
   // Trial banner
   trialBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F0FDF4', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11,
-    marginBottom: 14, borderWidth: 1, borderColor: 'rgba(22,163,74,0.2)',
+    backgroundColor: '#F0FDF4', borderRadius: isTablet ? 16 : 12, paddingHorizontal: isTablet ? 18 : 14, paddingVertical: isTablet ? 14 : 11,
+    marginBottom: isTablet ? 18 : 14, borderWidth: 1, borderColor: 'rgba(22,163,74,0.2)',
   },
-  trialIcon: { width: 30, height: 30, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
-  trialText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#166534' },
+  trialIcon: { width: isTablet ? 38 : 30, height: isTablet ? 38 : 30, borderRadius: isTablet ? 12 : 9, justifyContent: 'center', alignItems: 'center' },
+  trialText: { flex: 1, fontSize: isTablet ? 16 : 13, fontWeight: '600', color: '#166534' },
 
   // Block / sections
-  block: { marginBottom: 14 },
+  block: { marginBottom: isTablet ? 18 : 14 },
 
-  sectionLabelRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, marginBottom: 8 },
-  sectionLabelText: { fontSize: 11, fontWeight: '700', color: T.muted, textTransform: 'uppercase', letterSpacing: 0.9 },
+  sectionLabelRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4, marginBottom: isTablet ? 10 : 8 },
+  sectionLabelText: { fontSize: isTablet ? 14 : 11, fontWeight: '700', color: T.muted, textTransform: 'uppercase', letterSpacing: 0.9 },
 
   // Referral card
   referralCard: {
-    borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: T.border,
+    borderRadius: isTablet ? 24 : 20, overflow: 'hidden', borderWidth: 1, borderColor: T.border,
     shadowColor: T.tealDk, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.14, shadowRadius: 12, elevation: 6,
   },
-  referralGrad: { padding: 20, overflow: 'hidden' },
+  referralGrad: { padding: isTablet ? 26 : 20, overflow: 'hidden' },
   referralGradOrb: { position: 'absolute', width: 150, height: 150, borderRadius: 75, right: -40, top: -40, backgroundColor: 'rgba(255,255,255,0.07)' },
-  referralLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
-  referralCode:  { fontSize: 38, fontWeight: '900', color: '#fff', letterSpacing: 7, marginBottom: 6 },
-  referralHint:  { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginBottom: 16, lineHeight: 17 },
+  referralLabel: { fontSize: isTablet ? 13 : 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
+  referralCode:  { fontSize: isTablet ? 46 : 38, fontWeight: '900', color: '#fff', letterSpacing: isTablet ? 9 : 7, marginBottom: 6 },
+  referralHint:  { fontSize: isTablet ? 15 : 12, color: 'rgba(255,255,255,0.72)', marginBottom: isTablet ? 20 : 16, lineHeight: isTablet ? 22 : 17 },
   referralActions: { flexDirection: 'row', gap: 10 },
-  referralBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 38, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.18)' },
-  referralBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  referralBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: isTablet ? 46 : 38, borderRadius: isTablet ? 12 : 10, backgroundColor: 'rgba(255,255,255,0.18)' },
+  referralBtnText: { fontSize: isTablet ? 16 : 13, fontWeight: '700', color: '#fff' },
 
   referralStats: { flexDirection: 'row', backgroundColor: T.card },
-  refStat: { flex: 1, alignItems: 'center', paddingVertical: 14 },
+  refStat: { flex: 1, alignItems: 'center', paddingVertical: isTablet ? 18 : 14 },
   refStatBorder: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: T.border },
-  refStatVal: { fontSize: 20, fontWeight: '900', color: T.ink, marginBottom: 2 },
-  refStatLbl: { fontSize: 10, fontWeight: '600', color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  refStatVal: { fontSize: isTablet ? 28 : 20, fontWeight: '900', color: T.ink, marginBottom: 2 },
+  refStatLbl: { fontSize: isTablet ? 13 : 10, fontWeight: '600', color: T.muted, textTransform: 'uppercase', letterSpacing: 0.4 },
 
   // Settings card
   settingsCard: {
-    backgroundColor: T.card, borderRadius: 18, borderWidth: 1, borderColor: T.border, overflow: 'hidden',
+    backgroundColor: T.card, borderRadius: isTablet ? 22 : 18, borderWidth: 1, borderColor: T.border, overflow: 'hidden',
     shadowColor: T.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
-  settingRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, gap: 13 },
-  settingIconWrap:  { width: 34, height: 34, borderRadius: 10, backgroundColor: T.tealLt, justifyContent: 'center', alignItems: 'center' },
+  settingRow:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: isTablet ? 20 : 16, paddingVertical: isTablet ? 18 : 14, gap: isTablet ? 16 : 13 },
+  settingIconWrap:  { width: isTablet ? 42 : 34, height: isTablet ? 42 : 34, borderRadius: isTablet ? 12 : 10, backgroundColor: T.tealLt, justifyContent: 'center', alignItems: 'center' },
   settingIconDanger:{ backgroundColor: 'rgba(225,29,72,0.10)' },
   settingBody:      { flex: 1 },
-  settingTitle:     { fontSize: 14, fontWeight: '700', color: T.ink },
-  settingSubtitle:  { fontSize: 12, color: T.muted, marginTop: 1.5, fontWeight: '500' },
-  rowLine:          { height: StyleSheet.hairlineWidth, backgroundColor: T.border, marginLeft: 63 },
+  settingTitle:     { fontSize: isTablet ? 18 : 14, fontWeight: '700', color: T.ink },
+  settingSubtitle:  { fontSize: isTablet ? 15 : 12, color: T.muted, marginTop: 1.5, fontWeight: '500' },
+  rowLine:          { height: StyleSheet.hairlineWidth, backgroundColor: T.border, marginLeft: isTablet ? 78 : 63 },
 
   // Toggle
-  toggle: { width: 48, height: 26, borderRadius: 13, justifyContent: 'center' },
-  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.16, shadowRadius: 2, elevation: 2 },
+  toggle: { width: isTablet ? 56 : 48, height: isTablet ? 30 : 26, borderRadius: isTablet ? 15 : 13, justifyContent: 'center' },
+  toggleThumb: { width: isTablet ? 26 : 22, height: isTablet ? 26 : 22, borderRadius: isTablet ? 13 : 11, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.16, shadowRadius: 2, elevation: 2 },
 
   // App info
-  appInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: T.card, borderRadius: 16, borderWidth: 1, borderColor: T.border, padding: 15, marginBottom: 12 },
-  appLogo: { width: 40, height: 40, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
-  appInfoName: { fontSize: 14, fontWeight: '800', color: T.ink, marginBottom: 2 },
-  appInfoVer:  { fontSize: 11, color: T.muted, fontWeight: '500' },
-  appInfoBadge: { marginLeft: 'auto', backgroundColor: T.tealLt, borderRadius: 7, paddingHorizontal: 9, paddingVertical: 3, borderWidth: 1, borderColor: T.border },
-  appInfoBadgeText: { fontSize: 11, fontWeight: '700', color: T.teal },
+  appInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: T.card, borderRadius: isTablet ? 20 : 16, borderWidth: 1, borderColor: T.border, padding: isTablet ? 20 : 15, marginBottom: isTablet ? 16 : 12 },
+  appLogo: { width: isTablet ? 52 : 40, height: isTablet ? 52 : 40, borderRadius: isTablet ? 14 : 11, justifyContent: 'center', alignItems: 'center' },
+  appInfoName: { fontSize: isTablet ? 18 : 14, fontWeight: '800', color: T.ink, marginBottom: 2 },
+  appInfoVer:  { fontSize: isTablet ? 14 : 11, color: T.muted, fontWeight: '500' },
+  appInfoBadge: { marginLeft: 'auto', backgroundColor: T.tealLt, borderRadius: isTablet ? 9 : 7, paddingHorizontal: isTablet ? 12 : 9, paddingVertical: isTablet ? 5 : 3, borderWidth: 1, borderColor: T.border },
+  appInfoBadgeText: { fontSize: isTablet ? 13 : 11, fontWeight: '700', color: T.teal },
 
   // Legal
-  legalRow:    { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 8 },
-  legalLink:   { fontSize: 12, fontWeight: '600', color: T.muted },
+  legalRow:    { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: isTablet ? 20 : 16, marginBottom: 8 },
+  legalLink:   { fontSize: isTablet ? 15 : 12, fontWeight: '600', color: T.muted },
   legalDot:    { width: 3, height: 3, borderRadius: 2, backgroundColor: T.muted },
-  memberSince: { textAlign: 'center', fontSize: 12, color: T.muted, fontStyle: 'italic', marginBottom: 8 },
+  memberSince: { textAlign: 'center', fontSize: isTablet ? 15 : 12, color: T.muted, fontStyle: 'italic', marginBottom: 8 },
 
   // Overlay / sheet
   overlay: { flex: 1, backgroundColor: 'rgba(5,15,25,0.45)', justifyContent: 'flex-end', padding: 14 },
   sheet: {
-    backgroundColor: '#fff', borderRadius: 24, padding: 22,
+    backgroundColor: '#fff', borderRadius: isTablet ? 28 : 24, padding: isTablet ? 28 : 22,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 14,
   },
-  sheetPill:     { width: 34, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', alignSelf: 'center', marginBottom: 18 },
-  sheetTitle:    { fontSize: 18, fontWeight: '800', color: T.ink, textAlign: 'center', marginBottom: 4 },
-  sheetSub:      { fontSize: 13, color: T.sub, textAlign: 'center', lineHeight: 18 },
+  sheetPill:     { width: isTablet ? 42 : 34, height: 4, borderRadius: 2, backgroundColor: '#E2E8F0', alignSelf: 'center', marginBottom: 18 },
+  sheetTitle:    { fontSize: isTablet ? 24 : 18, fontWeight: '800', color: T.ink, textAlign: 'center', marginBottom: 4 },
+  sheetSub:      { fontSize: isTablet ? 16 : 13, color: T.sub, textAlign: 'center', lineHeight: isTablet ? 22 : 18 },
   sheetCancel:   { marginTop: 12, height: 46, borderRadius: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
-  sheetCancelText: { fontSize: 14, fontWeight: '700', color: T.sub },
+  sheetCancelText: { fontSize: isTablet ? 17 : 14, fontWeight: '700', color: T.sub },
   sheetBtns:     { flexDirection: 'row', gap: 10, marginTop: 16 },
   sheetCancel2:  { flex: 1, height: 46, borderRadius: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
   sheetSave:     { flex: 1, height: 46, borderRadius: 12, backgroundColor: T.teal, justifyContent: 'center', alignItems: 'center' },
-  sheetSaveText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  sheetSaveText: { fontSize: isTablet ? 17 : 14, fontWeight: '800', color: '#fff' },
 
   // Freq options
   freqOpt:      { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1.5, borderColor: T.border, backgroundColor: '#F8FAFC', padding: 14 },
   freqOptSel:   { backgroundColor: T.teal, borderColor: T.teal },
-  freqOptLabel: { fontSize: 14, fontWeight: '700', color: T.ink },
-  freqOptSub:   { fontSize: 12, color: T.muted, marginTop: 1 },
+  freqOptLabel: { fontSize: isTablet ? 17 : 14, fontWeight: '700', color: T.ink },
+  freqOptSub:   { fontSize: isTablet ? 15 : 12, color: T.muted, marginTop: 1 },
   freqSelPill:  { backgroundColor: 'rgba(255,255,255,0.20)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.30)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  freqSelText:  { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.3, textTransform: 'uppercase' },
+  freqSelText:  { fontSize: isTablet ? 12 : 10, fontWeight: '800', color: '#fff', letterSpacing: 0.3, textTransform: 'uppercase' },
 
   // Time grid
   timeGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', paddingVertical: 4 },
-  timeCell:      { width: 66, height: 36, borderRadius: 10, borderWidth: 1.5, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+  timeCell:      { width: isTablet ? 78 : 66, height: isTablet ? 42 : 36, borderRadius: isTablet ? 12 : 10, borderWidth: 1.5, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
   timeCellSel:   { backgroundColor: T.teal, borderColor: T.teal },
-  timeCellText:  { fontSize: 13, fontWeight: '600', color: T.ink },
+  timeCellText:  { fontSize: isTablet ? 15 : 13, fontWeight: '600', color: T.ink },
 
   // Delete
-  deleteIcon:     { width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(225,29,72,0.10)', justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
+  deleteIcon:     { width: isTablet ? 68 : 58, height: isTablet ? 68 : 58, borderRadius: isTablet ? 34 : 29, backgroundColor: 'rgba(225,29,72,0.10)', justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
   deleteList:     { backgroundColor: '#FFF1F2', borderRadius: 12, padding: 14, marginTop: 14, gap: 7 },
   deleteListRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   deleteListDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: '#E11D48' },
-  deleteListText: { fontSize: 13, color: '#9F1239', fontWeight: '500' },
+  deleteListText: { fontSize: isTablet ? 15 : 13, color: '#9F1239', fontWeight: '500' },
   deleteBtn:      { flex: 1, height: 46, borderRadius: 12, backgroundColor: '#E11D48', justifyContent: 'center', alignItems: 'center' },
-  deleteBtnText:  { fontSize: 14, fontWeight: '800', color: '#fff' },
+  deleteBtnText:  { fontSize: isTablet ? 17 : 14, fontWeight: '800', color: '#fff' },
 });

@@ -694,10 +694,10 @@ function QuoteTicker({ quotes }: { quotes: { text: string; name: string }[] }) {
 
 // ── Plan card ─────────────────────────────────────────────────────────────────
 function PlanCard({
-  pkg, selected, onPress, monthlyPkg, introEligible, isPopular, lang, compact = false,
+  pkg, selected, onPress, monthlyPkg, introEligible, isPopular, lang, compact = false, tablet = false,
 }: {
   pkg: PurchasesPackage; selected: boolean; onPress: ()=>void;
-  monthlyPkg: PurchasesPackage | null; introEligible: boolean; isPopular?: boolean; lang: SupportedLanguage; compact?: boolean;
+  monthlyPkg: PurchasesPackage | null; introEligible: boolean; isPopular?: boolean; lang: SupportedLanguage; compact?: boolean; tablet?: boolean;
 }) {
   const scale = useRef(new Animated.Value(selected ? 1 : 0.975)).current;
   useEffect(() => {
@@ -739,11 +739,11 @@ function PlanCard({
           </LinearGradient>
         )}
 
-        <View style={[s.planInner, compact && s.planInnerCompact, isPopular && { paddingTop: compact ? 24 : 28 }]}>
+        <View style={[s.planInner, tablet && s.planInnerTablet, compact && s.planInnerCompact, isPopular && { paddingTop: compact ? 24 : tablet ? 32 : 28 }]}>
           {/* Left */}
           <View style={s.planLeft}>
             <View style={s.planTitleRow}>
-              <Text style={[s.planTitle, { color: selected ? C.title : C.sub }]}>{title}</Text>
+              <Text style={[s.planTitle, tablet && s.planTitleTablet, { color: selected ? C.title : C.sub }]}>{title}</Text>
               {savings != null && (
                 <View style={[s.saveBadge,{backgroundColor:C.amberSoft,borderColor:C.amberBorder}]}>
                   <Text style={[s.saveBadgeTxt,{color:C.amber}]}>{t('onboarding.subscription.save_percent', { lang, params: { value: savings }, fallback: `SAVE ${savings}%` })}</Text>
@@ -755,8 +755,8 @@ function PlanCard({
                 </View>
               )}
             </View>
-            <Text style={[s.planSub, compact && s.planSubCompact, { color: selected ? C.muted : C.dim }]} numberOfLines={2}>{sub}</Text>
-            {eq && <Text style={[s.planEq, compact && s.planEqCompact, { color: selected ? C.amber : C.dim }]}>{eq}</Text>}
+            <Text style={[s.planSub, tablet && s.planSubTablet, compact && s.planSubCompact, { color: selected ? C.muted : C.dim }]} numberOfLines={2}>{sub}</Text>
+            {eq && <Text style={[s.planEq, tablet && s.planEqTablet, compact && s.planEqCompact, { color: selected ? C.amber : C.dim }]}>{eq}</Text>}
             {/* intro offer badge intentionally hidden — no free trial */}
           </View>
 
@@ -767,15 +767,16 @@ function PlanCard({
                 {oldPrice}
               </Text>
             )}
-            <Text style={[s.planPrice, { color: selected ? C.amber : C.sub }]}>
+            <Text style={[s.planPrice, tablet && s.planPriceTablet, { color: selected ? C.amber : C.sub }]}>
               {pkg.product.priceString}
             </Text>
-            <Text style={[s.planPeriod, { color: C.muted }]}>{period}</Text>
+            <Text style={[s.planPeriod, tablet && s.planPeriodTablet, { color: C.muted }]}>{period}</Text>
           </View>
 
           {/* Radio */}
           <View style={[
             s.radio,
+            tablet && s.radioTablet,
             selected
               ? { backgroundColor:C.amber, borderColor:C.amber }
               : { backgroundColor:'transparent', borderColor:'rgba(245,158,11,0.25)' },
@@ -827,6 +828,7 @@ function AmberModal({
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function SubscriptionScreen() {
   const { width, height } = useWindowDimensions();
+  const isTablet = width >= 768;
   const { draft } = useOnboardingV2();
   const lang = resolveAppLanguage();
   const params    = useLocalSearchParams<{source?:string;entry_step?:string;variant_id?:string}>();
@@ -921,7 +923,7 @@ export default function SubscriptionScreen() {
   const isNarrow = width <= 390;
   const isMultiPlan = sortedPkgs.length > 1;
   const densePlanMode = false; // max 2 plans — no need to compress
-  const useCompactFooter = isTight || isNarrow;
+  const useCompactFooter = !isTablet && (isTight || isNarrow);
   const quotes = useMemo(() => getLocalizedQuotePool(lang), [lang]);
   const benefits = [
     { icon: BENEFIT_ICONS[0], title: t('onboarding.subscription.benefit_1_title', { lang, fallback: 'Your plan is optimized every week' }), desc: t('onboarding.subscription.benefit_1_desc', { lang, fallback: 'Premium keeps your exam timeline fixed and updates weekly distribution based on what you actually completed.' }) },
@@ -1047,50 +1049,51 @@ export default function SubscriptionScreen() {
 
       <Animated.View style={{flex:1,opacity:entrance}}>
         <ScrollView
-          contentContainerStyle={[s.scroll, (isTight || densePlanMode) && s.scrollTight]}
+          contentContainerStyle={[s.scroll, isTablet && s.scrollTablet, (isTight || densePlanMode) && !isTablet && s.scrollTight]}
           showsVerticalScrollIndicator={false}
           bounces={false}
         >
 
           {/* ── Brand ── */}
-          <View style={[s.brandRow, (isTight || densePlanMode) && s.brandRowTight]}>
+          <View style={[s.brandRow, isTablet && s.brandRowTablet, (isTight || densePlanMode) && !isTablet && s.brandRowTight]}>
             <View style={[s.brandMark,{backgroundColor:C.amber}]}/>
-            <Text style={[s.brandTxt,{color:C.amber}]}>StudyMap</Text>
+            <Text style={[s.brandTxt, isTablet && s.brandTxtTablet,{color:C.amber}]}>StudyMap</Text>
             <View style={s.brandSpacer}/>
-            <View style={[s.freePill,{backgroundColor:C.amberSoft,borderColor:C.amberBorder}]}>
+            <View style={[s.freePill, isTablet && s.freePillTablet,{backgroundColor:C.amberSoft,borderColor:C.amberBorder}]}>
               <View style={[s.freeDot,{backgroundColor:C.amber}]}/>
-              <Text style={[s.freePillTxt,{color:C.amber}]} numberOfLines={1}>
+              <Text style={[s.freePillTxt, isTablet && s.freePillTxtTablet,{color:C.amber}]} numberOfLines={1}>
                 {t('onboarding.subscription.premium_badge', { lang, fallback: 'Premium' })}
               </Text>
             </View>
           </View>
 
           {/* ── Hero ── */}
-          <View style={[s.heroSection, (isTight || densePlanMode) && s.heroSectionTight]}>
+          <View style={[s.heroSection, isTablet && s.heroSectionTablet, (isTight || densePlanMode) && !isTablet && s.heroSectionTight]}>
             <Text style={[s.heroEyebrow,{color:C.amber}]}>{t('onboarding.subscription.hero_eyebrow', { lang, fallback: 'Premium Plan' })}</Text>
-            <Text style={[s.heroHeadline,{color:C.title}, (isTight || densePlanMode) && s.heroHeadlineTight]}>
+            <Text style={[s.heroHeadline,{color:C.title}, isTablet && s.heroHeadlineTablet, (isTight || densePlanMode) && !isTablet && s.heroHeadlineTight]}>
               {t('onboarding.subscription.hero_headline_1', { lang, fallback: 'Score higher.' })}{'\n'}
               <Text style={{color:C.amber}}>{t('onboarding.subscription.hero_headline_2', { lang, fallback: 'Every week.' })}</Text>
             </Text>
-            <Text style={[s.heroBody,{color:C.sub}, (isTight || densePlanMode) && s.heroBodyTight]}>
+            <Text style={[s.heroBody,{color:C.sub}, isTablet && s.heroBodyTablet, (isTight || densePlanMode) && !isTablet && s.heroBodyTight]}>
               {t('onboarding.subscription.hero_body', { lang, fallback: 'Most study apps give you a static plan and wish you luck. StudyMap Premium keeps your exam timeline and optimizes your plan weekly from real performance.' })}
             </Text>
           </View>
 
           {/* ── Quote ticker ── */}
           {!isTight && (
-            <View style={[s.tickerCard,{backgroundColor:C.surface,borderColor:C.cardBorder}]}>
+            <View style={[s.tickerCard, isTablet && s.tickerCardTablet, {backgroundColor:C.surface,borderColor:C.cardBorder}]}>
               <QuoteTicker quotes={quotes}/>
             </View>
           )}
 
           {/* ── Stats row ── */}
-          <View style={[s.statRow, densePlanMode && s.statRowCompact]}>
+          <View style={[s.statRow, isTablet && s.statRowTablet, densePlanMode && !isTablet && s.statRowCompact]}>
             {stats.map((stat,i)=>(
               <Animated.View
                 key={stat.label}
                 style={[
                   s.statCell,
+                  isTablet && s.statCellTablet,
                   densePlanMode && s.statCellCompact,
                   {backgroundColor:C.surface,borderColor:C.cardBorder},
                   {
@@ -1099,16 +1102,16 @@ export default function SubscriptionScreen() {
                   },
                 ]}
               >
-                <Text style={[s.statVal,{color:C.amber}]}>{stat.value}</Text>
-                <Text style={[s.statLabel,{color:C.sub}]}>{stat.label}</Text>
-                <Text style={[s.statSub,{color:C.dim}]}>{stat.sub}</Text>
+                <Text style={[s.statVal, isTablet && s.statValTablet,{color:C.amber}]}>{stat.value}</Text>
+                <Text style={[s.statLabel, isTablet && s.statLabelTablet,{color:C.sub}]}>{stat.label}</Text>
+                <Text style={[s.statSub, isTablet && s.statSubTablet,{color:C.dim}]}>{stat.sub}</Text>
               </Animated.View>
             ))}
           </View>
 
           {/* ── Plan cards ── */}
           <Text style={[s.sectionLabel,{color:C.muted}]}>{t('onboarding.subscription.choose_plan', { lang, fallback: 'Choose your plan' })}</Text>
-          <View style={[s.planList, isMultiPlan && s.planListCompact]}>
+          <View style={[s.planList, isTablet && s.planListTablet, isMultiPlan && !isTablet && s.planListCompact]}>
             {sortedPkgs.map(pkg=>(
               <PlanCard
                 key={pkg.identifier}
@@ -1119,6 +1122,7 @@ export default function SubscriptionScreen() {
                 introEligible={introEligible}
                 isPopular={pkg.packageType==='ANNUAL'}
                 compact={isMultiPlan}
+                tablet={isTablet}
                 lang={lang}
               />
             ))}
@@ -1148,7 +1152,7 @@ export default function SubscriptionScreen() {
           {showHighlights && (
             <>
               <Text style={[s.sectionLabel,{color:C.muted}]}>{t('onboarding.subscription.premium_highlights', { lang, fallback: 'Premium highlights' })}</Text>
-              <View style={[s.benefitCard,{backgroundColor:C.surface,borderColor:C.cardBorder}]}>
+              <View style={[s.benefitCard, isTablet && s.benefitCardTablet, {backgroundColor:C.surface,borderColor:C.cardBorder}]}>
                 {visibleBenefits.map((b,i)=>(
                   <Animated.View
                     key={b.title}
@@ -1183,15 +1187,15 @@ export default function SubscriptionScreen() {
             </View>
           )}
 
-          <View style={{height:(isTight || densePlanMode) ? 122 : 182}}/>
+          <View style={{height:isTablet ? 214 : (isTight || densePlanMode) ? 122 : 182}}/>
         </ScrollView>
       </Animated.View>
 
       {/* ── Sticky footer ── */}
-      <View style={[s.footer,useCompactFooter && s.footerTight,{backgroundColor:'rgba(16,14,10,0.97)',borderTopColor:'rgba(245,158,11,0.12)'}]}>
+      <View style={[s.footer, isTablet && s.footerTablet, useCompactFooter && s.footerTight,{backgroundColor:'rgba(16,14,10,0.97)',borderTopColor:'rgba(245,158,11,0.12)'}]}>
         {/* Price context */}
         {selected && !purchasing && (
-          <View style={[s.priceCtxRow, useCompactFooter && s.priceCtxRowCompact]}>
+          <View style={[s.priceCtxRow, isTablet && s.priceCtxRowTablet, useCompactFooter && s.priceCtxRowCompact]}>
             <Text style={[s.priceCtxMain,{color:C.sub}]}>
               {getPriceContextLabel(lang, selected, monthlyEq(selected, lang))}
             </Text>
@@ -1201,7 +1205,7 @@ export default function SubscriptionScreen() {
         {/* CTA */}
         <Animated.View style={{transform:[{scale:ctaScale}]}}>
           <TouchableOpacity
-            style={[s.cta,(purchasing||!selected)&&s.ctaDim]}
+            style={[s.cta, isTablet && s.ctaTablet, (purchasing||!selected)&&s.ctaDim]}
             onPress={handlePurchase}
             onPressIn={pressIn}
             onPressOut={pressOut}
@@ -1218,19 +1222,19 @@ export default function SubscriptionScreen() {
             {!purchasing&&!!selected&&<View style={s.ctaSheen}/>}
             {purchasing&&<ActivityIndicator size="small" color={C.amber} style={{marginRight:8}}/>}
             <Text
-              style={[s.ctaTxt,(purchasing||!selected)&&s.ctaTxtDim]}
+              style={[s.ctaTxt, isTablet && s.ctaTxtTablet, (purchasing||!selected)&&s.ctaTxtDim]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.86}
             >
               {ctaLabel}
             </Text>
-            {!purchasing&&!!selected&&<Text style={s.ctaArrow}>→</Text>}
+            {!purchasing&&!!selected&&<Text style={[s.ctaArrow, isTablet && s.ctaArrowTablet]}>→</Text>}
           </TouchableOpacity>
         </Animated.View>
 
         {/* Restore + legal */}
-        <View style={[s.legalRow, useCompactFooter && s.legalRowTight]}>
+        <View style={[s.legalRow, isTablet && s.legalRowTablet, useCompactFooter && s.legalRowTight]}>
           <TouchableOpacity onPress={handleRestore} disabled={restoring} activeOpacity={0.7}>
             {restoring
               ? <ActivityIndicator size="small" color={C.muted}/>
@@ -1289,43 +1293,58 @@ const s = StyleSheet.create({
   orbA:{ position:'absolute', width:400, height:400, borderRadius:999, top:-160, right:-160, overflow:'hidden' },
   orbB:{ position:'absolute', width:180, height:180, borderRadius:999, bottom:240, left:-80, backgroundColor:'rgba(20,184,166,0.08)' },
   scroll:{ paddingHorizontal:22, paddingTop:34, paddingBottom:16 },
+  scrollTablet:{ paddingHorizontal:38, paddingTop:28, paddingBottom:28 },
   scrollTight:{ paddingTop:18, paddingBottom:8 },
   devSkip:{ position:'absolute', top:56, right:22, zIndex:99 },
 
   brandRow:{ flexDirection:'row', alignItems:'center', gap:7, marginBottom:16 },
   brandRowTight:{ marginBottom:10 },
+  brandRowTablet:{ marginBottom:16 },
   brandMark:{ width:7, height:7, borderRadius:2 },
   brandTxt:{ fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTxtTablet:{ fontSize:18 },
   brandSpacer:{ flex:1 },
   freePill:{ flexDirection:'row', alignItems:'center', gap:5, borderWidth:1, borderRadius:99, paddingHorizontal:9, paddingVertical:4 },
+  freePillTablet:{ paddingHorizontal:14, paddingVertical:7, gap:7 },
   freeDot:{ width:5, height:5, borderRadius:3 },
   freePillTxt:{ fontSize:10, fontWeight:'700' },
+  freePillTxtTablet:{ fontSize:13 },
 
   heroSection:{ gap:6, marginBottom:14 },
   heroSectionTight:{ gap:3, marginBottom:7 },
+  heroSectionTablet:{ gap:12, marginBottom:30 },
   heroEyebrow:{ fontSize:11, fontWeight:'600', letterSpacing:0.5, textTransform:'uppercase' },
   heroHeadline:{ fontSize:38, fontWeight:'900', lineHeight:43, letterSpacing:-1 },
   heroHeadlineTight:{ fontSize:34, lineHeight:38 },
+  heroHeadlineTablet:{ fontSize:60, lineHeight:64, letterSpacing:-1.6 },
   heroBody:{ fontSize:13, lineHeight:20, fontWeight:'400' },
   heroBodyTight:{ fontSize:11, lineHeight:15 },
+  heroBodyTablet:{ fontSize:21, lineHeight:31, maxWidth:900 },
 
   tickerCard:{ borderWidth:1, borderRadius:13, paddingHorizontal:12, paddingVertical:7, marginBottom:8 },
+  tickerCardTablet:{ borderRadius:18, paddingHorizontal:20, paddingVertical:14, marginBottom:18 },
   tickerWrap:{ flexDirection:'row', alignItems:'flex-start', gap:8 },
   tickerDot:{ width:6, height:6, borderRadius:3, marginTop:5, flexShrink:0 },
   tickerQuote:{ flex:1, fontSize:11, lineHeight:16, fontWeight:'400', fontStyle:'italic' },
 
   statRow:{ flexDirection:'row', gap:9, marginBottom:18 },
   statRowCompact:{ marginBottom:8, gap:7 },
+  statRowTablet:{ gap:16, marginBottom:30 },
   statCell:{ flex:1, borderWidth:1, borderRadius:13, paddingHorizontal:9, paddingVertical:12, gap:4, alignItems:'center', justifyContent:'flex-start', minHeight:100 },
+  statCellTablet:{ borderRadius:18, paddingHorizontal:14, paddingVertical:18, gap:7, minHeight:132 },
   statCellCompact:{ paddingVertical:8, paddingHorizontal:8, borderRadius:11, minHeight:90 },
-  statVal:{ fontSize:20, fontWeight:'900', letterSpacing:-0.4 },
-  statLabel:{ fontSize:10, fontWeight:'600', textAlign:'center', lineHeight:14, flexShrink:1 },
-  statSub:{ fontSize:8, textAlign:'center', lineHeight:11, flexShrink:1 },
+  statVal:{ fontSize:22, fontWeight:'900', letterSpacing:-0.4 },
+  statValTablet:{ fontSize:28, lineHeight:32 },
+  statLabel:{ fontSize:12, fontWeight:'600', textAlign:'center', lineHeight:16, flexShrink:1 },
+  statLabelTablet:{ fontSize:15, lineHeight:20 },
+  statSub:{ fontSize:9, textAlign:'center', lineHeight:13, flexShrink:1 },
+  statSubTablet:{ fontSize:11, lineHeight:16 },
 
   sectionLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.7, textTransform:'uppercase', marginBottom:6 },
 
   planList:{ gap:12, marginBottom:18 },
   planListCompact:{ gap:6, marginBottom:8 },
+  planListTablet:{ gap:18, marginBottom:30 },
   devPreviewList:{ gap:8, marginBottom:12 },
   devPreviewCard:{ borderWidth:1, borderRadius:14, paddingHorizontal:12, paddingVertical:11, flexDirection:'row', alignItems:'center', gap:10 },
   devPreviewLeft:{ flex:1, gap:2 },
@@ -1341,26 +1360,34 @@ const s = StyleSheet.create({
   popularRibbon:{ height:24, alignItems:'center', justifyContent:'center' },
   popularRibbonTxt:{ fontSize:11, fontWeight:'800', color:'#000', letterSpacing:0.8 },
   planInner:{ flexDirection:'row', alignItems:'center', paddingHorizontal:14, paddingVertical:16, gap:10 },
+  planInnerTablet:{ paddingHorizontal:22, paddingVertical:24, gap:16 },
   planInnerCompact:{ paddingHorizontal:11, paddingVertical:10, gap:7 },
   planLeft:{ flex:1, gap:4 },
   planTitleRow:{ flexDirection:'row', alignItems:'center', gap:8, flexWrap:'wrap' },
   planTitle:{ fontSize:16, fontWeight:'800', letterSpacing:-0.2 },
+  planTitleTablet:{ fontSize:24, lineHeight:28 },
   saveBadge:{ borderWidth:1, borderRadius:6, paddingHorizontal:7, paddingVertical:2 },
   saveBadgeTxt:{ fontSize:9, fontWeight:'800', letterSpacing:0.5 },
   planSub:{ fontSize:11, fontWeight:'400', lineHeight:15 },
+  planSubTablet:{ fontSize:16, lineHeight:23 },
   planSubCompact:{ lineHeight:13 },
   planEq:{ fontSize:11, fontWeight:'600' },
+  planEqTablet:{ fontSize:15, lineHeight:20 },
   planEqCompact:{ fontSize:9 },
   introBadge:{ alignSelf:'flex-start', borderWidth:1, borderRadius:7, paddingHorizontal:7, paddingVertical:3, marginTop:2 },
   introTxt:{ fontSize:9, fontWeight:'700' },
   planRight:{ alignItems:'flex-end', gap:1, minWidth:78, flexShrink:0 },
   planOldPrice:{ fontSize:11, fontWeight:'700', textDecorationLine:'line-through' },
   planPrice:{ fontSize:21, fontWeight:'900', letterSpacing:-0.3 },
+  planPriceTablet:{ fontSize:34, lineHeight:38 },
   planPeriod:{ fontSize:11 },
+  planPeriodTablet:{ fontSize:15, lineHeight:20 },
   radio:{ width:22, height:22, borderRadius:11, borderWidth:1.5, alignItems:'center', justifyContent:'center', flexShrink:0 },
+  radioTablet:{ width:28, height:28, borderRadius:14 },
   radioDot:{ width:9, height:9, borderRadius:4.5, backgroundColor:'#000' },
 
   benefitCard:{ borderWidth:1, borderRadius:15, overflow:'hidden', marginBottom:10 },
+  benefitCardTablet:{ borderRadius:20, marginBottom:20 },
   benRow:{ flexDirection:'row', alignItems:'center', paddingRight:12, paddingVertical:10 },
   benRail:{ width:3, alignSelf:'stretch', marginRight:0 },
   benIcon:{ width:34, alignItems:'center' },
@@ -1375,19 +1402,25 @@ const s = StyleSheet.create({
 
   footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:10, paddingBottom:18, borderTopWidth:StyleSheet.hairlineWidth, gap:7 },
   footerTight:{ paddingTop:8, paddingBottom:14, gap:5 },
+  footerTablet:{ paddingHorizontal:38, paddingTop:18, paddingBottom:28, gap:14 },
   priceCtxRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', gap:8 },
   priceCtxRowCompact:{ alignItems:'flex-start' },
+  priceCtxRowTablet:{ alignItems:'center' },
   priceCtxMain:{ fontSize:11, fontWeight:'400', flex:1, marginRight:8 },
   priceCtxFree:{ fontSize:12, fontWeight:'700', flexShrink:1, textAlign:'right' },
   cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:C.amber, shadowOffset:{width:0,height:8}, shadowOpacity:0.38, shadowRadius:20, elevation:10 },
+  ctaTablet:{ height:72, borderRadius:24, gap:10 },
   ctaDim:{ backgroundColor:'rgba(100,80,40,0.18)', shadowOpacity:0, elevation:0 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.12)' },
   ctaTxt:{ color:'#000', fontSize:15, fontWeight:'900', letterSpacing:0.1 },
+  ctaTxtTablet:{ fontSize:22 },
   ctaTxtDim:{ color:'rgba(180,160,120,0.40)' },
   ctaArrow:{ color:'rgba(0,0,0,0.50)', fontSize:16 },
+  ctaArrowTablet:{ fontSize:24 },
   legalRow:{ flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, flexWrap:'wrap' },
   legalRowTight:{ gap:6 },
+  legalRowTablet:{ gap:12 },
   legalLink:{ fontSize:11, fontWeight:'500' },
   dot:{ fontSize:12 },
   autoRenew:{ textAlign:'center', fontSize:9, letterSpacing:0.2 },

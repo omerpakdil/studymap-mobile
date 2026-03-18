@@ -929,6 +929,32 @@ export const koMessages: AppMessages = {
     "complete_session": "세션 완료",
     "back_dashboard": "대시보드로 돌아가기",
     "focus_duration": "집중 시간",
+
+    "subject": "과목",
+
+    "focus_audio": "집중 오디오",
+
+    "audio_state_playing": "재생 중",
+
+    "audio_state_off": "꺼짐",
+
+    "change_audio": "채널",
+
+    "lofi_modal_title": "집중 라디오",
+
+    "lofi_modal_sub": "이 세션에 맞는 채널을 선택하세요",
+
+    "lofi_channel_ambient": "앰비언트",
+
+    "lofi_channel_ambient_sub": "부드러운 앰비언트 라디오",
+
+    "lofi_channel_lofi": "로파이",
+
+    "lofi_channel_lofi_sub": "편안한 로파이 라디오",
+
+    "lofi_channel_deep": "딥 포커스",
+
+    "lofi_channel_deep_sub": "드론 기반 딥 포커스 사운드",
     "select_focus_duration": "집중할 시간을 선택하세요",
     "preset_quick_25": "빠른 25",
     "preset_standard_45": "집중 45",

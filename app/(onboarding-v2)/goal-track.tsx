@@ -8,6 +8,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 
@@ -63,6 +64,8 @@ const C = {
 export default function OnboardingV2GoalTrackScreen() {
   const { showAlert } = useAppAlert();
   const { draft, updateDraft } = useOnboardingV2();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const lang = resolveAppLanguage({
     countryDefaultLanguage: getCountryByCode(draft.countryCode)?.defaultLanguage ?? null,
   });
@@ -145,23 +148,23 @@ export default function OnboardingV2GoalTrackScreen() {
         ))}
       </View>
 
-      <Animated.View style={[styles.inner, { opacity: entrance }]}>
-        <View style={styles.headerRow}>
+      <Animated.View style={[styles.inner, isTablet && styles.innerTablet, { opacity: entrance }]}>
+        <View style={[styles.headerRow, isTablet && styles.headerRowTablet]}>
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
+            style={[styles.backBtn, isTablet && styles.backBtnTablet, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
             onPress={() => {
               void trackOnboardingStepBack('goal_track');
               router.back();
             }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.backArrow, { color: C.backArrow }]}>‹</Text>
+            <Text style={[styles.backArrow, isTablet && styles.backArrowTablet, { color: C.backArrow }]}>‹</Text>
           </TouchableOpacity>
           <View style={styles.brandRow}>
             <View style={[styles.brandMark, { backgroundColor: C.brand }]} />
-            <Text style={[styles.brandText, { color: C.brand }]}>StudyMap</Text>
+            <Text style={[styles.brandText, isTablet && styles.brandTextTablet, { color: C.brand }]}>StudyMap</Text>
           </View>
-          <View style={styles.backBtn} />
+          <View style={[styles.backBtn, isTablet && styles.backBtnTablet]} />
         </View>
 
         <View style={[styles.progressTrack, { backgroundColor: C.tealSoft }]}>
@@ -170,17 +173,17 @@ export default function OnboardingV2GoalTrackScreen() {
             <View style={styles.progressSheen} />
           </View>
         </View>
-        <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
+        <Text style={[styles.stepLabel, isTablet && styles.stepLabelTablet, { color: C.labelMuted }]}>
           {t('common.step_of', { lang, params: { current: 3, total: 13 } })}
         </Text>
 
-        <Text style={[styles.title, styles.titleCompact, { color: C.title }]}>
+        <Text style={[styles.title, styles.titleCompact, isTablet && styles.titleTablet, { color: C.title }]}>
           {t(trackConfig?.titleKey ?? 'onboarding.goal_exam.track_title', { lang })}
         </Text>
-        <Text style={[styles.sub, styles.subCompact, { color: C.sub }]}>
+        <Text style={[styles.sub, styles.subCompact, isTablet && styles.subTablet, { color: C.sub }]}>
           {t(trackConfig?.subtitleKey ?? 'onboarding.goal_exam.track_subtitle_ayt', { lang })}
         </Text>
-        <View style={styles.trackList}>
+        <View style={[styles.trackList, isTablet && styles.trackListTablet]}>
           {trackOptions.map((option, index) => {
             const trackId = option.id;
             const selected = selectedTrack === trackId;
@@ -190,6 +193,7 @@ export default function OnboardingV2GoalTrackScreen() {
                 key={option.examCode}
                 style={[
                   styles.trackCard,
+                  isTablet && styles.trackCardTablet,
                   selected
                     ? { backgroundColor: C.selBg, borderColor: C.selBorder, borderWidth: 1.5 }
                     : { backgroundColor: C.cardBg, borderColor: C.cardBorder, borderWidth: 1 },
@@ -206,16 +210,16 @@ export default function OnboardingV2GoalTrackScreen() {
                   />
                 )}
                 <View style={styles.trackHeader}>
-                  <Text style={[styles.trackIndex, { color: selected ? C.teal : C.labelMuted }]}>
+                  <Text style={[styles.trackIndex, isTablet && styles.trackIndexTablet, { color: selected ? C.teal : C.labelMuted }]}>
                     {index + 1}
                   </Text>
                   {selected ? (
                     <View style={[styles.trackCheck, { backgroundColor: C.tealSoft, borderColor: C.tealBorder }]}>
-                      <Text style={[styles.trackCheckText, { color: C.teal }]}>✓</Text>
+                      <Text style={[styles.trackCheckText, isTablet && styles.trackCheckTextTablet, { color: C.teal }]}>✓</Text>
                     </View>
                   ) : null}
                 </View>
-                <Text style={[styles.trackName, { color: selected ? C.selTitle : C.cardTitle }]}>
+                <Text style={[styles.trackName, isTablet && styles.trackNameTablet, { color: selected ? C.selTitle : C.cardTitle }]}>
                   {t(option?.labelKey ?? 'common.select', { lang })}
                 </Text>
               </TouchableOpacity>
@@ -224,10 +228,10 @@ export default function OnboardingV2GoalTrackScreen() {
         </View>
       </Animated.View>
 
-      <Animated.View style={[styles.footer, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}>
+      <Animated.View style={[styles.footer, isTablet && styles.footerTablet, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}>
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={[styles.cta, !selectedTrack && styles.ctaDisabled]}
+            style={[styles.cta, isTablet && styles.ctaTablet, !selectedTrack && styles.ctaDisabled]}
             onPress={handleContinue}
             onPressIn={pressIn}
             onPressOut={pressOut}
@@ -235,10 +239,10 @@ export default function OnboardingV2GoalTrackScreen() {
           >
             {!!selectedTrack && <LinearGradient colors={[C.btnA, C.btnB]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
             {!!selectedTrack && <View style={styles.ctaSheen} />}
-            <Text style={[styles.ctaText, !selectedTrack && styles.ctaTextDisabled]}>
+            <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet, !selectedTrack && styles.ctaTextDisabled]}>
               {selectedTrack ? t('common.continue', { lang }) : t('common.select', { lang })}
             </Text>
-            {!!selectedTrack && <Text style={styles.ctaArrow}>→</Text>}
+            {!!selectedTrack && <Text style={[styles.ctaArrow, isTablet && styles.ctaArrowTablet]}>→</Text>}
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -251,21 +255,30 @@ const styles = StyleSheet.create({
   orbA: { position: 'absolute', width: 280, height: 280, borderRadius: 999, top: -80, right: -110 },
   orbB: { position: 'absolute', width: 180, height: 180, borderRadius: 999, bottom: 180, left: -80 },
   inner: { flex: 1, paddingTop: 9, paddingHorizontal: 21, paddingBottom: 112 },
+  innerTablet:{paddingTop:20,paddingHorizontal:36,paddingBottom:132,maxWidth:980,width:'100%',alignSelf:'center'},
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  headerRowTablet:{marginBottom:20},
   backBtn: { width: 36, height: 36, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  backBtnTablet:{width:48,height:48,borderRadius:14},
   backArrow: { fontSize: 26, fontWeight: '300', lineHeight: 30, marginTop: -1 },
+  backArrowTablet:{fontSize:32,lineHeight:36},
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandMark: { width: 7, height: 7, borderRadius: 2 },
   brandText: { fontSize: 14, fontWeight: '800', letterSpacing: 0.4 },
+  brandTextTablet:{fontSize:18},
   progressTrack: { height: 3, borderRadius: 999, overflow: 'hidden', marginBottom: 6 },
   progressFill: { height: '100%', borderRadius: 999, overflow: 'hidden' },
   progressSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '50%', backgroundColor: 'rgba(255,255,255,0.28)' },
   stepLabel: { fontSize: 9, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 12, opacity: 0.7 },
+  stepLabelTablet:{fontSize:13,marginBottom:18},
   title: { fontSize: 31, fontWeight: '900', lineHeight: 36, letterSpacing: -0.7, marginBottom: 7 },
   titleCompact: { fontSize: 28, lineHeight: 32, marginBottom: 5 },
+  titleTablet:{fontSize:48,lineHeight:54,marginBottom:10,maxWidth:760},
   sub: { fontSize: 13, lineHeight: 20, fontWeight: '400', marginBottom: 18 },
   subCompact: { fontSize: 12, lineHeight: 18, marginBottom: 12 },
+  subTablet:{fontSize:20,lineHeight:30,marginBottom:18,maxWidth:840},
   trackList: { gap: 10, flex: 1 },
+  trackListTablet:{gap:14},
   trackCard: {
     minHeight: 96,
     borderRadius: 16,
@@ -278,13 +291,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  trackCardTablet:{minHeight:124,borderRadius:20,paddingHorizontal:18,paddingVertical:15},
   trackAccent: { position: 'absolute', top: 0, left: 0, right: 0, height: 3 },
   trackHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   trackIndex: { fontSize: 13, fontWeight: '800' },
+  trackIndexTablet:{fontSize:17},
   trackCheck: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   trackCheckText: { fontSize: 12, fontWeight: '800' },
+  trackCheckTextTablet:{fontSize:15},
   trackName: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3, lineHeight: 22 },
+  trackNameTablet:{fontSize:24,lineHeight:30},
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 21, paddingTop: FOOTER.paddingTop, paddingBottom: FOOTER.paddingBottom, borderTopWidth: 1 },
+  footerTablet:{paddingHorizontal:36,paddingTop:18,paddingBottom:42},
   cta: {
     height: FOOTER.ctaHeight,
     borderRadius: FOOTER.ctaRadius,
@@ -294,9 +312,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  ctaTablet:{height:68,borderRadius:20},
   ctaDisabled: { backgroundColor: 'rgba(13,148,136,0.12)' },
   ctaSheen: { position: 'absolute', top: 0, left: 0, right: 0, height: '48%', backgroundColor: 'rgba(255,255,255,0.15)' },
   ctaText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
+  ctaTextTablet:{fontSize:22},
   ctaTextDisabled: { color: 'rgba(15,118,110,0.45)' },
   ctaArrow: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', marginTop: -1 },
+  ctaArrowTablet:{fontSize:24},
 });

@@ -929,6 +929,32 @@ export const arMessages: AppMessages = {
     "complete_session": "إكمال الجلسة",
     "back_dashboard": "العودة إلى اللوحة",
     "focus_duration": "مدة التركيز",
+
+    "subject": "المادة",
+
+    "focus_audio": "صوت التركيز",
+
+    "audio_state_playing": "يعمل",
+
+    "audio_state_off": "متوقف",
+
+    "change_audio": "القنوات",
+
+    "lofi_modal_title": "راديو التركيز",
+
+    "lofi_modal_sub": "اختر القناة المناسبة لهذه الجلسة",
+
+    "lofi_channel_ambient": "أمبينت",
+
+    "lofi_channel_ambient_sub": "راديو أمبينت هادئ",
+
+    "lofi_channel_lofi": "لوفاي",
+
+    "lofi_channel_lofi_sub": "راديو لوفاي هادئ",
+
+    "lofi_channel_deep": "تركيز عميق",
+
+    "lofi_channel_deep_sub": "صوت تركيز عميق قائم على الدرون",
     "select_focus_duration": "اختر مدة التركيز",
     "preset_quick_25": "سريع 25",
     "preset_standard_45": "تركيز 45",

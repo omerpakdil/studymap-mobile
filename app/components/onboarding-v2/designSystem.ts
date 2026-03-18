@@ -10,7 +10,8 @@ export type DeviceClass =
   | 'iphone_compact'
   | 'iphone_small'
   | 'iphone_standard'
-  | 'iphone_large';
+  | 'iphone_large'
+  | 'tablet';
 
 export interface OnboardingV2Tokens {
   deviceClass: DeviceClass;
@@ -209,6 +210,18 @@ export const onboardingV2Palette = {
 };
 
 export const getOnboardingV2Tokens = (width: number): OnboardingV2Tokens => {
+  if (width >= 768) {
+    return {
+      deviceClass: 'tablet',
+      horizontalPadding: 36,
+      headlineSize: 54,
+      subtitleSize: 22,
+      cardRadius: 28,
+      maxContentWidth: 920,
+      headlineLineHeight: 1.05,
+      contentGap: 22,
+    };
+  }
   if (width <= 320) {
     return { deviceClass: 'iphone_compact', horizontalPadding: 16, headlineSize: 27, subtitleSize: 14, cardRadius: 18, headlineLineHeight: 1.16, contentGap: 10 };
   }

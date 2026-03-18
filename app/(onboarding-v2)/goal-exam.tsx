@@ -17,6 +17,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 
@@ -91,6 +92,8 @@ const C = {
 };
 
 export default function OnboardingV2GoalExamScreen() {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const { showAlert } = useAppAlert();
   const { draft, updateDraft } = useOnboardingV2();
   const lang = resolveAppLanguage({
@@ -155,7 +158,7 @@ export default function OnboardingV2GoalExamScreen() {
   const selectedBaseExamId = getBaseExamId(draft.examId);
   const selectedTrack = getTrackFromExamId(draft.examId);
   const selectionComplete = Boolean(draft.examId);
-  const useThreeColumnGrid = examSections.primary.length > 6;
+  const useThreeColumnGrid = !isTablet && examSections.primary.length > 6;
   const useCompactPrimaryCards = !useThreeColumnGrid;
   const isCompactPhone = Dimensions.get('window').width <= 390;
   const selectedTrackConfig = getExamTrackConfig(selectedBaseExamId);
@@ -259,8 +262,8 @@ export default function OnboardingV2GoalExamScreen() {
       <LinearGradient colors={[C.bg0, C.bg1, C.bg2, C.bg3]} locations={[0,0.35,0.70,1]} style={StyleSheet.absoluteFill} />
 
       {/* Orbs */}
-      <Animated.View style={[styles.orbA, { backgroundColor: C.orbA, transform:[{scale: orbPulse}] }]} />
-      <View style={[styles.orbB, { backgroundColor: C.orbB }]} />
+      <Animated.View style={[styles.orbA, isTablet && styles.orbATablet, { backgroundColor: C.orbA, transform:[{scale: orbPulse}] }]} />
+      <View style={[styles.orbB, isTablet && styles.orbBTablet, { backgroundColor: C.orbB }]} />
 
       {/* Grid */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -273,20 +276,20 @@ export default function OnboardingV2GoalExamScreen() {
       </View>
 
       {/* ── Content ─────────────────────────────────────────── */}
-      <Animated.View style={[styles.inner, { opacity: entrance }]}>
+      <Animated.View style={[styles.inner, isTablet && styles.innerTablet, { opacity: entrance }]}>
 
         {/* Header */}
         <View style={styles.headerRow}>
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
+            style={[styles.backBtn, isTablet && styles.backBtnTablet, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
             onPress={handleBack}
             activeOpacity={0.7}
           >
-            <Text style={[styles.backArrow, { color: C.backArrow }]}>‹</Text>
+            <Text style={[styles.backArrow, isTablet && styles.backArrowTablet, { color: C.backArrow }]}>‹</Text>
           </TouchableOpacity>
           <View style={styles.brandRow}>
             <View style={[styles.brandMark, { backgroundColor: C.brand }]} />
-            <Text style={[styles.brandText, { color: C.brand }]}>StudyMap</Text>
+            <Text style={[styles.brandText, isTablet && styles.brandTextTablet, { color: C.brand }]}>StudyMap</Text>
           </View>
           <View style={styles.backBtn} />
         </View>
@@ -298,20 +301,20 @@ export default function OnboardingV2GoalExamScreen() {
             <View style={styles.progressSheen} />
           </View>
         </View>
-        <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
+        <Text style={[styles.stepLabel, isTablet && styles.stepLabelTablet, { color: C.labelMuted }]}>
           {t('common.step_of', { lang, params: { current: 3, total: 13 } })}
         </Text>
 
         {/* Title */}
-        <Text style={[styles.title, { color: C.title }]}>{t('onboarding.goal_exam.title', { lang })}</Text>
-        <Text style={[styles.sub, { color: C.sub }]}>{t('onboarding.goal_exam.subtitle', { lang })}</Text>
+        <Text style={[styles.title, isTablet && styles.titleTablet, { color: C.title }]}>{t('onboarding.goal_exam.title', { lang })}</Text>
+        <Text style={[styles.sub, isTablet && styles.subTablet, { color: C.sub }]}>{t('onboarding.goal_exam.subtitle', { lang })}</Text>
 
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, isTablet && styles.scrollContentTablet]}
         >
           {/* Exam grid */}
-          <View style={styles.examGrid}>
+          <View style={[styles.examGrid, isTablet && styles.examGridTablet]}>
             {examSections.primary.map((exam, idx) => {
               const selected = selectedBaseExamId === exam.id;
               return (
@@ -320,11 +323,13 @@ export default function OnboardingV2GoalExamScreen() {
                   style={[
                     { transform: [{ scale: getExamScale(idx) }] },
                     useThreeColumnGrid ? styles.examCellThree : styles.examCellTwo,
+                    isTablet && (useThreeColumnGrid ? styles.examCellThreeTablet : styles.examCellTwoTablet),
                   ]}
                 >
                   <TouchableOpacity
                     style={[
                       styles.examCard,
+                      isTablet && styles.examCardTablet,
                       useCompactPrimaryCards && styles.examCardPrimaryCompact,
                       useThreeColumnGrid && styles.examCardCompact,
                       selected
@@ -352,6 +357,7 @@ export default function OnboardingV2GoalExamScreen() {
 
                     <Text style={[
                       styles.examName,
+                      isTablet && styles.examNameTablet,
                       useCompactPrimaryCards && styles.examNamePrimaryCompact,
                       useThreeColumnGrid && styles.examNameCompact,
                       useThreeColumnGrid && isCompactPhone && styles.examNameCompactPhone,
@@ -387,7 +393,7 @@ export default function OnboardingV2GoalExamScreen() {
                   )}
                 </Text>
               </View>
-              <View style={styles.examGrid}>
+              <View style={[styles.examGrid, isTablet && styles.examGridTablet]}>
                 {examSections.global.map((exam, idx) => {
                   const selected = selectedBaseExamId === exam.id;
                   const scaleIndex = examSections.primary.length + idx;
@@ -397,11 +403,13 @@ export default function OnboardingV2GoalExamScreen() {
                       style={[
                         { transform: [{ scale: getExamScale(scaleIndex) }] },
                         styles.examCellTwo,
+                        isTablet && styles.examCellTwoTablet,
                       ]}
                     >
                       <TouchableOpacity
                         style={[
                           styles.examCard,
+                          isTablet && styles.examCardTablet,
                           styles.examCardGlobal,
                           selected
                             ? { backgroundColor: C.selBg, borderColor: C.selBorder, borderWidth: 1.5 }
@@ -423,7 +431,7 @@ export default function OnboardingV2GoalExamScreen() {
                           />
                         )}
                         <Text
-                          style={[styles.examName, styles.examNameGlobal, { color: selected ? C.selTitle : C.cardTitle }]}
+                          style={[styles.examName, isTablet && styles.examNameTablet, styles.examNameGlobal, { color: selected ? C.selTitle : C.cardTitle }]}
                           numberOfLines={2}
                           adjustsFontSizeToFit
                           minimumFontScale={0.9}
@@ -441,8 +449,8 @@ export default function OnboardingV2GoalExamScreen() {
           {/* Selected exam detail card */}
           {!selectedExam && (
             <View style={[styles.placeholderCard, { backgroundColor: C.detailBg, borderColor: C.detailBorder }]}>
-              <Text style={[styles.placeholderTitle, { color: C.title }]}>{t('onboarding.goal_exam.placeholder_title', { lang })}</Text>
-              <Text style={[styles.placeholderText, { color: C.labelMuted }]}>
+              <Text style={[styles.placeholderTitle, isTablet && styles.placeholderTitleTablet, { color: C.title }]}>{t('onboarding.goal_exam.placeholder_title', { lang })}</Text>
+              <Text style={[styles.placeholderText, isTablet && styles.placeholderTextTablet, { color: C.labelMuted }]}>
                 {t('onboarding.goal_exam.placeholder_text', { lang })}
               </Text>
             </View>
@@ -451,6 +459,7 @@ export default function OnboardingV2GoalExamScreen() {
             <Animated.View
               style={[
                 styles.detailCard,
+                isTablet && styles.detailCardTablet,
                 { backgroundColor: C.detailBg, borderColor: C.detailBorder },
                 {
                   opacity: detailAnim,
@@ -468,14 +477,14 @@ export default function OnboardingV2GoalExamScreen() {
               <View style={styles.detailInner}>
                 <View style={styles.detailHeader}>
                   <View>
-                    <Text style={[styles.detailLabel, { color: C.label }]}>{t('onboarding.goal_exam.selected', { lang }).toUpperCase()}</Text>
-                    <Text style={[styles.detailName, { color: C.title }]}>{selectedExam.name}</Text>
+                    <Text style={[styles.detailLabel, isTablet && styles.detailLabelTablet, { color: C.label }]}>{t('onboarding.goal_exam.selected', { lang }).toUpperCase()}</Text>
+                    <Text style={[styles.detailName, isTablet && styles.detailNameTablet, { color: C.title }]}>{selectedExam.name}</Text>
                   </View>
                   <View style={[styles.detailCheck, { backgroundColor: C.tealSoft, borderColor: C.tealBorder }]}>
                     <Text style={[styles.detailCheckText, { color: C.teal }]}>✓</Text>
                   </View>
                 </View>
-                <Text style={[styles.detailNote, { color: C.labelMuted }]}>
+                <Text style={[styles.detailNote, isTablet && styles.detailNoteTablet, { color: C.labelMuted }]}>
                   {examRequiresTrack(selectedExam.id)
                     ? t(selectedTrackConfig?.subtitleKey ?? 'onboarding.goal_exam.track_subtitle_ayt', { lang })
                     : t('onboarding.goal_exam.detail_note', { lang })}
@@ -490,11 +499,11 @@ export default function OnboardingV2GoalExamScreen() {
 
       {/* ── Footer ──────────────────────────────────────────── */}
       <Animated.View
-        style={[styles.footer, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}
+        style={[styles.footer, isTablet && styles.footerTablet, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}
       >
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={[styles.cta, !selectionComplete && styles.ctaDisabled]}
+            style={[styles.cta, isTablet && styles.ctaTablet, !selectionComplete && styles.ctaDisabled]}
             onPress={handleContinue}
             onPressIn={pressIn}
             onPressOut={pressOut}
@@ -504,12 +513,12 @@ export default function OnboardingV2GoalExamScreen() {
               <LinearGradient colors={[C.btnA, C.btnB]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill} />
             )}
             {!!selectionComplete && <View style={styles.ctaSheen} />}
-            <Text style={[styles.ctaText, !selectionComplete && styles.ctaTextDisabled]}>
+            <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet, !selectionComplete && styles.ctaTextDisabled]}>
               {selectionComplete
                 ? t('onboarding.goal_exam.cta_prefix', { lang, params: { exam: selectedDisplayName ?? draft.examName } })
                 : t('onboarding.goal_exam.cta_default', { lang })}
             </Text>
-            {!!selectionComplete && <Text style={styles.ctaArrow}>→</Text>}
+            {!!selectionComplete && <Text style={[styles.ctaArrow, isTablet && styles.ctaArrowTablet]}>→</Text>}
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -521,33 +530,46 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#F0FDFB' },
   orbA: { position:'absolute', width:280, height:280, borderRadius:999, top:-80, right:-110 },
   orbB: { position:'absolute', width:180, height:180, borderRadius:999, bottom:180, left:-80 },
+  orbATablet: { width: 380, height: 380, top: -40, right: -70 },
+  orbBTablet: { width: 240, height: 240, bottom: 220, left: -60 },
 
   inner: { flex: 1, paddingTop: 9 },
+  innerTablet: { paddingTop: 18, maxWidth: 1040, width:'100%', alignSelf:'center', justifyContent:'space-between' },
 
   headerRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:15, paddingHorizontal:21 },
   backBtn: { width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
+  backBtnTablet: { width:46, height:46, borderRadius:14 },
   backArrow: { fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
+  backArrowTablet: { fontSize:30, lineHeight:34 },
   brandRow: { flexDirection:'row', alignItems:'center', gap:6 },
   brandMark: { width:7, height:7, borderRadius:2 },
   brandText: { fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTextTablet: { fontSize:18 },
 
   progressTrack: { height:3, borderRadius:999, overflow:'hidden', marginBottom:6, marginHorizontal:21 },
   progressFill: { height:'100%', borderRadius:999, overflow:'hidden' },
   progressSheen: { position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.28)' },
   stepLabel: { fontSize:9, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:15, opacity:0.7, paddingHorizontal:21 },
+  stepLabelTablet: { fontSize:14, marginBottom:14 },
 
   title: { fontSize:31, fontWeight:'900', lineHeight:36, letterSpacing:-0.7, marginBottom:7, paddingHorizontal:21 },
+  titleTablet: { fontSize:68, lineHeight:72, paddingHorizontal:32, maxWidth:900 },
   sub: { fontSize:13, lineHeight:20, fontWeight:'400', marginBottom:17, paddingHorizontal:21 },
+  subTablet: { fontSize:25, lineHeight:35, paddingHorizontal:32, marginBottom:30, maxWidth:940 },
 
   scrollContent: { paddingHorizontal: 21 },
+  scrollContentTablet: { paddingHorizontal: 32, paddingBottom: 180 },
   sectionHeader: { marginBottom: 10, marginTop: 2 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 3 },
   sectionHint: { fontSize: 11, lineHeight: 16, fontWeight: '500' },
 
   // Exam grid
   examGrid: { flexDirection:'row', flexWrap:'wrap', gap:10, marginBottom:11 },
+  examGridTablet: { gap:16, marginBottom:20 },
   examCellTwo: { width: '48%' },
   examCellThree: { width: '31.4%' },
+  examCellTwoTablet: { width: '48.9%' },
+  examCellThreeTablet: { width: '32.2%' },
   examCard: {
     borderRadius:14,
     minHeight: 80,
@@ -560,6 +582,12 @@ const styles = StyleSheet.create({
     shadowOpacity:0.08,
     shadowRadius:8,
     elevation:2,
+  },
+  examCardTablet: {
+    borderRadius:22,
+    minHeight:148,
+    paddingHorizontal:20,
+    paddingVertical:20,
   },
   examCardCompact: {
     minHeight: 74,
@@ -587,6 +615,7 @@ const styles = StyleSheet.create({
   },
   selectedDotText: { color:'#fff', fontSize:10, fontWeight:'800' },
   examName: { fontSize:15, fontWeight:'900', letterSpacing:-0.2, marginTop:1, lineHeight: 18 },
+  examNameTablet: { fontSize:24, lineHeight:29 },
   examNamePrimaryCompact: { fontSize: 15, lineHeight: 19, letterSpacing: -0.25 },
   examNameCompact: { fontSize: 14, lineHeight: 17, letterSpacing: -0.3 },
   examNameCompactPhone: { fontSize: 13, lineHeight: 16 },
@@ -601,7 +630,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   placeholderTitle: { fontSize: 12, fontWeight: '800', marginBottom: 2 },
+  placeholderTitleTablet: { fontSize: 20, marginBottom: 6 },
   placeholderText: { fontSize: 10.5, fontWeight: '500', lineHeight: 14 },
+  placeholderTextTablet: { fontSize: 16, lineHeight: 24 },
 
   // Detail card
   detailCard: {
@@ -615,15 +646,19 @@ const styles = StyleSheet.create({
     shadowRadius:16,
     elevation:4,
   },
+  detailCardTablet: { borderRadius:26, marginBottom:12 },
   detailBar: { height:3 },
   detailInner: { paddingHorizontal: 13, paddingVertical: 9, gap: 2 },
   detailHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start' },
   detailLabel: { fontSize:9, fontWeight:'700', letterSpacing:1.1, textTransform:'uppercase', marginBottom:2 },
+  detailLabelTablet: { fontSize: 12, marginBottom: 4 },
   detailName: { fontSize:17, fontWeight:'900', letterSpacing:-0.3, lineHeight: 20 },
+  detailNameTablet: { fontSize: 36, lineHeight: 40 },
   detailCheck: { width:26, height:26, borderRadius:8, borderWidth:1, alignItems:'center', justifyContent:'center' },
   detailCheckText: { fontSize:14, fontWeight:'700' },
   detailFull: { fontSize:10.5, fontWeight:'500', lineHeight: 13 },
   detailNote: { fontSize:9.5, lineHeight:13, fontWeight:'400' },
+  detailNoteTablet: { fontSize: 16, lineHeight: 24 },
 
   // Footer
   footer: {
@@ -631,6 +666,7 @@ const styles = StyleSheet.create({
     paddingHorizontal:21, paddingTop:6, paddingBottom:36,
     borderTopWidth:StyleSheet.hairlineWidth,
   },
+  footerTablet: { paddingHorizontal:36, paddingTop:18, paddingBottom:52 },
   cta: {
     height:48, borderRadius:FOOTER.ctaRadius, flexDirection:'row',
     alignItems:'center', justifyContent:'center',
@@ -638,12 +674,15 @@ const styles = StyleSheet.create({
     shadowColor:'#0D9488', shadowOffset:{width:0,height:6},
     shadowOpacity:0.26, shadowRadius:16, elevation:8,
   },
+  ctaTablet: { height:72, borderRadius:22 },
   ctaDisabled: {
     backgroundColor:'rgba(148,163,184,0.18)',
     shadowOpacity:0, elevation:0,
   },
   ctaSheen: { position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },
   ctaText: { color:'#fff', fontSize:16, fontWeight:'800', letterSpacing:0.2 },
+  ctaTextTablet: { fontSize:24 },
   ctaTextDisabled: { color:'rgba(100,116,139,0.55)' },
   ctaArrow: { color:'rgba(255,255,255,0.78)', fontSize:17 },
+  ctaArrowTablet: { fontSize:22 },
 });

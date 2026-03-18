@@ -286,6 +286,7 @@ export default function OnboardingV2PlanPreviewScreen() {
   const { showAlert } = useAppAlert();
   const { draft } = useOnboardingV2();
   const { width, height } = useWindowDimensions();
+  const isTablet = width >= 768;
   const isNarrow = width <= 390;
   const isTight = height <= 850;
   const lang = resolveAppLanguage({
@@ -446,6 +447,11 @@ export default function OnboardingV2PlanPreviewScreen() {
     taskCount:     xtra >= 1 ? 2 : 3,
     showExplain:   xtra === 0,
   };
+  const titleBlockSpacing = isTablet ? 18 : d.titleMb;
+  const stepBlockSpacing = isTablet ? 4 : d.stepMb;
+  const titleDynamicStyle = isTablet
+    ? null
+    : { fontSize: d.titleSize, lineHeight: d.titleSize + 4, marginBottom: titleBlockSpacing };
   const explainabilityTask = useMemo(
     () => program?.dailyTasks.find((task) => task.explainability) ?? null,
     [program]
@@ -557,46 +563,44 @@ export default function OnboardingV2PlanPreviewScreen() {
     <SafeAreaView style={s.root}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent"/>
       <LinearGradient colors={[C.bg0,C.bg1,C.bg2,C.bg3]} locations={[0,0.3,0.65,1]} style={StyleSheet.absoluteFill}/>
-      <View style={[s.orbA,{backgroundColor:C.orbA}]}/>
-      <View style={[s.orbB,{backgroundColor:C.orbB}]}/>
+      <View style={[s.orbA, isTablet && s.orbATablet,{backgroundColor:C.orbA}]}/>
+      <View style={[s.orbB, isTablet && s.orbBTablet,{backgroundColor:C.orbB}]}/>
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {[0,1,2,3,4,5].map(i=><View key={i} style={{position:'absolute',top:0,bottom:0,left:`${i*20}%`,width:StyleSheet.hairlineWidth,backgroundColor:C.grid}}/>)}
         {[0,1,2,3,4,5,6].map(i=><View key={i} style={{position:'absolute',left:0,right:0,top:`${i*15}%`,height:StyleSheet.hairlineWidth,backgroundColor:C.grid}}/>)}
       </View>
 
-      <Animated.View style={[s.inner, (isNarrow || isTight) && s.innerTight, {opacity:entrance}]}>
+      <Animated.View style={[s.inner, isTablet && s.innerTablet, (isNarrow || isTight) && s.innerTight, {opacity:entrance}]}>
 
         {/* Header */}
-        <View style={s.headerRow}>
-          <TouchableOpacity style={[s.backBtn,{backgroundColor:C.backBg,borderColor:C.backBorder}]} onPress={()=>{void trackOnboardingStepBack('plan_preview');router.back();}} activeOpacity={0.7}>
-            <Text style={[s.backArrow,{color:C.backArrow}]}>‹</Text>
+        <View style={[s.headerRow, isTablet && s.headerRowTablet]}>
+          <TouchableOpacity style={[s.backBtn, isTablet && s.backBtnTablet,{backgroundColor:C.backBg,borderColor:C.backBorder}]} onPress={()=>{void trackOnboardingStepBack('plan_preview');router.back();}} activeOpacity={0.7}>
+            <Text style={[s.backArrow, isTablet && s.backArrowTablet,{color:C.backArrow}]}>‹</Text>
           </TouchableOpacity>
           <View style={s.brandRow}>
             <View style={[s.brandMark,{backgroundColor:C.brand}]}/>
-            <Text style={[s.brandTxt,{color:C.brand}]}>StudyMap</Text>
+            <Text style={[s.brandTxt, isTablet && s.brandTxtTablet,{color:C.brand}]}>StudyMap</Text>
           </View>
           <View style={s.backBtn}/>
         </View>
 
-        {/* Progress */}
         <View style={[s.progressTrack,{backgroundColor:C.tealSoft}]}>
           <View style={[s.progressFill,{width:'86%'}]}>
             <LinearGradient colors={[C.tealDk,C.tealDk2]} start={{x:0,y:0}} end={{x:1,y:0}} style={StyleSheet.absoluteFill}/>
             <View style={s.progressSheen}/>
           </View>
         </View>
-        <Text style={[s.stepLabel,{color:C.labelMuted, marginBottom:d.stepMb}]}>
+        <Text style={[s.stepLabel, isTablet && s.stepLabelTablet,{color:C.labelMuted, marginBottom:stepBlockSpacing}]}>
           {t('common.step_of', { lang, params: { current: 11, total: 13 } })}
         </Text>
 
-        {/* Title */}
-        <Text style={[s.title,{color:C.title, marginBottom:d.titleMb, fontSize:d.titleSize, lineHeight:d.titleSize + 4}, isNarrow && s.titleNarrow]} numberOfLines={2}>
+        <Text style={[s.title, isTablet && s.titleTablet,{color:C.title}, titleDynamicStyle, isNarrow && !isTablet && s.titleNarrow]} numberOfLines={2}>
           {t('onboarding.plan_preview.title', { lang, fallback: 'Your execution\nblueprint.' })}
         </Text>
 
         {/* ── Loading state ── */}
         {loading && (
-          <View style={[s.loadCard,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+          <View style={[s.loadCard, isTablet && s.loadCardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
             <ActivityIndicator size="small" color={C.teal}/>
             <View style={s.loadCopy}>
               <Text style={[s.loadTitle,{color:C.title}]}>
@@ -615,7 +619,7 @@ export default function OnboardingV2PlanPreviewScreen() {
 
         {/* ── Error state ── */}
         {!loading && !program && (
-          <View style={[s.loadCard,{backgroundColor:C.errorBg,borderColor:C.errorBorder,gap:10}]}>
+          <View style={[s.loadCard, isTablet && s.loadCardTablet,{backgroundColor:C.errorBg,borderColor:C.errorBorder,gap:10}]}>
             <Text style={[s.loadTitle,{color:C.errorTxt}]}>
               {t('onboarding.plan_preview.error_title', { lang, fallback: "Couldn't generate preview" })}
             </Text>
@@ -630,34 +634,34 @@ export default function OnboardingV2PlanPreviewScreen() {
 
         {/* ── Success state ── */}
         {!loading && !!program && (
-          <Animated.View style={[s.successWrap,{gap:d.wrapGap},{
+          <Animated.View style={[s.successWrap, isTablet && s.successWrapTablet,{gap:d.wrapGap},{
             opacity: contentAnim,
             transform:[{translateY:contentAnim.interpolate({inputRange:[0,1],outputRange:[16,0]})}],
           }]}>
 
             {/* ── Hero: score + KPIs ── */}
-            <View style={[s.heroCard,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+            <View style={[s.heroCard, isTablet && s.heroCardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
               <LinearGradient colors={[C.tealDk,C.tealDk2]} start={{x:0,y:0}} end={{x:1,y:0}} style={s.heroBar}/>
-              <View style={[s.heroInner,{padding:d.heroPad}]}>
+              <View style={[s.heroInner, isTablet && s.heroInnerTablet,{padding:d.heroPad}]}>
                 {/* Ring */}
                 <ScoreRing score={feasibility} color={scoreColor}/>
                 {/* KPIs */}
-                <View style={[s.kpiCol,{gap:d.kpiGap}]}>
+                <View style={[s.kpiCol, isTablet && s.kpiColTablet,{gap:d.kpiGap}]}>
                   {[
                     { val:`${formatHourValue(program.weeklyHours)}${hourUnit}`, lbl:t('onboarding.plan_preview.kpi_weekly_load', { lang, fallback: 'weekly load' }) },
                     { val:`${program.dailyTasks.length}`,  lbl:t('onboarding.plan_preview.kpi_total_tasks', { lang, fallback: 'total tasks' }) },
                     { val:`${activeDays}`, lbl:t('onboarding.plan_preview.kpi_study_days', { lang, fallback: 'study days' }) },
                   ].map((k,i)=>(
                     <View key={i} style={s.kpiItem}>
-                      <Text style={[s.kpiVal,{color:C.title, fontSize:d.kpiFontSize}]}>{k.val}</Text>
-                      <Text style={[s.kpiLbl,{color:C.muted}]} numberOfLines={2}>{k.lbl}</Text>
+                      <Text style={[s.kpiVal, isTablet && s.kpiValTablet,{color:C.title, fontSize:d.kpiFontSize}]}>{k.val}</Text>
+                      <Text style={[s.kpiLbl, isTablet && s.kpiLblTablet,{color:C.muted}]} numberOfLines={2}>{k.lbl}</Text>
                     </View>
                   ))}
                 </View>
               </View>
-              <View style={[s.feasRow,{borderTopColor:'rgba(255,255,255,0.06)'}]}>
+              <View style={[s.feasRow, isTablet && s.feasRowTablet,{borderTopColor:'rgba(255,255,255,0.06)'}]}>
                 <View style={[s.feasDot,{backgroundColor:scoreColor}]}/>
-                <Text style={[s.feasTxt,{color:C.sub}]}>
+                <Text style={[s.feasTxt, isTablet && s.feasTxtTablet,{color:C.sub}]}>
                   {feasibility >= 85
                     ? t('onboarding.plan_preview.feasibility_high', { lang, fallback: 'Highly achievable - schedule and load are well balanced.' })
                     : feasibility >= 70
@@ -669,19 +673,19 @@ export default function OnboardingV2PlanPreviewScreen() {
 
             {/* ── Subject breakdown ── */}
             {subjectRows.length > 0 && (
-              <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
-                <Text style={[s.cardTitle,{color:C.muted}]}>
+              <View style={[s.card, isTablet && s.cardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
+                <Text style={[s.cardTitle, isTablet && s.cardTitleTablet,{color:C.muted}]}>
                   {t('onboarding.plan_preview.subject_distribution', { lang, fallback: 'Subject distribution' })}
                 </Text>
-                <View style={[s.subjectList,{gap:d.subListGap}]}>
+                <View style={[s.subjectList, isTablet && s.subjectListTablet,{gap:d.subListGap}]}>
                   {subjectRows.map(({name,hours},i)=>(
                     <View key={name} style={s.subjectRow}>
                       <Text
-                        style={[s.subjectName,{color:C.sub, fontSize:d.subFontSize, width:d.subWidth}]}
+                        style={[s.subjectName, isTablet && s.subjectNameTablet,{color:C.sub, fontSize:d.subFontSize, width:d.subWidth}]}
                         numberOfLines={1}
                       >{subjectLabel(name)}</Text>
                       <BarFill fill={hours/maxSubjectHours} delay={300+i*60}/>
-                      <Text style={[s.subjectHrs,{color:C.teal, fontSize:d.subHrsFontSize}]}>{formatHourValue(hours)}{hourUnit}</Text>
+                      <Text style={[s.subjectHrs, isTablet && s.subjectHrsTablet,{color:C.teal, fontSize:d.subHrsFontSize}]}>{formatHourValue(hours)}{hourUnit}</Text>
                     </View>
                   ))}
                 </View>
@@ -689,8 +693,8 @@ export default function OnboardingV2PlanPreviewScreen() {
             )}
 
             {/* ── First tasks ── */}
-            <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
-              <Text style={[s.cardTitle,{color:C.muted}]}>
+            <View style={[s.card, isTablet && s.cardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
+              <Text style={[s.cardTitle, isTablet && s.cardTitleTablet,{color:C.muted}]}>
                 {t('onboarding.plan_preview.first_sessions', { lang, fallback: 'First sessions' })}
               </Text>
               <View style={s.taskList}>
@@ -700,8 +704,8 @@ export default function OnboardingV2PlanPreviewScreen() {
                       <Text style={[s.taskDotTxt,{color:C.teal}]}>{i+1}</Text>
                     </View>
                     <View style={s.taskBody}>
-                      <Text style={[s.taskSubject,{color:C.title, fontSize:d.taskFontSize}]} numberOfLines={1}>{subjectLabel(task.subject)}</Text>
-                      <Text style={[s.taskMeta,{color:C.muted, fontSize:d.taskMetaSize}]} numberOfLines={1}>
+                      <Text style={[s.taskSubject, isTablet && s.taskSubjectTablet,{color:C.title, fontSize:d.taskFontSize}]} numberOfLines={1}>{subjectLabel(task.subject)}</Text>
+                      <Text style={[s.taskMeta, isTablet && s.taskMetaTablet,{color:C.muted, fontSize:d.taskMetaSize}]} numberOfLines={1}>
                         {task.date?.slice(5)} · {task.timeSlot} · {getLocalizedTaskTypeLabel(task.type, lang)}
                       </Text>
                     </View>
@@ -712,11 +716,11 @@ export default function OnboardingV2PlanPreviewScreen() {
 
             {/* ── Personalization summary ── */}
             {personalPills.length > 0 && (
-              <View style={[s.card,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
-                <Text style={[s.cardTitle,{color:C.muted}]}>
+              <View style={[s.card, isTablet && s.cardTablet,{backgroundColor:C.cardBg,borderColor:C.cardBorder,padding:d.cardPad,gap:d.cardGap}]}>
+                <Text style={[s.cardTitle, isTablet && s.cardTitleTablet,{color:C.muted}]}>
                   {t('onboarding.plan_preview.personalized', { lang, fallback: 'Personalized for you' })}
                 </Text>
-                <Text style={[s.targetSummary,{color:C.sub}]} numberOfLines={1}>{targetSummaryText}</Text>
+                <Text style={[s.targetSummary, isTablet && s.targetSummaryTablet,{color:C.sub}]} numberOfLines={1}>{targetSummaryText}</Text>
                 {d.showExplain && localizedExplainability && (
                   <View style={s.explainCompact}>
                     <Text style={[s.explainMiniTitle,{color:C.title}]} numberOfLines={1}>
@@ -746,7 +750,7 @@ export default function OnboardingV2PlanPreviewScreen() {
       </Animated.View>
 
       {/* Footer */}
-      <Animated.View style={[s.footer, (isNarrow || isTight) && s.footerTight, {backgroundColor:C.footer,borderTopColor:C.footerBorder,opacity:ctaFade}]}>
+      <Animated.View style={[s.footer, isTablet && s.footerTablet, (isNarrow || isTight) && s.footerTight, {backgroundColor:C.footer,borderTopColor:C.footerBorder,opacity:ctaFade}]}>
         <Animated.View style={{transform:[{scale:ctaScale}]}}>
           <TouchableOpacity
             style={[s.cta, (loading||finalizing||!program)&&s.ctaDisabled]}
@@ -762,7 +766,7 @@ export default function OnboardingV2PlanPreviewScreen() {
             {!loading&&!finalizing&&!!program&&<View style={s.ctaSheen}/>}
             {(loading||finalizing) && <ActivityIndicator size="small" color={C.teal} style={{marginRight:8}}/>}
             <Text
-              style={[s.ctaTxt,!(!!program)&&s.ctaTxtDisabled]}
+              style={[s.ctaTxt, isTablet && s.ctaTxtTablet,!(!!program)&&s.ctaTxtDisabled]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.86}
@@ -773,7 +777,7 @@ export default function OnboardingV2PlanPreviewScreen() {
                   ? t('onboarding.plan_preview.building', { lang, fallback: 'Building your plan...' })
                   : t('onboarding.plan_preview.continue_premium', { lang, fallback: 'Continue to Premium' })}
             </Text>
-            {!loading&&!finalizing&&!!program&&<Text style={s.ctaArrow}>→</Text>}
+            {!loading&&!finalizing&&!!program&&<Text style={[s.ctaArrow, isTablet && s.ctaArrowTablet]}>→</Text>}
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -785,26 +789,35 @@ const s = StyleSheet.create({
   root:{ flex:1, backgroundColor:'#080C0B' },
   orbA:{ position:'absolute', width:280, height:280, borderRadius:999, top:-80, right:-110 },
   orbB:{ position:'absolute', width:180, height:180, borderRadius:999, bottom:160, left:-80 },
+  orbATablet:{ width:380, height:380, top:-30, right:-60 },
+  orbBTablet:{ width:260, height:260, bottom:180, left:-50 },
   inner:{ flex:1, paddingHorizontal:22, paddingTop:6, paddingBottom:88 },
+  innerTablet:{ paddingHorizontal:38, paddingTop:14, paddingBottom:96, maxWidth:1140, width:'100%', alignSelf:'center', justifyContent:'space-between' },
   innerTight:{ paddingTop:4, paddingBottom:84 },
-
   headerRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 },
+  headerRowTablet:{ marginBottom:8 },
   backBtn:{ width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
+  backBtnTablet:{ width:46, height:46, borderRadius:14 },
   backArrow:{ fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
+  backArrowTablet:{ fontSize:30, lineHeight:34 },
   brandRow:{ flexDirection:'row', alignItems:'center', gap:6 },
   brandMark:{ width:7, height:7, borderRadius:2 },
   brandTxt:{ fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTxtTablet:{ fontSize:17 },
 
-  progressTrack:{ height:3, borderRadius:99, overflow:'hidden', marginBottom:6 },
+  progressTrack:{ height:3, borderRadius:99, overflow:'hidden', marginBottom:0 },
   progressFill:{ height:'100%', borderRadius:99, overflow:'hidden' },
   progressSheen:{ position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.20)' },
   stepLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:8, opacity:0.65 },
+  stepLabelTablet:{ fontSize:12, marginTop:1, marginBottom:18 },
 
   title:{ fontSize:22, fontWeight:'900', lineHeight:27, letterSpacing:-0.4, marginBottom:4 },
+  titleTablet:{ fontSize:54, lineHeight:58, maxWidth:1020, marginBottom:20 },
   titleNarrow:{ fontSize:20, lineHeight:24 },
 
   // Loading
   loadCard:{ borderWidth:1, borderRadius:16, padding:14, gap:9, alignItems:'center' },
+  loadCardTablet:{ borderRadius:24, padding:30, gap:20 },
   loadCopy:{ alignItems:'center', gap:4 },
   loadTitle:{ fontSize:15, fontWeight:'800', letterSpacing:-0.2 },
   loadPhase:{ fontSize:11, fontWeight:'400', textAlign:'center' },
@@ -815,29 +828,42 @@ const s = StyleSheet.create({
 
   // Success
   successWrap:{ gap:3 },
+  successWrapTablet:{ gap:20 },
 
   // Hero card
   heroCard:{ borderWidth:1, borderRadius:14, overflow:'hidden' },
+  heroCardTablet:{ borderRadius:24, marginBottom:14, minHeight:198 },
   heroBar:{ height:3 },
   heroInner:{ flexDirection:'row', alignItems:'center', padding:8, gap:8 },
+  heroInnerTablet:{ padding:26, gap:26 },
   kpiCol:{ flex:1, gap:2 },
+  kpiColTablet:{ gap:10 },
   kpiItem:{ flexDirection:'row', alignItems:'baseline', gap:6 },
   kpiVal:{ fontSize:15, fontWeight:'900', letterSpacing:-0.3 },
+  kpiValTablet:{ fontSize:34, lineHeight:38 },
   kpiLbl:{ fontSize:9, fontWeight:'400', flex:1 },
+  kpiLblTablet:{ fontSize:16, lineHeight:21 },
   feasRow:{ flexDirection:'row', alignItems:'flex-start', gap:8, paddingHorizontal:9, paddingVertical:6, borderTopWidth:1 },
+  feasRowTablet:{ gap:10, paddingHorizontal:18, paddingVertical:14 },
   feasDot:{ width:6, height:6, borderRadius:3, marginTop:4, flexShrink:0 },
   feasTxt:{ flex:1, fontSize:10, fontWeight:'400', lineHeight:15 },
+  feasTxtTablet:{ fontSize:18, lineHeight:25 },
 
   // Generic card
   card:{ borderWidth:1, borderRadius:13, padding:6, gap:4 },
+  cardTablet:{ borderRadius:20, padding:26, gap:20, minHeight:214 },
   cardTitle:{ fontSize:10, fontWeight:'600', letterSpacing:0.7, textTransform:'uppercase' },
+  cardTitleTablet:{ fontSize:17, lineHeight:21 },
 
   // Subjects
   subjectList:{ gap:4 },
+  subjectListTablet:{ flex:1, justifyContent:'center' },
   subjectRow:{ flexDirection:'row', alignItems:'center', gap:7 },
   subjectName:{ width:72, fontSize:12, fontWeight:'500' },
+  subjectNameTablet:{ width:150, fontSize:19, lineHeight:23 },
   subjectNameNarrow:{ width:62, fontSize:11 },
   subjectHrs:{ width:28, fontSize:11, fontWeight:'700', textAlign:'right' },
+  subjectHrsTablet:{ width:74, fontSize:18, lineHeight:22 },
 
   // Tasks
   taskList:{ gap:0 },
@@ -846,7 +872,9 @@ const s = StyleSheet.create({
   taskDotTxt:{ fontSize:10, fontWeight:'800' },
   taskBody:{ flex:1, gap:1 },
   taskSubject:{ fontSize:12, fontWeight:'700', letterSpacing:-0.1 },
+  taskSubjectTablet:{ fontSize:19, lineHeight:23 },
   taskMeta:{ fontSize:10, fontWeight:'400' },
+  taskMetaTablet:{ fontSize:15, lineHeight:20 },
 
   // Explainability
   explainCompact:{ gap:3, paddingTop:1, marginBottom:0 },
@@ -861,15 +889,19 @@ const s = StyleSheet.create({
   pillLbl:{ fontSize:9, fontWeight:'600', letterSpacing:0.4, textTransform:'uppercase' },
   pillVal:{ fontSize:12, fontWeight:'700', textTransform:'capitalize' },
   targetSummary:{ fontSize:9, fontWeight:'500', marginTop:-1, marginBottom:0, lineHeight:13 },
+  targetSummaryTablet:{ fontSize:16, lineHeight:21, marginBottom:6 },
 
   // Footer
   footer:{ position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  footerTablet:{ paddingHorizontal:38, paddingTop:18, paddingBottom:50 },
   footerTight:{ paddingTop:FOOTER.tightPaddingTop, paddingBottom:FOOTER.tightPaddingBottom },
   cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#14B8A6', shadowOffset:{width:0,height:6}, shadowOpacity:0.32, shadowRadius:16, elevation:8 },
   ctaDisabled:{ backgroundColor:'rgba(100,116,139,0.14)', shadowOpacity:0, elevation:0 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.10)' },
   ctaTxt:{ color:'#fff', fontSize:15, fontWeight:'800', letterSpacing:0.1, flexShrink:1, textAlign:'center' },
+  ctaTxtTablet:{ fontSize:26 },
   ctaTxtDisabled:{ color:'rgba(100,116,139,0.40)' },
   ctaArrow:{ color:'rgba(255,255,255,0.72)', fontSize:17 },
+  ctaArrowTablet:{ fontSize:24 },
 });

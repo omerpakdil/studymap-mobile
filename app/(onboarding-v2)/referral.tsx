@@ -10,6 +10,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -31,6 +32,8 @@ const C = {
 
 export default function OnboardingV2ReferralScreen() {
   const { draft } = useOnboardingV2();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const lang = resolveAppLanguage({
     countryDefaultLanguage: getCountryByCode(draft.countryCode)?.defaultLanguage ?? null,
   });
@@ -85,31 +88,31 @@ export default function OnboardingV2ReferralScreen() {
       <View style={[s.orbA, { backgroundColor: C.orbA }]} />
       <View style={[s.orbB, { backgroundColor: C.orbB }]} />
 
-      <Animated.View style={[s.inner, { opacity: entrance }]}>
-        <View style={s.headerRow}>
+      <Animated.View style={[s.inner, isTablet && s.innerTablet, { opacity: entrance }]}>
+        <View style={[s.headerRow, isTablet && s.headerRowTablet]}>
           <TouchableOpacity
-            style={s.backBtn}
+            style={[s.backBtn, isTablet && s.backBtnTablet]}
             onPress={() => {
               void trackOnboardingStepBack('referral');
               router.back();
             }}
             activeOpacity={0.7}
           >
-            <Text style={s.backTxt}>‹</Text>
+            <Text style={[s.backTxt, isTablet && s.backTxtTablet]}>‹</Text>
           </TouchableOpacity>
           <View style={s.brandRow}>
             <View style={s.brandDot} />
-            <Text style={s.brandTxt}>StudyMap</Text>
+            <Text style={[s.brandTxt, isTablet && s.brandTxtTablet]}>StudyMap</Text>
           </View>
-          <View style={s.stepPill}>
-            <Text style={s.stepTxt}>{t('onboarding.referral.optional', { lang, fallback: 'Optional' })}</Text>
+          <View style={[s.stepPill, isTablet && s.stepPillTablet]}>
+            <Text style={[s.stepTxt, isTablet && s.stepTxtTablet]}>{t('onboarding.referral.optional', { lang, fallback: 'Optional' })}</Text>
           </View>
         </View>
 
-        <View style={s.hero}>
-          <Text style={s.kicker}>{t('onboarding.referral.kicker', { lang, fallback: 'Referral' })}</Text>
-          <Text style={s.title}>{t('onboarding.referral.title', { lang, fallback: 'Have a friend code?' })}</Text>
-          <Text style={s.sub}>
+        <View style={[s.hero, isTablet && s.heroTablet]}>
+          <Text style={[s.kicker, isTablet && s.kickerTablet]}>{t('onboarding.referral.kicker', { lang, fallback: 'Referral' })}</Text>
+          <Text style={[s.title, isTablet && s.titleTablet]}>{t('onboarding.referral.title', { lang, fallback: 'Have a friend code?' })}</Text>
+          <Text style={[s.sub, isTablet && s.subTablet]}>
             {t('onboarding.referral.subtitle', {
               lang,
               fallback: 'Enter it now to unlock extra trial days. You can also skip and continue.',
@@ -117,8 +120,8 @@ export default function OnboardingV2ReferralScreen() {
           </Text>
         </View>
 
-        <View style={s.card}>
-          <Text style={s.inputLabel}>{t('onboarding.referral.input_label', { lang, fallback: 'Referral code' })}</Text>
+        <View style={[s.card, isTablet && s.cardTablet]}>
+          <Text style={[s.inputLabel, isTablet && s.inputLabelTablet]}>{t('onboarding.referral.input_label', { lang, fallback: 'Referral code' })}</Text>
           <TextInput
             value={normalizedCode}
             onChangeText={(t) => { setCode(t.replace(/[^a-zA-Z0-9]/g, '').slice(0, CODE_LENGTH)); setError(''); }}
@@ -127,21 +130,21 @@ export default function OnboardingV2ReferralScreen() {
             maxLength={CODE_LENGTH}
             placeholder={t('onboarding.referral.placeholder', { lang, fallback: 'ABC123' })}
             placeholderTextColor="rgba(148,163,184,0.55)"
-            style={[s.input, !!error && s.inputErr]}
+            style={[s.input, isTablet && s.inputTablet, !!error && s.inputErr]}
           />
           {!!error && (
             <View style={s.errBox}>
               <Text style={s.errTxt}>{error}</Text>
             </View>
           )}
-          <Text style={s.helper}>{t('onboarding.referral.tip', { lang, fallback: 'Tip: Codes are usually 6 characters.' })}</Text>
+          <Text style={[s.helper, isTablet && s.helperTablet]}>{t('onboarding.referral.tip', { lang, fallback: 'Tip: Codes are usually 6 characters.' })}</Text>
         </View>
       </Animated.View>
 
-      <View style={s.footer}>
+      <View style={[s.footer, isTablet && s.footerTablet]}>
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={[s.cta, loading && { opacity: 0.7 }]}
+            style={[s.cta, isTablet && s.ctaTablet, loading && { opacity: 0.7 }]}
             onPress={handleContinue}
             onPressIn={pressIn}
             onPressOut={pressOut}
@@ -149,12 +152,12 @@ export default function OnboardingV2ReferralScreen() {
             activeOpacity={1}
           >
             <LinearGradient colors={[C.tealDk, C.tealDk2]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.ctaTxt}>{t('common.continue', { lang })}</Text>}
+            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[s.ctaTxt, isTablet && s.ctaTxtTablet]}>{t('common.continue', { lang })}</Text>}
           </TouchableOpacity>
         </Animated.View>
 
         <TouchableOpacity style={s.skipBtn} onPress={goNext} activeOpacity={0.7}>
-          <Text style={s.skipTxt}>{t('onboarding.referral.skip', { lang, fallback: 'Skip for now' })}</Text>
+          <Text style={[s.skipTxt, isTablet && s.skipTxtTablet]}>{t('onboarding.referral.skip', { lang, fallback: 'Skip for now' })}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -166,23 +169,36 @@ const s = StyleSheet.create({
   orbA: { position: 'absolute', width: 300, height: 300, borderRadius: 999, top: -90, right: -110 },
   orbB: { position: 'absolute', width: 190, height: 190, borderRadius: 999, bottom: 180, left: -90 },
   inner: { flex: 1, paddingHorizontal: 22, paddingTop: 8, paddingBottom: 190 },
+  innerTablet:{paddingHorizontal:36,paddingTop:20,paddingBottom:210,maxWidth:980,width:'100%',alignSelf:'center'},
 
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  headerRowTablet:{marginBottom:18},
   backBtn: { width: 36, height: 36, borderRadius: 11, borderWidth: 1, borderColor: C.cardBorder, backgroundColor: C.card, justifyContent: 'center', alignItems: 'center' },
+  backBtnTablet:{width:48,height:48,borderRadius:14},
   backTxt: { fontSize: 26, fontWeight: '300', lineHeight: 30, marginTop: -1, color: 'rgba(167,243,208,0.75)' },
+  backTxtTablet:{fontSize:32,lineHeight:36},
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   brandDot: { width: 7, height: 7, borderRadius: 2, backgroundColor: C.teal },
   brandTxt: { fontSize: 14, fontWeight: '800', letterSpacing: 0.4, color: C.teal },
+  brandTxtTablet:{fontSize:18},
   stepPill: { borderWidth: 1, borderColor: C.tealBorder, borderRadius: 99, backgroundColor: C.tealSoft, paddingHorizontal: 10, paddingVertical: 5 },
+  stepPillTablet:{paddingHorizontal:14,paddingVertical:8},
   stepTxt: { fontSize: 11, fontWeight: '700', color: C.teal },
+  stepTxtTablet:{fontSize:13},
 
   hero: { marginTop: 8, marginBottom: 18, gap: 6 },
+  heroTablet:{marginTop:12,marginBottom:24,gap:10},
   kicker: { fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', color: C.teal },
+  kickerTablet:{fontSize:13},
   title: { fontSize: 34, fontWeight: '900', lineHeight: 39, letterSpacing: -0.8, color: C.title },
+  titleTablet:{fontSize:56,lineHeight:62,maxWidth:760},
   sub: { fontSize: 13, lineHeight: 19, color: C.sub },
+  subTablet:{fontSize:20,lineHeight:30,maxWidth:820},
 
   card: { backgroundColor: C.card, borderColor: C.cardBorder, borderWidth: 1, borderRadius: 16, padding: 14, gap: 8 },
+  cardTablet:{borderRadius:20,padding:20,gap:12},
   inputLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.7, textTransform: 'uppercase', color: C.muted },
+  inputLabelTablet:{fontSize:13},
   input: {
     height: 52,
     borderRadius: 12,
@@ -196,14 +212,20 @@ const s = StyleSheet.create({
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
+  inputTablet:{height:62,borderRadius:16,paddingHorizontal:16,fontSize:26},
   inputErr: { borderColor: C.err },
   helper: { fontSize: 11, color: C.muted },
+  helperTablet:{fontSize:14},
   errBox: { backgroundColor: C.errBg, borderWidth: 1, borderColor: C.errBorder, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
   errTxt: { color: C.err, fontSize: 12, fontWeight: '600' },
 
   footer: { position: 'absolute', left: 0, right: 0, bottom:0, paddingHorizontal: 22, paddingTop: FOOTER.paddingTop, paddingBottom: FOOTER.paddingBottom, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.tealBorder, backgroundColor: 'rgba(8,12,11,0.95)', gap: 8 },
+  footerTablet:{paddingHorizontal:36,paddingTop:18,paddingBottom:42,gap:12},
   cta: { height: FOOTER.ctaHeight, borderRadius: FOOTER.ctaRadius, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  ctaTablet:{height:68,borderRadius:20},
   ctaTxt: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.15 },
+  ctaTxtTablet:{fontSize:22},
   skipBtn: { alignItems: 'center', paddingVertical: 2 },
   skipTxt: { color: C.muted, fontSize: 12, fontWeight: '500' },
+  skipTxtTablet:{fontSize:15},
 });

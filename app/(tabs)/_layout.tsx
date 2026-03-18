@@ -63,7 +63,7 @@ export default function TabLayout() {
   const labels = TAB_LABELS[lang] ?? TAB_LABELS.en;
 
   const sharedFloating = {
-    middleware: [offset(16), flip(), shift({ padding: 8 })],
+    middleware: [offset(isTablet ? 30 : 16), flip(), shift({ padding: 8 })],
     placement: 'top' as const,
   };
 
@@ -126,10 +126,10 @@ export default function TabLayout() {
                 left: isTablet ? 80 : 14,
                 right: isTablet ? 80 : 14,
                 bottom: isTablet ? 20 : 10,
-                height: Platform.OS === 'ios' ? (isTablet ? 92 : 84) : (isTablet ? 86 : 78),
-                paddingTop: 8,
-                paddingBottom: Platform.OS === 'ios' ? (isTablet ? 24 : 18) : 12,
-                paddingHorizontal: isTablet ? 24 : 10,
+                height: Platform.OS === 'ios' ? (isTablet ? 100 : 84) : (isTablet ? 92 : 78),
+                paddingTop: isTablet ? 10 : 8,
+                paddingBottom: Platform.OS === 'ios' ? (isTablet ? 28 : 18) : (isTablet ? 14 : 12),
+                paddingHorizontal: isTablet ? 28 : 10,
                 borderTopWidth: 1,
                 borderTopColor: TAB.barBorder,
                 borderRadius: 26,
@@ -235,7 +235,7 @@ function ModernTabIcon({ name, focused }: { name: 'dashboard' | 'calendar' | 'pr
             style={StyleSheet.absoluteFill}
           />
         )}
-        <Ionicons name={TAB_ICONS[name][focused ? 'focused' : 'unfocused']} size={isTablet ? 23 : 20} color={focused ? TAB.active : TAB.inactive} />
+        <Ionicons name={TAB_ICONS[name][focused ? 'focused' : 'unfocused']} size={isTablet ? 25 : 20} color={focused ? TAB.active : TAB.inactive} />
       </View>
     </View>
   );
@@ -243,10 +243,11 @@ function ModernTabIcon({ name, focused }: { name: 'dashboard' | 'calendar' | 'pr
 
 const styles = StyleSheet.create({
   tabLabel: {
-    fontSize: isTablet ? 12 : 10,
+    fontSize: isTablet ? 13 : 10,
     fontWeight: '700',
     letterSpacing: 0.2,
-    marginTop: 4,
+    marginTop: isTablet ? 5 : 4,
+    marginLeft: isTablet ? 10 : 0,
   },
   iconSlot: {
     alignItems: 'center',
@@ -254,9 +255,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   iconWrap: {
-    width: isTablet ? 38 : 34,
-    height: isTablet ? 38 : 34,
-    borderRadius: 12,
+    width: isTablet ? 42 : 34,
+    height: isTablet ? 42 : 34,
+    borderRadius: isTablet ? 14 : 12,
     alignItems: 'center',
     justifyContent: 'center',
   },

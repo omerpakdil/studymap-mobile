@@ -74,6 +74,7 @@ const FEATURES = [
 export default function OnboardingV2PaywallScreen() {
   const { draft } = useOnboardingV2();
   const { width, height } = useWindowDimensions();
+  const isTablet = width >= 768;
   const isNarrow = width <= 390;
   const isTight = height <= 850;
   const lang = resolveAppLanguage({
@@ -175,47 +176,45 @@ export default function OnboardingV2PaywallScreen() {
         {[0,1,2,3,4,5,6].map(i=><View key={i} style={{position:'absolute',left:0,right:0,top:`${i*15}%`,height:StyleSheet.hairlineWidth,backgroundColor:C.grid}}/>)}
       </View>
 
-      <Animated.View style={[s.inner, (isNarrow || isTight) && s.innerTight, { opacity:entrance }]}>
+      <Animated.View style={[s.inner, isTablet && s.innerTablet, (isNarrow || isTight) && !isTablet && s.innerTight, { opacity:entrance }]}>
 
         {/* Header */}
-        <View style={s.headerRow}>
+        <View style={[s.headerRow, isTablet && s.headerRowTablet]}>
           <TouchableOpacity style={[s.backBtn,{backgroundColor:C.backBg,borderColor:C.backBorder}]} onPress={()=>{void trackOnboardingStepBack('paywall');router.back();}} activeOpacity={0.7}>
             <Text style={[s.backArrowTxt,{color:C.backArrow}]}>‹</Text>
           </TouchableOpacity>
           <View style={s.brandRow}>
             <View style={[s.brandMark,{backgroundColor:C.brand}]}/>
-            <Text style={[s.brandTxt,{color:C.brand}]}>StudyMap</Text>
+            <Text style={[s.brandTxt, isTablet && s.brandTxtTablet,{color:C.brand}]}>StudyMap</Text>
           </View>
-          <View style={[s.freeBadge,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
-            <Text style={[s.freeBadgeTxt,{color:C.teal}]} numberOfLines={1}>
+          <View style={[s.freeBadge, isTablet && s.freeBadgeTablet,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
+            <Text style={[s.freeBadgeTxt, isTablet && s.freeBadgeTxtTablet,{color:C.teal}]} numberOfLines={1}>
               {t('onboarding.paywall.premium_badge', { lang, fallback: 'Premium' })}
             </Text>
           </View>
         </View>
 
-        {/* Progress */}
         <View style={[s.progressTrack,{backgroundColor:C.tealSoft}]}>
           <View style={[s.progressFill,{width:'95%'}]}>
             <LinearGradient colors={[C.tealDk,C.tealDk2]} start={{x:0,y:0}} end={{x:1,y:0}} style={StyleSheet.absoluteFill}/>
             <View style={s.progressSheen}/>
           </View>
         </View>
-        <Text style={[s.stepLabel,{color:C.labelMuted}]}>
+        <Text style={[s.stepLabel, isTablet && s.stepLabelTablet,{color:C.labelMuted}]}>
           {t('common.step_of', { lang, params: { current: 12, total: 13 } })}
         </Text>
 
-        {/* ── Hero headline ── */}
-        <View style={[s.heroSection, isNarrow && s.heroSectionNarrow]}>
+        <View style={[s.heroSection, isTablet && s.heroSectionTablet, isNarrow && !isTablet && s.heroSectionNarrow]}>
           <Text style={[s.eyebrow,{color:C.teal}]}>
             {examHeadline}
           </Text>
-          <Text style={[s.headline,{color:C.title}, isNarrow && s.headlineNarrow]}>
+          <Text style={[s.headline,{color:C.title}, isTablet && s.headlineTablet, isNarrow && !isTablet && s.headlineNarrow]}>
             {t('onboarding.paywall.title_line_1', { lang, fallback: 'Now make it' })}{'\n'}
             <Text style={{color:C.teal}}>
               {t('onboarding.paywall.title_line_2', { lang, fallback: 'stick.' })}
             </Text>
           </Text>
-          <Text style={[s.heroSub,{color:C.sub}]}>
+          <Text style={[s.heroSub,{color:C.sub}, isTablet && s.heroSubTablet]}>
             {t('onboarding.paywall.subtitle', {
               lang,
               fallback: 'Premium keeps your plan sharp - adapting each week as you progress.',
@@ -224,7 +223,7 @@ export default function OnboardingV2PaywallScreen() {
         </View>
 
         {/* ── Feature rows ── */}
-        <View style={s.featureList}>
+        <View style={[s.featureList, isTablet && s.featureListTablet]}>
           {localizedFeatures.map((feat, i) => (
             <Animated.View
               key={feat.id}
@@ -233,12 +232,12 @@ export default function OnboardingV2PaywallScreen() {
                 transform:[{ translateX: rowAnims[i].interpolate({ inputRange:[0,1], outputRange:[12,0] }) }],
               }}
             >
-              <View style={[s.featureRow,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+              <View style={[s.featureRow, isTablet && s.featureRowTablet, {backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
                 {/* Teal left rail */}
                 <LinearGradient colors={[C.tealDk,C.tealDk2]} start={{x:0,y:0}} end={{x:0,y:1}} style={s.featureRail}/>
                 <View style={s.featureBody}>
-                  <Text style={[s.featureTitle,{color:C.title}]} numberOfLines={2}>{feat.title}</Text>
-                  <Text style={[s.featureDesc,{color:C.muted}]} numberOfLines={2}>{feat.desc}</Text>
+                  <Text style={[s.featureTitle, isTablet && s.featureTitleTablet,{color:C.title}]} numberOfLines={2}>{feat.title}</Text>
+                  <Text style={[s.featureDesc, isTablet && s.featureDescTablet,{color:C.muted}]} numberOfLines={2}>{feat.desc}</Text>
                 </View>
                 <View style={[s.featureCheck,{backgroundColor:C.tealSoft,borderColor:C.tealBorder}]}>
                   <Text style={[s.featureCheckTxt,{color:C.teal}]}>✓</Text>
@@ -249,13 +248,13 @@ export default function OnboardingV2PaywallScreen() {
         </View>
 
         {/* ── Social proof ── */}
-        <View style={[s.proofRow,{backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
+        <View style={[s.proofRow, isTablet && s.proofRowTablet, {backgroundColor:C.cardBg,borderColor:C.cardBorder}]}>
           <View style={s.stars}>
             {[0,1,2,3,4].map(i=>(
               <Text key={i} style={[s.star,{color:C.gold}]}>★</Text>
             ))}
           </View>
-          <Text style={[s.proofTxt,{color:C.sub}]}>
+          <Text style={[s.proofTxt, isTablet && s.proofTxtTablet,{color:C.sub}]}>
             <Text style={{color:C.title,fontWeight:'800'}}>4.9</Text>
             {'  '}·{'  '}
             <Text style={{color:C.title,fontWeight:'700'}}>12,400+</Text>{' '}
@@ -266,29 +265,29 @@ export default function OnboardingV2PaywallScreen() {
       </Animated.View>
 
       {/* ── Footer ── */}
-      <View style={[s.footer, (isNarrow || isTight) && s.footerTight, {backgroundColor:C.footer,borderTopColor:C.footerBorder}]}>
+      <View style={[s.footer, isTablet && s.footerTablet, (isNarrow || isTight) && !isTablet && s.footerTight, {backgroundColor:C.footer,borderTopColor:C.footerBorder}]}>
 
         {/* Price context */}
-        <View style={[s.priceRow, isNarrow && s.priceRowNarrow]}>
-          <Text style={[s.priceThen,{color:C.muted}]}>
+        <View style={[s.priceRow, isTablet && s.priceRowTablet, isNarrow && !isTablet && s.priceRowNarrow]}>
+          <Text style={[s.priceThen, isTablet && s.priceThenTablet,{color:C.muted}]}>
             {priceLine || fallbackPriceLine}
           </Text>
         </View>
 
         {/* Primary CTA */}
         <Animated.View style={{transform:[{scale:ctaScale}]}}>
-          <TouchableOpacity style={s.cta} onPress={handleStartTrial} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
+          <TouchableOpacity style={[s.cta, isTablet && s.ctaTablet]} onPress={handleStartTrial} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
             <LinearGradient colors={[C.tealDk,C.tealDk2]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
             <View style={s.ctaSheen}/>
-            <Text style={s.ctaTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
+            <Text style={[s.ctaTxt, isTablet && s.ctaTxtTablet]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
               {t('onboarding.paywall.start_premium', { lang, fallback: lang === 'tr' ? 'Premium\'a Başla' : 'Start Premium' })}
             </Text>
-            <Text style={s.ctaArrow}>→</Text>
+            <Text style={[s.ctaArrow, isTablet && s.ctaArrowTablet]}>→</Text>
           </TouchableOpacity>
         </Animated.View>
 
         {/* Trust */}
-        <Text style={[s.trust,{color:C.labelMuted}]} numberOfLines={2}>
+        <Text style={[s.trust, isTablet && s.trustTablet,{color:C.labelMuted}]} numberOfLines={2}>
           {t('onboarding.paywall.trust', { lang, fallback: 'Secure billing · Restore purchases anytime' })}
         </Text>
       </View>
@@ -302,40 +301,52 @@ const s = StyleSheet.create({
   orbB:{ position:'absolute', width:200, height:200, borderRadius:999, bottom:220, left:-90 },
   inner:{ flex:1, paddingHorizontal:22, paddingTop:8, paddingBottom:220 },
   innerTight:{ paddingTop:4, paddingBottom:206 },
-
+  innerTablet:{ paddingHorizontal:38, paddingTop:18, paddingBottom:228, justifyContent:'space-between' },
   headerRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:10 },
+  headerRowTablet:{ marginBottom:8 },
   backBtn:{ width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
   backArrowTxt:{ fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
   brandRow:{ flexDirection:'row', alignItems:'center', gap:6 },
   brandMark:{ width:7, height:7, borderRadius:2 },
   brandTxt:{ fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTxtTablet:{ fontSize:18 },
   freeBadge:{ borderWidth:1, borderRadius:99, paddingHorizontal:10, paddingVertical:5 },
   freeBadgeTxt:{ fontSize:11, fontWeight:'700' },
+  freeBadgeTablet:{ paddingHorizontal:14, paddingVertical:7 },
+  freeBadgeTxtTablet:{ fontSize:13 },
 
-  progressTrack:{ height:3, borderRadius:99, overflow:'hidden', marginBottom:6 },
+  progressTrack:{ height:3, borderRadius:99, overflow:'hidden', marginBottom:0 },
   progressFill:{ height:'100%', borderRadius:99, overflow:'hidden' },
   progressSheen:{ position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.20)' },
   stepLabel:{ fontSize:10, fontWeight:'600', letterSpacing:0.8, textTransform:'uppercase', marginBottom:10, opacity:0.65 },
+  stepLabelTablet:{ fontSize:13, marginTop:1, marginBottom:10 },
 
   // Hero
   heroSection:{ gap:4, marginBottom:14 },
   heroSectionNarrow:{ marginBottom:10 },
+  heroSectionTablet:{ gap:12, marginBottom:30 },
   eyebrow:{ fontSize:11, fontWeight:'600', letterSpacing:0.2 },
   headline:{ fontSize:34, fontWeight:'900', lineHeight:39, letterSpacing:-1 },
   headlineNarrow:{ fontSize:32, lineHeight:36 },
+  headlineTablet:{ fontSize:60, lineHeight:64, letterSpacing:-1.6 },
   heroSub:{ fontSize:12, lineHeight:17, fontWeight:'400' },
+  heroSubTablet:{ fontSize:21, lineHeight:31, maxWidth:860 },
 
   // Features
   featureList:{ gap:7, marginBottom:10 },
+  featureListTablet:{ gap:16, marginBottom:22 },
   featureRow:{
     flexDirection:'row', alignItems:'center',
     borderWidth:1, borderRadius:13, overflow:'hidden',
     paddingRight:10, paddingVertical:10,
   },
+  featureRowTablet:{ borderRadius:20, paddingRight:18, paddingVertical:18, minHeight:84 },
   featureRail:{ width:3, alignSelf:'stretch', marginRight:11 },
   featureBody:{ flex:1, gap:3 },
   featureTitle:{ fontSize:13, fontWeight:'700', letterSpacing:-0.1 },
   featureDesc:{ fontSize:10, fontWeight:'400', lineHeight:14 },
+  featureTitleTablet:{ fontSize:20, lineHeight:24 },
+  featureDescTablet:{ fontSize:15, lineHeight:21 },
   featureCheck:{ width:24, height:24, borderRadius:8, borderWidth:1, alignItems:'center', justifyContent:'center' },
   featureCheckTxt:{ fontSize:12, fontWeight:'700' },
 
@@ -345,9 +356,11 @@ const s = StyleSheet.create({
     borderWidth:1, borderRadius:12,
     paddingHorizontal:12, paddingVertical:9,
   },
+  proofRowTablet:{ borderRadius:18, paddingHorizontal:20, paddingVertical:16, minHeight:58 },
   stars:{ flexDirection:'row', gap:1 },
   star:{ fontSize:11 },
   proofTxt:{ flex:1, fontSize:11, fontWeight:'400' },
+  proofTxtTablet:{ fontSize:16, lineHeight:22 },
 
   // Footer
   footer:{
@@ -356,17 +369,24 @@ const s = StyleSheet.create({
     borderTopWidth:StyleSheet.hairlineWidth, gap:8,
   },
   footerTight:{ paddingTop:8, paddingBottom:14, gap:6 },
+  footerTablet:{ paddingHorizontal:38, paddingTop:18, paddingBottom:30, gap:16 },
   priceRow:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', gap:8 },
   priceRowNarrow:{ alignItems:'flex-start' },
+  priceRowTablet:{ alignItems:'center' },
   priceThen:{ fontSize:10, fontWeight:'400', flex:1 },
+  priceThenTablet:{ fontSize:15, lineHeight:21 },
   priceFree:{ fontSize:11, fontWeight:'700', flexShrink:1, textAlign:'right' },
 
   cta:{ height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center',
     overflow:'hidden', gap:8, shadowColor:'#14B8A6', shadowOffset:{width:0,height:8},
     shadowOpacity:0.36, shadowRadius:20, elevation:10 },
+  ctaTablet:{ height:72, borderRadius:24, gap:10 },
   ctaSheen:{ position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.11)' },
   ctaTxt:{ color:'#fff', fontSize:16, fontWeight:'800', letterSpacing:0.1, flexShrink:1, textAlign:'center' },
+  ctaTxtTablet:{ fontSize:22 },
   ctaArrow:{ color:'rgba(255,255,255,0.72)', fontSize:17 },
+  ctaArrowTablet:{ fontSize:22 },
 
   trust:{ textAlign:'center', fontSize:9, fontWeight:'400', letterSpacing:0.2 },
+  trustTablet:{ fontSize:12, lineHeight:18 },
 });

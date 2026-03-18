@@ -17,6 +17,7 @@ import {
     Image,
     StatusBar,
     StyleSheet,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import { resolveAppLanguage, t } from '@/app/i18n';
@@ -32,6 +33,8 @@ const WORDS = [
 ];
 
 export default function AnimatedSplash({ onFinish }: Props) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const lang = resolveAppLanguage();
 
   // Exit
@@ -132,15 +135,17 @@ export default function AnimatedSplash({ onFinish }: Props) {
       {/* Single subtle orb — sadece hafif derinlik için */}
       <Animated.View style={[
         styles.orb,
+        isTablet && styles.orbTablet,
         { opacity: orbOpacity, transform: [{ scale: orbScale }] }
       ]} />
 
       {/* ── İçerik ── */}
-      <View style={styles.center}>
+      <View style={[styles.center, isTablet && styles.centerTablet]}>
 
         {/* İkon */}
         <Animated.View style={[
           styles.iconWrap,
+          isTablet && styles.iconWrapTablet,
           {
             opacity: iconOpacity,
             transform: [{ scale: iconScale }, { translateY: iconTranslateY }],
@@ -148,13 +153,13 @@ export default function AnimatedSplash({ onFinish }: Props) {
         ]}>
           <Image
             source={require('../../assets/images/icon.png')}
-            style={styles.iconImage}
+            style={[styles.iconImage, isTablet && styles.iconImageTablet]}
             resizeMode="cover"
           />
         </Animated.View>
 
         {/* Wordmark — STUDYMAP */}
-        <View style={styles.wordRow}>
+        <View style={[styles.wordRow, isTablet && styles.wordRowTablet]}>
           {WORDS.map((word, wi) => {
             const wordEl = (
               <View key={wi} style={styles.wordGroup}>
@@ -165,6 +170,7 @@ export default function AnimatedSplash({ onFinish }: Props) {
                       key={idx}
                       style={[
                         styles.char,
+                        isTablet && styles.charTablet,
                         word.green ? styles.charGreen : styles.charWhite,
                         {
                           opacity:   charAnims[idx].opacity,
@@ -185,6 +191,7 @@ export default function AnimatedSplash({ onFinish }: Props) {
         {/* Tagline */}
         <Animated.Text style={[
           styles.tagline,
+          isTablet && styles.taglineTablet,
           { opacity: tagOpacity, transform: [{ translateY: tagTranslateY }] },
         ]}>
           {t('onboarding.animated_splash.tagline', { lang, fallback: 'adaptive study plans · built for you' })}
@@ -206,24 +213,32 @@ const styles = StyleSheet.create({
 
   orb: {
     position: 'absolute',
-    width: 500,
-    height: 500,
+    width: 560,
+    height: 560,
     borderRadius: 999,
     alignSelf: 'center',
     top: '50%',
-    marginTop: -250,
+    marginTop: -280,
     backgroundColor: 'rgba(16,185,129,0.09)',
+  },
+  orbTablet: {
+    width: 760,
+    height: 760,
+    marginTop: -380,
   },
 
   center: {
     alignItems: 'center',
-    gap: 28,
+    gap: 34,
+  },
+  centerTablet: {
+    gap: 44,
   },
 
   iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 20,
+    width: 108,
+    height: 108,
+    borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 6 },
@@ -231,9 +246,20 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
+  iconWrapTablet: {
+    width: 144,
+    height: 144,
+    borderRadius: 30,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 24,
+  },
   iconImage: {
-    width: 96,
-    height: 96,
+    width: 108,
+    height: 108,
+  },
+  iconImageTablet: {
+    width: 144,
+    height: 144,
   },
 
   wordRow: {
@@ -241,16 +267,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 0,
   },
+  wordRowTablet: {
+    transform: [{ scale: 1.08 }],
+  },
   wordGroup: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   char: {
-    fontSize: 42,
+    fontSize: 52,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 2.4,
     includeFontPadding: false,
     textAlignVertical: 'center',
+  },
+  charTablet: {
+    fontSize: 68,
+    letterSpacing: 3,
   },
   charWhite: {
     color: '#ECFDF5',
@@ -260,10 +293,14 @@ const styles = StyleSheet.create({
   },
 
   tagline: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '400',
-    letterSpacing: 1.6,
+    letterSpacing: 1.9,
     textTransform: 'uppercase',
     color: 'rgba(167,243,210,0.55)',
+  },
+  taglineTablet: {
+    fontSize: 16,
+    letterSpacing: 2.2,
   },
 });

@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,6 +55,8 @@ function Field({
   label: string; value: string; onChangeText: (t: string) => void;
   placeholder?: string; keyboardType?: any; autoCapitalize?: any; error?: string;
 }) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const [focused, setFocused] = useState(false);
   const borderAnim = useRef(new Animated.Value(0)).current;
   const labelAnim  = useRef(new Animated.Value(value ? 1 : 0)).current;
@@ -76,12 +79,12 @@ function Field({
 
   return (
     <View style={fieldStyles.wrap}>
-      <Animated.View style={[fieldStyles.box, { borderColor }]}>
-        <Animated.Text style={[fieldStyles.label, { top: labelTop, fontSize: labelSize, color: labelColor }]}>
+      <Animated.View style={[fieldStyles.box, isTablet && fieldStyles.boxTablet, { borderColor }]}>
+        <Animated.Text style={[fieldStyles.label, isTablet && fieldStyles.labelTablet, { top: labelTop, fontSize: labelSize, color: labelColor }]}>
           {label}
         </Animated.Text>
         <TextInput
-          style={fieldStyles.input}
+          style={[fieldStyles.input, isTablet && fieldStyles.inputTablet]}
           value={value}
           onChangeText={onChangeText}
           onFocus={handleFocus}
@@ -106,8 +109,16 @@ const fieldStyles = StyleSheet.create({
     borderWidth: 1.5, borderRadius: 14, backgroundColor: T.input,
     paddingHorizontal: 16, paddingTop: 22, paddingBottom: 11, position: 'relative',
   },
+  boxTablet: {
+    borderRadius: 18,
+    paddingHorizontal: 20,
+    paddingTop: 28,
+    paddingBottom: 14,
+  },
   label: { position: 'absolute', left: 16, fontWeight: '600', zIndex: 1 },
+  labelTablet: { left: 20 },
   input: { fontSize: 15, fontWeight: '600', color: T.ink, paddingTop: 2 },
+  inputTablet: { fontSize: 19, paddingTop: 4 },
   errorText: { fontSize: 11, fontWeight: '600', color: T.rose, marginTop: 5, marginLeft: 4 },
 });
 
@@ -118,6 +129,8 @@ function FreqOption({
   id: string; label: string; sub: string;
   selected: boolean; onPress: () => void;
 }) {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const anim = useRef(new Animated.Value(selected ? 1 : 0)).current;
   useEffect(() => {
     Animated.spring(anim, { toValue: selected ? 1 : 0, useNativeDriver: false, tension: 160, friction: 12 }).start();
@@ -128,13 +141,13 @@ function FreqOption({
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <Animated.View style={[styles.freqOpt, { backgroundColor: bg, borderColor: border }]}>
+      <Animated.View style={[styles.freqOpt, isTablet && styles.freqOptTablet, { backgroundColor: bg, borderColor: border }]}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.freqOptLabel, selected && { color: '#fff' }]}>{label}</Text>
-          <Text style={[styles.freqOptSub, selected && { color: 'rgba(255,255,255,0.7)' }]}>{sub}</Text>
+          <Text style={[styles.freqOptLabel, isTablet && styles.freqOptLabelTablet, selected && { color: '#fff' }]}>{label}</Text>
+          <Text style={[styles.freqOptSub, isTablet && styles.freqOptSubTablet, selected && { color: 'rgba(255,255,255,0.7)' }]}>{sub}</Text>
         </View>
         {selected && (
-          <View style={styles.freqCheck} />
+          <View style={[styles.freqCheck, isTablet && styles.freqCheckTablet]} />
         )}
       </Animated.View>
     </TouchableOpacity>
@@ -144,6 +157,8 @@ function FreqOption({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function ProfileEditScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const appLang = resolveAppLanguage();
   const tp = (key: string, fallback: string, params?: Record<string, string | number>) =>
     t(`tabs.profile.edit.${key}`, { lang: appLang, fallback, params });
@@ -237,52 +252,52 @@ export default function ProfileEditScreen() {
       <View style={styles.orbA} />
 
       {/* ── Header ── */}
-      <Animated.View style={[styles.header, { opacity: headerAnim }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.75}>
-          <Text style={styles.backBtnText}>‹</Text>
+      <Animated.View style={[styles.header, isTablet && styles.headerTablet, { opacity: headerAnim }]}>
+        <TouchableOpacity style={[styles.backBtn, isTablet && styles.backBtnTablet]} onPress={() => router.back()} activeOpacity={0.75}>
+          <Text style={[styles.backBtnText, isTablet && styles.backBtnTextTablet]}>‹</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerKicker}>{tp('header_kicker', 'Profile')}</Text>
-          <Text style={styles.headerTitle}>{tp('header_title', 'Edit Info')}</Text>
+          <Text style={[styles.headerKicker, isTablet && styles.headerKickerTablet]}>{tp('header_kicker', 'Profile')}</Text>
+          <Text style={[styles.headerTitle, isTablet && styles.headerTitleTablet]}>{tp('header_title', 'Edit Info')}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.saveBtn, saving && { opacity: 0.55 }]}
+          style={[styles.saveBtn, isTablet && styles.saveBtnTablet, saving && { opacity: 0.55 }]}
           onPress={handleSave}
           disabled={saving}
           activeOpacity={0.8}
         >
           {saving
             ? <ActivityIndicator size="small" color="#fff" />
-            : <Text style={styles.saveBtnText}>{tp('save', 'Save')}</Text>
+            : <Text style={[styles.saveBtnText, isTablet && styles.saveBtnTextTablet]}>{tp('save', 'Save')}</Text>
           }
         </TouchableOpacity>
       </Animated.View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={isIOS ? 'padding' : 'height'}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, isTablet && styles.scrollContentTablet]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {/* ── Avatar preview ── */}
-          <View style={styles.avatarSection}>
-            <LinearGradient colors={[T.tealDk, T.tealMid]} style={styles.avatarCircle} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-              <Text style={styles.avatarInitials}>{initials || '?'}</Text>
+          <View style={[styles.avatarSection, isTablet && styles.avatarSectionTablet]}>
+            <LinearGradient colors={[T.tealDk, T.tealMid]} style={[styles.avatarCircle, isTablet && styles.avatarCircleTablet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              <Text style={[styles.avatarInitials, isTablet && styles.avatarInitialsTablet]}>{initials || '?'}</Text>
             </LinearGradient>
             <View style={styles.avatarInfo}>
-              <Text style={styles.avatarName}>{userInfo.fullName || `${userInfo.firstName} ${userInfo.lastName}`.trim() || tp('your_name', 'Your Name')}</Text>
-              <Text style={styles.avatarHint}>{tp('avatar_hint', 'Changes apply immediately')}</Text>
+              <Text style={[styles.avatarName, isTablet && styles.avatarNameTablet]}>{userInfo.fullName || `${userInfo.firstName} ${userInfo.lastName}`.trim() || tp('your_name', 'Your Name')}</Text>
+              <Text style={[styles.avatarHint, isTablet && styles.avatarHintTablet]}>{tp('avatar_hint', 'Changes apply immediately')}</Text>
             </View>
           </View>
 
           {/* ── Personal Info ── */}
-          <View style={styles.block}>
-            <View style={styles.blockHeader}>
-              <View style={styles.blockDot} />
-              <Text style={styles.blockTitle}>{tp('section_personal_info', 'Personal Information')}</Text>
+          <View style={[styles.block, isTablet && styles.blockTablet]}>
+            <View style={[styles.blockHeader, isTablet && styles.blockHeaderTablet]}>
+              <View style={[styles.blockDot, isTablet && styles.blockDotTablet]} />
+              <Text style={[styles.blockTitle, isTablet && styles.blockTitleTablet]}>{tp('section_personal_info', 'Personal Information')}</Text>
             </View>
-            <View style={styles.card}>
-              <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
+              <View style={{ flexDirection: 'row', gap: isTablet ? 16 : 12 }}>
                 <View style={{ flex: 1 }}>
                   <Field
                     label={tp('first_name', 'First Name')}
@@ -315,14 +330,14 @@ export default function ProfileEditScreen() {
           </View>
 
           {/* ── Reminder Frequency ── */}
-          <View style={styles.block}>
-            <View style={styles.blockHeader}>
-              <View style={styles.blockDot} />
-              <Text style={styles.blockTitle}>{tp('section_reminder_frequency', 'Reminder Frequency')}</Text>
+          <View style={[styles.block, isTablet && styles.blockTablet]}>
+            <View style={[styles.blockHeader, isTablet && styles.blockHeaderTablet]}>
+              <View style={[styles.blockDot, isTablet && styles.blockDotTablet]} />
+              <Text style={[styles.blockTitle, isTablet && styles.blockTitleTablet]}>{tp('section_reminder_frequency', 'Reminder Frequency')}</Text>
             </View>
-            <View style={styles.card}>
-              <Text style={styles.freqHint}>{tp('frequency_hint', 'How often should we send study reminders?')}</Text>
-              <View style={{ gap: 9, marginTop: 4 }}>
+            <View style={[styles.card, isTablet && styles.cardTablet]}>
+              <Text style={[styles.freqHint, isTablet && styles.freqHintTablet]}>{tp('frequency_hint', 'How often should we send study reminders?')}</Text>
+              <View style={{ gap: isTablet ? 12 : 9, marginTop: isTablet ? 8 : 4 }}>
                 {[
                   { id: 'minimal',  label: tp('freq_minimal', 'Minimal'),  sub: tp('freq_minimal_sub', 'Weekly check-ins') },
                   { id: 'moderate', label: tp('freq_moderate', 'Moderate'), sub: tp('freq_moderate_sub', 'Daily reminders')  },
@@ -339,14 +354,14 @@ export default function ProfileEditScreen() {
             </View>
           </View>
 
-          <View style={{ height: isIOS ? 110 : 92 }} />
+          <View style={{ height: isIOS ? (isTablet ? 140 : 110) : (isTablet ? 120 : 92) }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
       {/* ── Success Modal ── */}
       <Modal visible={showSuccess} transparent animationType="fade" onRequestClose={() => { setShowSuccess(false); router.back(); }}>
         <Pressable style={styles.overlay} onPress={() => { setShowSuccess(false); router.back(); }}>
-          <Pressable style={styles.successSheet}>
+          <Pressable style={[styles.successSheet, isTablet && styles.successSheetTablet]}>
             <Animated.View
               style={{
                 alignItems: 'center',
@@ -355,23 +370,23 @@ export default function ProfileEditScreen() {
               }}
             >
               {/* Checkmark */}
-              <View style={styles.successOrbWrap}>
-                <LinearGradient colors={[T.tealDk, T.tealMid]} style={styles.successOrb} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+              <View style={[styles.successOrbWrap, isTablet && styles.successOrbWrapTablet]}>
+                <LinearGradient colors={[T.tealDk, T.tealMid]} style={[styles.successOrb, isTablet && styles.successOrbTablet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                   <View style={styles.successOrbDot} />
                 </LinearGradient>
-                <View style={styles.successRing} />
+                <View style={[styles.successRing, isTablet && styles.successRingTablet]} />
               </View>
 
-              <Text style={styles.successTitle}>{tp('saved_title', 'Saved!')}</Text>
-              <Text style={styles.successSub}>{tp('saved_sub', 'Your profile has been updated successfully.')}</Text>
+              <Text style={[styles.successTitle, isTablet && styles.successTitleTablet]}>{tp('saved_title', 'Saved!')}</Text>
+              <Text style={[styles.successSub, isTablet && styles.successSubTablet]}>{tp('saved_sub', 'Your profile has been updated successfully.')}</Text>
 
               <TouchableOpacity
-                style={styles.successBtn}
+                style={[styles.successBtn, isTablet && styles.successBtnTablet]}
                 onPress={() => { setShowSuccess(false); router.back(); }}
                 activeOpacity={0.8}
               >
-                <LinearGradient colors={[T.tealDk, T.tealMid]} style={styles.successBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                  <Text style={styles.successBtnText}>{tp('continue', 'Continue')}</Text>
+                <LinearGradient colors={[T.tealDk, T.tealMid]} style={[styles.successBtnGrad, isTablet && styles.successBtnGradTablet]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  <Text style={[styles.successBtnText, isTablet && styles.successBtnTextTablet]}>{tp('continue', 'Continue')}</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
@@ -394,50 +409,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingTop: isIOS ? 6 : 14, paddingBottom: 14,
   },
+  headerTablet: { gap: 18, paddingHorizontal: 28, paddingTop: isIOS ? 12 : 18, paddingBottom: 18 },
   backBtn: {
     width: 38, height: 38, borderRadius: 12, backgroundColor: T.tealLt,
     justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: T.border,
   },
+  backBtnTablet: { width: 48, height: 48, borderRadius: 15 },
   backBtnText: { fontSize: 22, fontWeight: '300', color: T.teal, lineHeight: 26, marginTop: -2 },
+  backBtnTextTablet: { fontSize: 28, lineHeight: 32 },
   headerKicker: { fontSize: 10, fontWeight: '700', color: T.muted, letterSpacing: 1.1, textTransform: 'uppercase', marginBottom: 2 },
+  headerKickerTablet: { fontSize: 12, marginBottom: 4, letterSpacing: 1.3 },
   headerTitle:  { fontSize: 22, fontWeight: '800', color: T.ink, letterSpacing: -0.3 },
+  headerTitleTablet: { fontSize: 30, letterSpacing: -0.5 },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: T.teal, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10,
     shadowColor: T.teal, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.30, shadowRadius: 8, elevation: 6,
   },
+  saveBtnTablet: { borderRadius: 15, paddingHorizontal: 20, paddingVertical: 13 },
   saveBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  saveBtnTextTablet: { fontSize: 17 },
 
   scrollContent: { paddingHorizontal: 20, paddingTop: 6 },
+  scrollContentTablet: { paddingHorizontal: 28, paddingTop: 10, maxWidth: 980, alignSelf: 'center', width: '100%' },
 
   // Avatar section
   avatarSection: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 26, paddingVertical: 6 },
+  avatarSectionTablet: { gap: 22, marginBottom: 34, paddingVertical: 10 },
   avatarCircle:  { width: 60, height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: T.tealDk, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.24, shadowRadius: 10, elevation: 6 },
+  avatarCircleTablet: { width: 84, height: 84, borderRadius: 26 },
   avatarInitials: { fontSize: 22, fontWeight: '900', color: '#fff' },
+  avatarInitialsTablet: { fontSize: 30 },
   avatarInfo:   {},
   avatarName:   { fontSize: 18, fontWeight: '800', color: T.ink, letterSpacing: -0.2 },
+  avatarNameTablet: { fontSize: 26, letterSpacing: -0.3 },
   avatarHint:   { fontSize: 12, color: T.muted, marginTop: 3, fontWeight: '500' },
+  avatarHintTablet: { fontSize: 15, marginTop: 5 },
 
   // Block
   block: { marginBottom: 22 },
+  blockTablet: { marginBottom: 30 },
   blockHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  blockHeaderTablet: { gap: 10, marginBottom: 16 },
   blockDot:    { width: 7, height: 7, borderRadius: 4, backgroundColor: T.teal },
+  blockDotTablet: { width: 9, height: 9, borderRadius: 5 },
   blockTitle:  { fontSize: 13, fontWeight: '800', color: T.sub, textTransform: 'uppercase', letterSpacing: 0.6 },
+  blockTitleTablet: { fontSize: 15, letterSpacing: 0.8 },
 
   card: {
     backgroundColor: T.card, borderRadius: 18, borderWidth: 1, borderColor: T.border,
     padding: 16,
     shadowColor: T.teal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
   },
+  cardTablet: { borderRadius: 22, padding: 22 },
 
   freqHint: { fontSize: 12, color: T.muted, fontWeight: '500', marginBottom: 14 },
+  freqHintTablet: { fontSize: 15, marginBottom: 18 },
   freqOpt: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderRadius: 13, borderWidth: 1.5, padding: 15,
   },
+  freqOptTablet: { gap: 16, borderRadius: 16, padding: 20 },
   freqOptLabel: { fontSize: 14, fontWeight: '700', color: T.ink, marginBottom: 2 },
+  freqOptLabelTablet: { fontSize: 18, marginBottom: 4 },
   freqOptSub:   { fontSize: 12, color: T.muted },
+  freqOptSubTablet: { fontSize: 15 },
   freqCheck:    { width: 10, height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.5)' },
+  freqCheckTablet: { width: 12, height: 12, borderRadius: 6 },
 
   // Overlay + success
   overlay: { flex: 1, backgroundColor: 'rgba(5,15,25,0.45)', justifyContent: 'flex-end', padding: 14 },
@@ -445,13 +483,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 26, padding: 30, alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 14,
   },
+  successSheetTablet: { alignSelf: 'center', width: 620, borderRadius: 30, padding: 38 },
   successOrbWrap: { position: 'relative', marginBottom: 22, width: 80, height: 80, alignItems: 'center', justifyContent: 'center' },
+  successOrbWrapTablet: { marginBottom: 28, width: 96, height: 96 },
   successOrb:  { width: 72, height: 72, borderRadius: 22, justifyContent: 'center', alignItems: 'center', shadowColor: T.teal, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.30, shadowRadius: 14, elevation: 8 },
+  successOrbTablet: { width: 86, height: 86, borderRadius: 26 },
   successOrbDot: { width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.9)' },
   successRing: { position: 'absolute', width: 80, height: 80, borderRadius: 24, borderWidth: 2, borderColor: T.tealLt },
+  successRingTablet: { width: 96, height: 96, borderRadius: 28 },
   successTitle: { fontSize: 24, fontWeight: '900', color: T.ink, marginBottom: 8, letterSpacing: -0.4 },
+  successTitleTablet: { fontSize: 30, marginBottom: 10 },
   successSub:   { fontSize: 14, color: T.sub, textAlign: 'center', lineHeight: 20, marginBottom: 28 },
+  successSubTablet: { fontSize: 17, lineHeight: 25, marginBottom: 34 },
   successBtn:   { width: '100%', borderRadius: 15, overflow: 'hidden', shadowColor: T.teal, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.28, shadowRadius: 10, elevation: 6 },
+  successBtnTablet: { borderRadius: 18 },
   successBtnGrad: { height: 52, justifyContent: 'center', alignItems: 'center' },
+  successBtnGradTablet: { height: 60 },
   successBtnText: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  successBtnTextTablet: { fontSize: 18 },
 });

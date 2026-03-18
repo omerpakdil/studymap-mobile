@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -59,6 +60,8 @@ const C = {
 };
 
 export default function OnboardingV2SplashScreen() {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   const lang = resolveAppLanguage();
   const PROOF = [
     {
@@ -145,9 +148,9 @@ export default function OnboardingV2SplashScreen() {
       />
 
       {/* Soft orbs */}
-      <View style={[styles.orbA, { backgroundColor: C.orbA }]} />
-      <View style={[styles.orbB, { backgroundColor: C.orbB }]} />
-      <View style={[styles.orbC, { backgroundColor: C.orbC }]} />
+      <View style={[styles.orbA, isTablet && styles.orbATablet, { backgroundColor: C.orbA }]} />
+      <View style={[styles.orbB, isTablet && styles.orbBTablet, { backgroundColor: C.orbB }]} />
+      <View style={[styles.orbC, isTablet && styles.orbCTablet, { backgroundColor: C.orbC }]} />
 
       {/* Fine grid */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -161,20 +164,20 @@ export default function OnboardingV2SplashScreen() {
 
       {/* ── Fixed body (no scroll) ─────────────────────────── */}
       <Animated.View style={[styles.flex, { opacity: scrollFade }]}>
-        <View style={styles.scrollContent}>
+        <View style={[styles.scrollContent, isTablet && styles.scrollContentTablet]}>
           {/* Header row */}
-          <View style={styles.headerRow}>
-            <View style={styles.brandRow}>
-              <View style={[styles.brandMark, { backgroundColor: C.teal }]} />
-              <Text style={[styles.brandText, { color: C.teal }]}>StudyMap</Text>
+          <View style={[styles.headerRow, isTablet && styles.headerRowTablet]}>
+            <View style={[styles.brandRow, isTablet && styles.brandRowTablet]}>
+              <View style={[styles.brandMark, isTablet && styles.brandMarkTablet, { backgroundColor: C.teal }]} />
+              <Text style={[styles.brandText, isTablet && styles.brandTextTablet, { color: C.teal }]}>StudyMap</Text>
             </View>
           </View>
 
           {/* Page title */}
-          <Text style={[styles.pageTitle, { color: C.title }]}>
+          <Text style={[styles.pageTitle, isTablet && styles.pageTitleTablet, { color: C.title }]}>
             {t('onboarding.splash.title', { lang, fallback: "Build the plan\nyou'll actually keep." })}
           </Text>
-          <Text style={[styles.pageSub, { color: C.sub }]}>
+          <Text style={[styles.pageSub, isTablet && styles.pageSubTablet, { color: C.sub }]}>
             {t('onboarding.splash.subtitle', {
               lang,
               fallback: 'Adaptive system for real schedules - personalized, measurable, ready in 60 seconds.',
@@ -185,6 +188,7 @@ export default function OnboardingV2SplashScreen() {
           <Animated.View
             style={[
               styles.heroCard,
+              isTablet && styles.heroCardTablet,
               {
                 transform: [
                   { translateY: Animated.add(cardSlide, floatY) },
@@ -200,21 +204,22 @@ export default function OnboardingV2SplashScreen() {
               style={styles.accentBar}
             />
 
-            <View style={styles.heroInner}>
-              <Text style={[styles.heroLabel, { color: C.label }]}>
+            <View style={[styles.heroInner, isTablet && styles.heroInnerTablet]}>
+              <Text style={[styles.heroLabel, isTablet && styles.heroLabelTablet, { color: C.label }]}>
                 {t('onboarding.splash.hero_label', { lang, fallback: 'WHAT YOU GET' })}
               </Text>
-              <Text style={[styles.heroHeadline, { color: C.title }]}>
+              <Text style={[styles.heroHeadline, isTablet && styles.heroHeadlineTablet, { color: C.title }]}>
                 {t('onboarding.splash.hero_headline', { lang, fallback: 'A score-moving plan built for your exact schedule.' })}
               </Text>
 
               {/* KPI tiles */}
-              <View style={styles.kpiRow}>
+              <View style={[styles.kpiRow, isTablet && styles.kpiRowTablet]}>
                 {KPIS.map((k, i) => (
                   <Animated.View
                     key={k.val}
                     style={[
                       styles.kpi,
+                      isTablet && styles.kpiTablet,
                       { backgroundColor: C.tealSoft, opacity: kpiAnims[i] },
                       {
                         transform: [{
@@ -225,8 +230,8 @@ export default function OnboardingV2SplashScreen() {
                   >
                     {/* Top accent line */}
                     <View style={[styles.kpiLine, { backgroundColor: C.teal }]} />
-                    <Text style={[styles.kpiVal, { color: C.tealText }]}>{k.val}</Text>
-                    <Text style={[styles.kpiLbl, { color: C.sub }]}>{k.lbl}</Text>
+                    <Text style={[styles.kpiVal, isTablet && styles.kpiValTablet, { color: C.tealText }]}>{k.val}</Text>
+                    <Text style={[styles.kpiLbl, isTablet && styles.kpiLblTablet, { color: C.sub }]}>{k.lbl}</Text>
                   </Animated.View>
                 ))}
               </View>
@@ -234,12 +239,13 @@ export default function OnboardingV2SplashScreen() {
           </Animated.View>
 
           {/* ── Proof rows ─────────────────────────────── */}
-          <View style={styles.proofList}>
+          <View style={[styles.proofList, isTablet && styles.proofListTablet]}>
             {PROOF.map((p, i) => (
             <Animated.View
               key={p.title}
               style={[
                 styles.proofRow,
+                isTablet && styles.proofRowTablet,
                 { borderColor: C.cardBorder, backgroundColor: C.card },
                   {
                     opacity: proofAnims[i],
@@ -249,20 +255,20 @@ export default function OnboardingV2SplashScreen() {
                   },
                 ]}
               >
-                <View style={styles.proofLead}>
-                  <Text style={[styles.proofLeadNum, { color: C.tealText }]}>0{i + 1}</Text>
-                  <View style={styles.proofLeadBars}>
-                    <View style={[styles.proofLeadBar, { backgroundColor: C.tealText, opacity: 0.9 }]} />
-                    <View style={[styles.proofLeadBar, { backgroundColor: C.tealText, opacity: 0.55 }]} />
+                <View style={[styles.proofLead, isTablet && styles.proofLeadTablet]}>
+                  <Text style={[styles.proofLeadNum, isTablet && styles.proofLeadNumTablet, { color: C.tealText }]}>0{i + 1}</Text>
+                  <View style={[styles.proofLeadBars, isTablet && styles.proofLeadBarsTablet]}>
+                    <View style={[styles.proofLeadBar, isTablet && styles.proofLeadBarTablet, { backgroundColor: C.tealText, opacity: 0.9 }]} />
+                    <View style={[styles.proofLeadBar, isTablet && styles.proofLeadBarTablet, { backgroundColor: C.tealText, opacity: 0.55 }]} />
                   </View>
                 </View>
                 <View style={styles.proofCopy}>
-                  <Text style={[styles.proofTitle, { color: C.title }]}>{p.title}</Text>
-                  <Text style={[styles.proofBody, { color: C.sub }]}>{p.body}</Text>
+                  <Text style={[styles.proofTitle, isTablet && styles.proofTitleTablet, { color: C.title }]}>{p.title}</Text>
+                  <Text style={[styles.proofBody, isTablet && styles.proofBodyTablet, { color: C.sub }]}>{p.body}</Text>
                 </View>
                 {/* Teal right accent */}
-                <View style={[styles.proofAccent, { backgroundColor: C.tealSoft }]}>
-                  <Text style={[styles.proofAccentText, { color: C.tealText }]}>✓</Text>
+                <View style={[styles.proofAccent, isTablet && styles.proofAccentTablet, { backgroundColor: C.tealSoft }]}>
+                  <Text style={[styles.proofAccentText, isTablet && styles.proofAccentTextTablet, { color: C.tealText }]}>✓</Text>
                 </View>
               </Animated.View>
             ))}
@@ -272,6 +278,7 @@ export default function OnboardingV2SplashScreen() {
           <Animated.View
             style={[
               styles.social,
+              isTablet && styles.socialTablet,
               { borderColor: C.tealBorder, backgroundColor: C.card, opacity: socialFade },
             ]}
           >
@@ -284,22 +291,22 @@ export default function OnboardingV2SplashScreen() {
                     { backgroundColor: c, marginLeft: i === 0 ? 0 : -10 },
                   ]}
                 >
-                  <Text style={styles.avaText}>
+                  <Text style={[styles.avaText, isTablet && styles.avaTextTablet]}>
                     {['S', 'M', 'R', '+'][i]}
                   </Text>
                 </View>
               ))}
             </View>
             <View style={styles.socialCopy}>
-              <Text style={[styles.socialBold, { color: C.title }]}>
+              <Text style={[styles.socialBold, isTablet && styles.socialBoldTablet, { color: C.title }]}>
                 {t('onboarding.splash.social_bold', { lang, fallback: '12,400+ students' })}
               </Text>
-              <Text style={[styles.socialSub, { color: C.sub }]}>
+              <Text style={[styles.socialSub, isTablet && styles.socialSubTablet, { color: C.sub }]}>
                 {t('onboarding.splash.social_sub', { lang, fallback: 'improved scores with StudyMap' })}
               </Text>
             </View>
-            <View style={[styles.ratingBadge, { backgroundColor: C.tealSoft }]}>
-              <Text style={[styles.ratingText, { color: C.tealText }]}>★ 4.9</Text>
+            <View style={[styles.ratingBadge, isTablet && styles.ratingBadgeTablet, { backgroundColor: C.tealSoft }]}>
+              <Text style={[styles.ratingText, isTablet && styles.ratingTextTablet, { color: C.tealText }]}>★ 4.9</Text>
             </View>
           </Animated.View>
 
@@ -312,12 +319,13 @@ export default function OnboardingV2SplashScreen() {
       <Animated.View
         style={[
           styles.footer,
+          isTablet && styles.footerTablet,
           { backgroundColor: C.footer, opacity: ctaFade },
         ]}
       >
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={styles.cta}
+            style={[styles.cta, isTablet && styles.ctaTablet]}
             onPress={() => { pressCta(); handleContinue(); }}
             activeOpacity={1}
           >
@@ -328,11 +336,11 @@ export default function OnboardingV2SplashScreen() {
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.ctaSheen} />
-            <Text style={styles.ctaText}>{t('onboarding.splash.cta', { lang, fallback: 'Start In 60 Seconds' })}</Text>
-            <Text style={styles.ctaArrow}>→</Text>
+            <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet]}>{t('onboarding.splash.cta', { lang, fallback: 'Start In 60 Seconds' })}</Text>
+            <Text style={[styles.ctaArrow, isTablet && styles.ctaArrowTablet]}>→</Text>
           </TouchableOpacity>
         </Animated.View>
-        <Text style={[styles.ctaHint, { color: C.sub }]}>
+        <Text style={[styles.ctaHint, isTablet && styles.ctaHintTablet, { color: C.sub }]}>
           {t('onboarding.splash.cta_hint', { lang, fallback: 'Set up in 60s · Built for your exam' })}
         </Text>
       </Animated.View>
@@ -351,11 +359,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 19,
     paddingTop: 6,
   },
+  scrollContentTablet: {
+    paddingHorizontal: 36,
+    paddingTop: 34,
+    paddingBottom: 164,
+    maxWidth: 1080,
+    width: '100%',
+    alignSelf: 'center',
+  },
 
   // Orbs
   orbA: { position:'absolute', width:280, height:280, borderRadius:999, top:-80, right:-110 },
   orbB: { position:'absolute', width:200, height:200, borderRadius:999, top:320, left:-100 },
   orbC: { position:'absolute', width:180, height:180, borderRadius:999, bottom:160, right:-90 },
+  orbATablet: { width: 420, height: 420, top: -120, right: -140 },
+  orbBTablet: { width: 280, height: 280, top: 420, left: -120 },
+  orbCTablet: { width: 240, height: 240, bottom: 220, right: -110 },
 
   // Header
   headerRow: {
@@ -365,9 +384,13 @@ const styles = StyleSheet.create({
     marginBottom: 13,
     paddingTop: 2,
   },
+  headerRowTablet: { marginBottom: 24, paddingTop: 8 },
   brandRow: { flexDirection:'row', alignItems:'center', gap:6 },
+  brandRowTablet: { gap: 8 },
   brandMark: { width:7, height:7, borderRadius:2 },
+  brandMarkTablet: { width: 10, height: 10, borderRadius: 3 },
   brandText: { fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTextTablet: { fontSize: 18, letterSpacing: 0.5 },
 
   // Title
   pageTitle: {
@@ -377,11 +400,23 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
     marginBottom: 8,
   },
+  pageTitleTablet: {
+    fontSize: 68,
+    lineHeight: 74,
+    marginBottom: 17,
+    maxWidth: 880,
+  },
   pageSub: {
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '400',
     marginBottom: 14,
+  },
+  pageSubTablet: {
+    fontSize: 25,
+    lineHeight: 35,
+    marginBottom: 27,
+    maxWidth: 920,
   },
 
   // Hero card
@@ -398,8 +433,13 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 4,
   },
+  heroCardTablet: {
+    borderRadius: 27,
+    marginBottom: 23,
+  },
   accentBar: { height: 3 },
   heroInner: { padding: 13 },
+  heroInnerTablet: { padding: 28 },
   heroLabel: {
     fontSize: 10,
     fontWeight: '700',
@@ -407,6 +447,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 4,
   },
+  heroLabelTablet: { fontSize: 14, marginBottom: 8 },
   heroHeadline: {
     fontSize: 16,
     fontWeight: '800',
@@ -414,9 +455,16 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     marginBottom: 10,
   },
+  heroHeadlineTablet: {
+    fontSize: 32,
+    lineHeight: 40,
+    marginBottom: 19,
+    maxWidth: 760,
+  },
 
   // KPI
   kpiRow: { flexDirection:'row', gap:7 },
+  kpiRowTablet: { gap: 14 },
   kpi: {
     flex: 1,
     borderRadius: 11,
@@ -425,6 +473,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     overflow: 'hidden',
+  },
+  kpiTablet: {
+    borderRadius: 19,
+    paddingVertical: 21,
+    paddingHorizontal: 15,
+    gap: 7,
   },
   kpiLine: {
     position: 'absolute',
@@ -438,15 +492,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 3,
   },
+  kpiValTablet: { fontSize: 32, marginTop: 4 },
   kpiLbl: {
     fontSize: 10,
     fontWeight: '500',
     textAlign: 'center',
     letterSpacing: 0.3,
   },
+  kpiLblTablet: { fontSize: 14, lineHeight: 19 },
 
   // Proof
   proofList: { gap: 8, marginBottom: 11 },
+  proofListTablet: { gap: 14, marginBottom: 18 },
   proofRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -460,6 +517,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
+  proofRowTablet: {
+    gap: 14,
+    borderRadius: 21,
+    padding: 19,
+  },
   proofLead: {
     width: 36,
     height: 36,
@@ -472,12 +534,23 @@ const styles = StyleSheet.create({
     gap: 2,
     flexShrink: 0,
   },
+  proofLeadTablet: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    gap: 3,
+  },
   proofLeadNum: { fontSize: 10, fontWeight: '800', lineHeight: 11, letterSpacing: 0.3 },
+  proofLeadNumTablet: { fontSize: 13, lineHeight: 14 },
   proofLeadBars: { width: 14, gap: 2 },
+  proofLeadBarsTablet: { width: 18, gap: 3 },
   proofLeadBar: { height: 2, borderRadius: 2 },
+  proofLeadBarTablet: { height: 3, borderRadius: 3 },
   proofCopy: { flex: 1, gap: 2 },
   proofTitle: { fontSize: 13, fontWeight: '700', letterSpacing: -0.1 },
+  proofTitleTablet: { fontSize: 18, lineHeight: 24 },
   proofBody: { fontSize: 11, lineHeight: 15, fontWeight: '400' },
+  proofBodyTablet: { fontSize: 15, lineHeight: 22 },
   proofAccent: {
     width: 22,
     height: 22,
@@ -486,7 +559,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
+  proofAccentTablet: { width: 28, height: 28, borderRadius: 9 },
   proofAccentText: { fontSize: 12, fontWeight: '700' },
+  proofAccentTextTablet: { fontSize: 15 },
 
   // Social
   social: {
@@ -496,6 +571,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 13,
     padding: 11,
+  },
+  socialTablet: {
+    gap: 14,
+    borderRadius: 21,
+    padding: 19,
   },
   avatarStack: { flexDirection:'row' },
   ava: {
@@ -508,15 +588,20 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   avaText: { color:'#fff', fontSize:9, fontWeight:'800' },
+  avaTextTablet: { fontSize: 11 },
   socialCopy: { flex:1, gap:2 },
   socialBold: { fontSize:12, fontWeight:'700' },
+  socialBoldTablet: { fontSize: 16 },
   socialSub: { fontSize:11, fontWeight:'400' },
+  socialSubTablet: { fontSize: 14, lineHeight: 20 },
   ratingBadge: {
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 99,
   },
+  ratingBadgeTablet: { paddingVertical: 6, paddingHorizontal: 10 },
   ratingText: { fontSize:10, fontWeight:'800' },
+  ratingTextTablet: { fontSize: 13 },
 
   // Footer
   footer: {
@@ -530,6 +615,13 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(15,23,42,0.07)',
     gap: 8,
+  },
+  footerTablet: {
+    bottom: 10,
+    paddingHorizontal: 36,
+    paddingTop: 16,
+    paddingBottom: 34,
+    gap: 10,
   },
   cta: {
     height: 52,
@@ -545,6 +637,10 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
+  ctaTablet: {
+    height: 72,
+    borderRadius: 21,
+  },
   ctaSheen: {
     position: 'absolute',
     top: 0, left: 0, right: 0,
@@ -557,10 +653,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.2,
   },
+  ctaTextTablet: { fontSize: 24 },
   ctaArrow: {
     color: 'rgba(255,255,255,0.80)',
     fontSize: 17,
   },
+  ctaArrowTablet: { fontSize: 24 },
   ctaHint: {
     fontSize: 11,
     fontWeight: '500',
@@ -568,4 +666,5 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     opacity: 0.65,
   },
+  ctaHintTablet: { fontSize: 14, lineHeight: 20 },
 });

@@ -935,6 +935,32 @@ export const enMessages = {
     "complete_session": "Complete Session",
     "back_dashboard": "Back to Dashboard",
     "focus_duration": "Focus Duration",
+
+    "subject": "Subject",
+
+    "focus_audio": "Focus Audio",
+
+    "audio_state_playing": "Playing",
+
+    "audio_state_off": "Off",
+
+    "change_audio": "Channels",
+
+    "lofi_modal_title": "Focus Radio",
+
+    "lofi_modal_sub": "Pick the channel that fits this session",
+
+    "lofi_channel_ambient": "Ambient",
+
+    "lofi_channel_ambient_sub": "Soft ambient radio",
+
+    "lofi_channel_lofi": "Lofi",
+
+    "lofi_channel_lofi_sub": "Chill lofi radio",
+
+    "lofi_channel_deep": "Deep Focus",
+
+    "lofi_channel_deep_sub": "Drone-based deep focus",
     "select_focus_duration": "Select how long to focus",
     "preset_quick_25": "Quick 25",
     "preset_standard_45": "Focus 45",

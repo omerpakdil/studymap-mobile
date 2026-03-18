@@ -929,6 +929,32 @@ export const deMessages: AppMessages = {
     "complete_session": "Session abschließen",
     "back_dashboard": "Zurück zum Dashboard",
     "focus_duration": "Fokusdauer",
+
+    "subject": "Fach",
+
+    "focus_audio": "Fokus-Audio",
+
+    "audio_state_playing": "Läuft",
+
+    "audio_state_off": "Aus",
+
+    "change_audio": "Kanaele",
+
+    "lofi_modal_title": "Fokus-Radio",
+
+    "lofi_modal_sub": "Waehle den Kanal, der zu dieser Session passt",
+
+    "lofi_channel_ambient": "Ambient",
+
+    "lofi_channel_ambient_sub": "Sanftes Ambient-Radio",
+
+    "lofi_channel_lofi": "Lofi",
+
+    "lofi_channel_lofi_sub": "Ruhiges Lofi-Radio",
+
+    "lofi_channel_deep": "Tiefer Fokus",
+
+    "lofi_channel_deep_sub": "Drone-basierter Tiefenfokus",
     "select_focus_duration": "Wähle, wie lange du dich fokussierst",
     "preset_quick_25": "Kurz 25",
     "preset_standard_45": "Fokus 45",

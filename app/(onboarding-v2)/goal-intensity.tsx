@@ -17,6 +17,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useWindowDimensions,
     View,
 } from 'react-native';
 
@@ -135,6 +136,8 @@ export default function OnboardingV2GoalIntensityScreen() {
   const lang = resolveAppLanguage({
     countryDefaultLanguage: getCountryByCode(draft.countryCode)?.defaultLanguage ?? null,
   });
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 768;
   useEffect(() => { void trackOnboardingStepView('goal_intensity'); }, []);
 
   const entrance = useRef(new Animated.Value(0)).current;
@@ -186,22 +189,22 @@ export default function OnboardingV2GoalIntensityScreen() {
         {[0,1,2,3,4,5,6,7].map(i => <View key={`h${i}`} style={{ position:'absolute',left:0,right:0,top:`${i*12.5}%`,height:StyleSheet.hairlineWidth,backgroundColor:C.grid }} />)}
       </View>
 
-      <Animated.View style={[styles.inner, { opacity: entrance }]}>
+      <Animated.View style={[styles.inner, isTablet && styles.innerTablet, { opacity: entrance }]}>
 
         {/* Header */}
-        <View style={styles.headerRow}>
+        <View style={[styles.headerRow, isTablet && styles.headerRowTablet]}>
           <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
+            style={[styles.backBtn, isTablet && styles.backBtnTablet, { backgroundColor: C.backBg, borderColor: C.backBorder }]}
             onPress={() => { void trackOnboardingStepBack('goal_intensity'); router.back(); }}
             activeOpacity={0.7}
           >
-            <Text style={[styles.backArrow, { color: C.backArrow }]}>‹</Text>
+            <Text style={[styles.backArrow, isTablet && styles.backArrowTablet, { color: C.backArrow }]}>‹</Text>
           </TouchableOpacity>
           <View style={styles.brandRow}>
             <View style={[styles.brandMark, { backgroundColor: C.brand }]} />
-            <Text style={[styles.brandText, { color: C.brand }]}>StudyMap</Text>
+            <Text style={[styles.brandText, isTablet && styles.brandTextTablet, { color: C.brand }]}>StudyMap</Text>
           </View>
-          <View style={styles.backBtn} />
+          <View style={[styles.backBtn, isTablet && styles.backBtnTablet]} />
         </View>
 
         {/* Progress */}
@@ -211,20 +214,20 @@ export default function OnboardingV2GoalIntensityScreen() {
             <View style={styles.progressSheen} />
           </View>
         </View>
-        <Text style={[styles.stepLabel, { color: C.labelMuted }]}>
+        <Text style={[styles.stepLabel, isTablet && styles.stepLabelTablet, { color: C.labelMuted }]}>
           {t('common.step_of', { lang, params: { current: 8, total: 13 } })}
         </Text>
 
         {/* Title */}
-        <Text style={[styles.title, { color: C.title }]}>
+        <Text style={[styles.title, isTablet && styles.titleTablet, { color: C.title }]}>
           {t('onboarding.goal_intensity.title', { lang, fallback: 'How hard do you\nwant to push?' })}
         </Text>
-        <Text style={[styles.sub, { color: C.sub }]}>
+        <Text style={[styles.sub, isTablet && styles.subTablet, { color: C.sub }]}>
           {t('onboarding.goal_intensity.subtitle', { lang, fallback: 'We tune session volume and daily load around this setting.' })}
         </Text>
 
         {/* Intensity cards — full width stacked */}
-        <View style={styles.cardList}>
+        <View style={[styles.cardList, isTablet && styles.cardListTablet]}>
           {OPTIONS.map((opt, i) => {
             const active = draft.studyIntensity === opt.id;
             const capacity = getIntensityCapacitySummary(
@@ -243,6 +246,7 @@ export default function OnboardingV2GoalIntensityScreen() {
                 <TouchableOpacity
                   style={[
                     styles.card,
+                    isTablet && styles.cardTablet,
                     active
                       ? { backgroundColor: `${opt.railA}0E`, borderColor: opt.railA, borderWidth: 1.5,
                           shadowColor: opt.railA, shadowOffset:{width:0,height:6}, shadowOpacity:0.18, shadowRadius:16, elevation:6 }
@@ -259,23 +263,23 @@ export default function OnboardingV2GoalIntensityScreen() {
                     style={[styles.rail, { opacity: active ? 1 : 0.30 }]}
                   />
 
-                  <View style={styles.cardContent}>
+                  <View style={[styles.cardContent, isTablet && styles.cardContentTablet]}>
                     {/* Top row: label + rec badge (left stack) | hours badge (right) */}
-                    <View style={styles.cardTopRow}>
+                    <View style={[styles.cardTopRow, isTablet && styles.cardTopRowTablet]}>
                       <View style={styles.cardTopLeft}>
-                        <Text style={[styles.cardLabel, { color: active ? opt.railA : C.title }]}>
+                        <Text style={[styles.cardLabel, isTablet && styles.cardLabelTablet, { color: active ? opt.railA : C.title }]}>
                           {getLabel(opt.id)}
                         </Text>
                         {opt.recommended && (
-                          <View style={[styles.recBadge, { backgroundColor: `${opt.railA}18`, borderColor: `${opt.railA}30` }]}>
-                            <Text style={[styles.recText, { color: opt.railA }]}>
+                          <View style={[styles.recBadge, isTablet && styles.recBadgeTablet, { backgroundColor: `${opt.railA}18`, borderColor: `${opt.railA}30` }]}>
+                            <Text style={[styles.recText, isTablet && styles.recTextTablet, { color: opt.railA }]}>
                               ★ {t('onboarding.goal_intensity.best_pick', { lang, fallback: 'Best pick' })}
                             </Text>
                           </View>
                         )}
                       </View>
-                      <View style={[styles.hoursBadge, { backgroundColor: active ? `${opt.railA}18` : 'rgba(0,0,0,0.05)' }]}>
-                        <Text style={[styles.hoursText, { color: active ? opt.railA : C.sub }]}>
+                      <View style={[styles.hoursBadge, isTablet && styles.hoursBadgeTablet, { backgroundColor: active ? `${opt.railA}18` : 'rgba(0,0,0,0.05)' }]}>
+                        <Text style={[styles.hoursText, isTablet && styles.hoursTextTablet, { color: active ? opt.railA : C.sub }]}>
                           {t('onboarding.goal_intensity.planned_weekly', {
                             lang,
                             params: { hours: formatNumber(capacity.weeklyHours) },
@@ -286,7 +290,7 @@ export default function OnboardingV2GoalIntensityScreen() {
                     </View>
 
                     {/* Session dots visualizer */}
-                    <View style={styles.dotsRow}>
+                    <View style={[styles.dotsRow, isTablet && styles.dotsRowTablet]}>
                       <SessionDots
                         filled={opt.level}
                         total={opt.totalDots}
@@ -294,7 +298,7 @@ export default function OnboardingV2GoalIntensityScreen() {
                         colorB={opt.railB}
                         active={active}
                       />
-                      <Text style={[styles.weekLabel, { color: active ? opt.railA : C.sub }]}>
+                      <Text style={[styles.weekLabel, isTablet && styles.weekLabelTablet, { color: active ? opt.railA : C.sub }]}>
                         {t('onboarding.goal_intensity.sessions', {
                           lang,
                           params: { count: capacity.sessionsPerWeek },
@@ -303,7 +307,7 @@ export default function OnboardingV2GoalIntensityScreen() {
                       </Text>
                     </View>
 
-                    <Text style={[styles.capacityLine, { color: active ? opt.railA : C.sub }]}>
+                    <Text style={[styles.capacityLine, isTablet && styles.capacityLineTablet, { color: active ? opt.railA : C.sub }]}>
                       {t('onboarding.goal_intensity.available_weekly', {
                         lang,
                         params: {
@@ -315,14 +319,14 @@ export default function OnboardingV2GoalIntensityScreen() {
 
                     {/* Description — only when active */}
                     {active && (
-                      <Text style={[styles.cardDesc, { color: C.sub }]}>{getDesc(opt.id)}</Text>
+                      <Text style={[styles.cardDesc, isTablet && styles.cardDescTablet, { color: C.sub }]}>{getDesc(opt.id)}</Text>
                     )}
                   </View>
 
                   {/* Check mark */}
                   {active && (
-                    <View style={[styles.checkWrap, { backgroundColor: `${opt.railA}18` }]}>
-                      <Text style={[styles.checkText, { color: opt.railA }]}>✓</Text>
+                    <View style={[styles.checkWrap, isTablet && styles.checkWrapTablet, { backgroundColor: `${opt.railA}18` }]}>
+                      <Text style={[styles.checkText, isTablet && styles.checkTextTablet, { color: opt.railA }]}>✓</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -333,10 +337,10 @@ export default function OnboardingV2GoalIntensityScreen() {
       </Animated.View>
 
       {/* Footer */}
-      <Animated.View style={[styles.footer, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}>
+      <Animated.View style={[styles.footer, isTablet && styles.footerTablet, { backgroundColor: C.footer, borderTopColor: C.footerBorder, opacity: ctaFade }]}>
         <Animated.View style={{ transform: [{ scale: ctaScale }] }}>
           <TouchableOpacity
-            style={[styles.cta, !draft.studyIntensity && styles.ctaDisabled]}
+            style={[styles.cta, isTablet && styles.ctaTablet, !draft.studyIntensity && styles.ctaDisabled]}
             onPress={() => { void trackOnboardingStepContinue('goal_intensity'); router.push('/(onboarding-v2)/focus'); }}
             onPressIn={pressIn}
             onPressOut={pressOut}
@@ -350,12 +354,12 @@ export default function OnboardingV2GoalIntensityScreen() {
               />
             )}
             {!!draft.studyIntensity && <View style={styles.ctaSheen} />}
-            <Text style={[styles.ctaText, !draft.studyIntensity && styles.ctaTextDisabled]}>
+            <Text style={[styles.ctaText, isTablet && styles.ctaTextTablet, !draft.studyIntensity && styles.ctaTextDisabled]}>
               {draft.studyIntensity
                 ? `${t('common.continue', { lang })} · ${getLabel(draft.studyIntensity)}`
                 : t('onboarding.goal_intensity.select_intensity', { lang, fallback: 'Select intensity' })}
             </Text>
-            {!!draft.studyIntensity && <Text style={styles.ctaArrow}>→</Text>}
+            {!!draft.studyIntensity && <Text style={[styles.ctaArrow, isTablet && styles.ctaArrowTablet]}>→</Text>}
           </TouchableOpacity>
         </Animated.View>
       </Animated.View>
@@ -368,24 +372,33 @@ const styles = StyleSheet.create({
   orbA: { position:'absolute', width:240, height:240, borderRadius:999, top:-70, right:-90 },
   orbB: { position:'absolute', width:160, height:160, borderRadius:999, bottom:180, left:-70 },
   inner: { flex:1, paddingHorizontal:22, paddingTop:10, paddingBottom:110 },
+  innerTablet:{paddingHorizontal:36,paddingTop:20,paddingBottom:132,maxWidth:980,width:'100%',alignSelf:'center'},
 
   headerRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:14 },
+  headerRowTablet:{marginBottom:18},
   backBtn: { width:36, height:36, borderRadius:11, borderWidth:1, justifyContent:'center', alignItems:'center' },
+  backBtnTablet:{width:48,height:48,borderRadius:14},
   backArrow: { fontSize:26, fontWeight:'300', lineHeight:30, marginTop:-1 },
+  backArrowTablet:{fontSize:32,lineHeight:36},
   brandRow: { flexDirection:'row', alignItems:'center', gap:6 },
   brandMark: { width:7, height:7, borderRadius:2 },
   brandText: { fontSize:14, fontWeight:'800', letterSpacing:0.4 },
+  brandTextTablet:{fontSize:18},
 
   progressTrack: { height:3, borderRadius:999, overflow:'hidden', marginBottom:6 },
   progressFill: { height:'100%', borderRadius:999, overflow:'hidden' },
   progressSheen: { position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.28)' },
   stepLabel: { fontSize:10, fontWeight:'600', letterSpacing:0.9, textTransform:'uppercase', marginBottom:14, opacity:0.65 },
+  stepLabelTablet:{fontSize:13,marginBottom:18},
 
   title: { fontSize:30, fontWeight:'900', lineHeight:36, letterSpacing:-0.7, marginBottom:6 },
+  titleTablet:{fontSize:54,lineHeight:60,marginBottom:10,maxWidth:720},
   sub: { fontSize:13, lineHeight:19, fontWeight:'400', marginBottom:14 },
+  subTablet:{fontSize:21,lineHeight:30,marginBottom:20,maxWidth:840},
 
   // Cards
   cardList: { gap:10 },
+  cardListTablet:{gap:14},
   card: {
     borderRadius:16,
     flexDirection:'row',
@@ -394,37 +407,55 @@ const styles = StyleSheet.create({
     paddingVertical:14,
     paddingRight:14,
   },
+  cardTablet:{borderRadius:20,paddingVertical:18,paddingRight:18},
 
   // Left rail
   rail: { width:4, alignSelf:'stretch', borderRadius:2, marginRight:14, marginLeft:0 },
 
   cardContent: { flex:1, gap:8 },
+  cardContentTablet:{gap:10},
 
   cardTopRow: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', gap:8 },
+  cardTopRowTablet:{gap:14},
   cardLabel: { fontSize:16, fontWeight:'800', letterSpacing:-0.2 },
+  cardLabelTablet:{fontSize:22},
   cardTopLeft: { flexDirection:'column', alignItems:'flex-start', gap:4, flex:1 },
 
   recBadge: { borderWidth:1, borderRadius:6, paddingHorizontal:6, paddingVertical:2 },
+  recBadgeTablet:{borderRadius:9,paddingHorizontal:10,paddingVertical:5},
   recText: { fontSize:9, fontWeight:'700', letterSpacing:0.4 },
+  recTextTablet:{fontSize:12},
   hoursBadge: { borderRadius:8, paddingHorizontal:8, paddingVertical:4 },
+  hoursBadgeTablet:{borderRadius:12,paddingHorizontal:12,paddingVertical:8},
   hoursText: { fontSize:10, fontWeight:'700', letterSpacing:0.1 },
+  hoursTextTablet:{fontSize:13},
 
   dotsRow: { flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
+  dotsRowTablet:{marginTop:2},
   weekLabel: { fontSize:10, fontWeight:'600', letterSpacing:0.3 },
+  weekLabelTablet:{fontSize:13},
   capacityLine: { fontSize:11, fontWeight:'700', marginTop:-2 },
+  capacityLineTablet:{fontSize:14,marginTop:0},
 
   cardDesc: { fontSize:12, lineHeight:17, fontWeight:'400' },
+  cardDescTablet:{fontSize:15,lineHeight:22},
 
   checkWrap: { width:30, height:30, borderRadius:9, alignItems:'center', justifyContent:'center', marginLeft:8 },
+  checkWrapTablet:{width:38,height:38,borderRadius:12},
   checkText: { fontSize:15, fontWeight:'700' },
+  checkTextTablet:{fontSize:20},
 
   // Footer
   footer: { position:'absolute', left:0, right:0, bottom:0, paddingHorizontal:22, paddingTop:6, paddingBottom:36, borderTopWidth:StyleSheet.hairlineWidth, backgroundColor:C.footer, borderTopColor:C.footerBorder },
+  footerTablet:{paddingHorizontal:36,paddingTop:16,paddingBottom:42},
   cta: { height:FOOTER.ctaHeight, borderRadius:FOOTER.ctaRadius, flexDirection:'row', alignItems:'center', justifyContent:'center', overflow:'hidden', gap:8,
     shadowColor:'#0F9D8C', shadowOffset:{width:0,height:6}, shadowOpacity:0.26, shadowRadius:16, elevation:8 },
+  ctaTablet:{height:68,borderRadius:20},
   ctaDisabled: { backgroundColor:'rgba(148,163,184,0.18)', shadowOpacity:0, elevation:0 },
   ctaSheen: { position:'absolute', top:0, left:0, right:0, height:'44%', backgroundColor:'rgba(255,255,255,0.13)' },
   ctaText: { color:'#fff', fontSize:16, fontWeight:'800', letterSpacing:0.2 },
+  ctaTextTablet:{fontSize:22},
   ctaTextDisabled: { color:'rgba(100,116,139,0.55)' },
   ctaArrow: { color:'rgba(255,255,255,0.78)', fontSize:17 },
+  ctaArrowTablet:{fontSize:22},
 });
