@@ -9,6 +9,9 @@ const PREMIUM_HISTORY_KEY = 'premium_history_status';
 const SUBSCRIPTION_BYPASS_ENABLED =
   __DEV__ && process.env.EXPO_PUBLIC_BYPASS_PREMIUM === 'true';
 let revenueCatConfigured = false;
+let revenueCatInitPromise: Promise<boolean> | null = null;
+let offeringsRequestPromise: Promise<PurchasesOffering | null> | null = null;
+let cachedOfferings: PurchasesOffering | null = null;
 
 // Universal RevenueCat API key from environment variables
 const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
@@ -49,11 +52,16 @@ const markPremiumHistory = async (): Promise<void> => {
  * Initialize RevenueCat with universal API key
  */
 export const initializeRevenueCat = async (): Promise<boolean> => {
-  try {
-    if (revenueCatConfigured) {
-      return true;
-    }
+  if (revenueCatConfigured) {
+    return true;
+  }
 
+  if (revenueCatInitPromise) {
+    return revenueCatInitPromise;
+  }
+
+  revenueCatInitPromise = (async () => {
+  try {
     if (__DEV__) {
       const preview = REVENUECAT_API_KEY ? `${REVENUECAT_API_KEY.slice(0, 6)}…` : 'undefined';
       devLog('🔑 Using RevenueCat key (dev):', preview);
@@ -78,7 +86,12 @@ export const initializeRevenueCat = async (): Promise<boolean> => {
   } catch (error) {
     reportError('❌ RevenueCat initialization error:', error);
     return false;
+  } finally {
+    revenueCatInitPromise = null;
   }
+  })();
+
+  return revenueCatInitPromise;
 };
 
 /**
@@ -99,6 +112,15 @@ export const syncRevenueCatPurchases = async (): Promise<void> => {
  * Get available subscription offerings from RevenueCat
  */
 export const getSubscriptionOfferings = async (): Promise<PurchasesOffering | null> => {
+  if (cachedOfferings) {
+    return cachedOfferings;
+  }
+
+  if (offeringsRequestPromise) {
+    return offeringsRequestPromise;
+  }
+
+  offeringsRequestPromise = (async () => {
   try {
     const ok = await initializeRevenueCat();
     if (!ok) return null;
@@ -134,6 +156,7 @@ export const getSubscriptionOfferings = async (): Promise<PurchasesOffering | nu
         });
       }
 
+      cachedOfferings = offerings.current;
       return offerings.current;
     } else {
       devWarn('⚠️ No current offering found!');
@@ -142,6 +165,7 @@ export const getSubscriptionOfferings = async (): Promise<PurchasesOffering | nu
       // Try to get 'default' offering explicitly
       if (offerings.all['default']) {
         devLog('✅ Found "default" offering, using that instead');
+        cachedOfferings = offerings.all['default'];
         return offerings.all['default'];
       }
 
@@ -150,7 +174,12 @@ export const getSubscriptionOfferings = async (): Promise<PurchasesOffering | nu
   } catch (error) {
     reportError('❌ Error fetching offerings:', error);
     return null;
+  } finally {
+    offeringsRequestPromise = null;
   }
+  })();
+
+  return offeringsRequestPromise;
 };
 
 /**

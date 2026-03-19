@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearOnboardingData, isOnboardingComplete } from '@/app/utils/onboardingData';
 import { clearStudyProgramData, isProgramGenerated } from '@/app/utils/studyProgramStorage';
 import { hasCachedPremiumAccess, hasEverPremiumAccess } from '@/app/utils/subscriptionManager';
+import * as SplashScreen from 'expo-splash-screen';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
@@ -40,11 +41,17 @@ export default function HomeScreen() {
 
       if (hasSubscription) {
         router.replace('/(tabs)/dashboard');
+        requestAnimationFrame(() => {
+          void SplashScreen.hideAsync().catch(() => {});
+        });
         return;
       }
 
       if (hadPremiumBefore) {
         router.replace('/(onboarding-v2)/subscription');
+        requestAnimationFrame(() => {
+          void SplashScreen.hideAsync().catch(() => {});
+        });
         return;
       }
 

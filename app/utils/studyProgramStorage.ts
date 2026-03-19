@@ -15,10 +15,60 @@ const STORAGE_KEYS = {
   PROGRAM_PROGRESS: 'program_progress',
 };
 
+const compactTaskForStorage = (task: StudyTask): StudyTask => ({
+  ...task,
+  explainability: undefined,
+});
+
+const buildWeeklySchedule = (tasks: StudyTask[]): Record<string, StudyTask[]> => {
+  const schedule: Record<string, StudyTask[]> = {};
+  if (tasks.length === 0) return schedule;
+
+  const ordered = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
+  const firstDay = new Date(ordered[0].date);
+
+  ordered.forEach((task) => {
+    const current = new Date(task.date);
+    const dayDiff = Math.floor((current.getTime() - firstDay.getTime()) / (1000 * 60 * 60 * 24));
+    const weekNumber = Math.floor(dayDiff / 7) + 1;
+    const key = `week_${weekNumber}`;
+
+    if (!schedule[key]) schedule[key] = [];
+    schedule[key].push(task);
+  });
+
+  return schedule;
+};
+
+const compactProgramForStorage = (program: StudyProgram): StudyProgram => {
+  const compactDailyTasks = program.dailyTasks.map(compactTaskForStorage);
+
+  return {
+    ...program,
+    dailyTasks: compactDailyTasks,
+    // Avoid storing a full duplicate copy of the task tree. Rebuild this on load.
+    weeklySchedule: {},
+  };
+};
+
+const hydrateProgramFromStorage = (program: StudyProgram): StudyProgram => {
+  const hydratedTasks = (program.dailyTasks || []).map(compactTaskForStorage);
+
+  return {
+    ...program,
+    dailyTasks: hydratedTasks,
+    weeklySchedule:
+      program.weeklySchedule && Object.keys(program.weeklySchedule).length > 0
+        ? program.weeklySchedule
+        : buildWeeklySchedule(hydratedTasks),
+  };
+};
+
 // Save study program
 export const saveStudyProgram = async (program: StudyProgram): Promise<void> => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEYS.STUDY_PROGRAM, JSON.stringify(program));
+    const compactProgram = compactProgramForStorage(program);
+    await AsyncStorage.setItem(STORAGE_KEYS.STUDY_PROGRAM, JSON.stringify(compactProgram));
     devLog('✅ Study program saved successfully');
   } catch (error) {
     reportError('❌ Error saving study program:', error);
@@ -31,7 +81,7 @@ export const loadStudyProgram = async (): Promise<StudyProgram | null> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.STUDY_PROGRAM);
     if (data) {
-      const program = JSON.parse(data);
+      const program = hydrateProgramFromStorage(JSON.parse(data));
       devLog('✅ Study program loaded successfully');
       return program;
     }
@@ -45,15 +95,16 @@ export const loadStudyProgram = async (): Promise<StudyProgram | null> => {
 // Save daily tasks
 export const saveDailyTasks = async (tasks: StudyTask[]): Promise<void> => {
   try {
+    const compactTasks = tasks.map(compactTaskForStorage);
     // Debug: Check completed status of tasks being saved
-    const completedTasks = tasks.filter(task => task.completed === true);
+    const completedTasks = compactTasks.filter(task => task.completed === true);
     if (completedTasks.length > 0) {
       devLog('⚠️ WARNING: Saving tasks with completed=true:', completedTasks.map(t => ({ id: t.id, subject: t.subject, completed: t.completed })));
     }
-    devLog(`🔍 Debug: Saving ${tasks.length} tasks, ${completedTasks.length} already completed`);
+    devLog(`🔍 Debug: Saving ${compactTasks.length} tasks, ${completedTasks.length} already completed`);
     
-    await AsyncStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(tasks));
-    devLog(`✅ ${tasks.length} daily tasks saved successfully`);
+    await AsyncStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(compactTasks));
+    devLog(`✅ ${compactTasks.length} daily tasks saved successfully`);
   } catch (error) {
     reportError('❌ Error saving daily tasks:', error);
     throw error;
@@ -65,7 +116,7 @@ export const loadDailyTasks = async (): Promise<StudyTask[]> => {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_TASKS);
     if (data) {
-      const tasks = JSON.parse(data);
+      const tasks = (JSON.parse(data) as StudyTask[]).map(compactTaskForStorage);
       const completedTasks = tasks.filter((task: StudyTask) => task.completed === true);
       if (completedTasks.length > 0) {
         devLog('⚠️ WARNING: Loaded tasks with completed=true:', completedTasks.map((t: StudyTask) => ({ id: t.id, subject: t.subject, completed: t.completed })));
@@ -587,26 +638,6 @@ const toTaskTitle = (subject: string, oldTitle: string): string => {
     return `${subject}${oldTitle.substring(colonIndex)}`;
   }
   return `${subject} · Study`;
-};
-
-const buildWeeklySchedule = (tasks: StudyTask[]): Record<string, StudyTask[]> => {
-  const schedule: Record<string, StudyTask[]> = {};
-  if (tasks.length === 0) return schedule;
-
-  const ordered = [...tasks].sort((a, b) => a.date.localeCompare(b.date));
-  const firstDay = new Date(ordered[0].date);
-
-  ordered.forEach((task) => {
-    const current = new Date(task.date);
-    const dayDiff = Math.floor((current.getTime() - firstDay.getTime()) / (1000 * 60 * 60 * 24));
-    const weekNumber = Math.floor(dayDiff / 7) + 1;
-    const key = `week_${weekNumber}`;
-
-    if (!schedule[key]) schedule[key] = [];
-    schedule[key].push(task);
-  });
-
-  return schedule;
 };
 
 const buildSubjectBreakdownFromTasks = (

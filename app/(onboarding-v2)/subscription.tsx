@@ -893,11 +893,12 @@ export default function SubscriptionScreen() {
   }, []);
 
   const init = async () => {
+    const startedAt = Date.now();
+    const minLoadingMs = 200;
     try {
       setLoading(true); setError(null);
       const ok = await initializeRevenueCat();
       if (!ok) { setError(t('onboarding.subscription.error_connection', { lang, fallback: 'Unable to connect to payment system.' })); return; }
-      await new Promise(r => setTimeout(r, 800));
       const [elig, off] = await Promise.all([checkIntroEligibility(), getSubscriptionOfferings()]);
       setIntroEligible(elig);
       if (!off?.availablePackages.length) { setError(t('onboarding.subscription.error_no_plans', { lang, fallback: 'No plans available right now. Please try again.' })); return; }
@@ -906,7 +907,14 @@ export default function SubscriptionScreen() {
       const monthly = off.availablePackages.find(p => p.packageType === 'MONTHLY');
       setSelected(annual || monthly || off.availablePackages[0]);
     } catch { setError(t('onboarding.subscription.error_load_plans', { lang, fallback: 'Failed to load plans. Please try again.' })); }
-    finally { setLoading(false); }
+    finally {
+      const elapsed = Date.now() - startedAt;
+      const remaining = minLoadingMs - elapsed;
+      if (remaining > 0) {
+        await new Promise((resolve) => setTimeout(resolve, remaining));
+      }
+      setLoading(false);
+    }
   };
 
   const monthlyPkg = offerings?.availablePackages.find(p => p.packageType === 'MONTHLY') ?? null;

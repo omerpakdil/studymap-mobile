@@ -9,6 +9,7 @@
  *  1800ms→ Tüm ekran yukarı lift + fade → onFinish()
  */
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SplashScreen from 'expo-splash-screen';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
 import {
@@ -69,6 +70,10 @@ export default function AnimatedSplash({ onFinish }: Props) {
   }, [onFinish]);
 
   useEffect(() => {
+    const revealNative = setTimeout(() => {
+      void SplashScreen.hideAsync().catch(() => {});
+    }, 60);
+
     // Orb
     Animated.parallel([
       Animated.timing(orbOpacity, { toValue: 1, duration: 1000, delay: 0, useNativeDriver: true }),
@@ -113,7 +118,10 @@ export default function AnimatedSplash({ onFinish }: Props) {
       ]).start(handleFinish);
     }, 1900);
 
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(revealNative);
+    };
   // Runs once for splash sequence timing; animated refs are stable.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleFinish]);

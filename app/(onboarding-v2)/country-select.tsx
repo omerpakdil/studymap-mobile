@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
     Animated,
     ImageStyle,
@@ -45,7 +45,7 @@ const C = {
 // react-native-country-flag UK→GB
 const toIso = (code: string) => code === 'UK' ? 'GB' : code;
 
-function FlagIcon({ code, size = 24, style }: { code: string; size?: number; style?: StyleProp<ImageStyle> }) {
+const FlagIcon = memo(function FlagIcon({ code, size = 24, style }: { code: string; size?: number; style?: StyleProp<ImageStyle> }) {
   const w = Math.round(size * 1.6);
   const h = size;
   const normalized = toIso(code).toUpperCase();
@@ -79,7 +79,68 @@ function FlagIcon({ code, size = 24, style }: { code: string; size?: number; sty
   }
 
   return <CountryFlag isoCode={normalized} size={size} style={style} />;
-}
+});
+
+type CountryChipProps = {
+  code: string;
+  name: string;
+  selected: boolean;
+  isTablet: boolean;
+  opacity: Animated.Value;
+  translateY: Animated.Value;
+  onPress: (code: string, name: string) => void;
+};
+
+const CountryChip = memo(function CountryChip({
+  code,
+  name,
+  selected,
+  isTablet,
+  opacity,
+  translateY,
+  onPress,
+}: CountryChipProps) {
+  return (
+    <Animated.View
+      style={[
+        styles.chipWrap,
+        { opacity, transform: [{ translateY }] },
+      ]}
+    >
+      <TouchableOpacity
+        style={[
+          styles.chip,
+          isTablet && styles.chipTablet,
+          selected
+            ? { borderColor: C.teal, borderWidth: 1.5, backgroundColor: 'rgba(13,148,136,0.07)' }
+            : { borderColor: 'rgba(15,23,42,0.08)', borderWidth: 1, backgroundColor: C.cardBg },
+        ]}
+        onPress={() => onPress(code, name)}
+        activeOpacity={0.78}
+      >
+        {selected && (
+          <LinearGradient
+            colors={[C.btnA, C.btnB]}
+            start={{x:0,y:0}} end={{x:1,y:0}}
+            style={styles.chipTopBar}
+          />
+        )}
+        <FlagIcon code={code} size={24} />
+        <Text
+          style={[styles.chipName, isTablet && styles.chipNameTablet, selected && { color: C.teal, fontWeight: '700' }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+        {selected && (
+          <View style={styles.chipCheckBadge}>
+            <Text style={styles.chipCheckText}>✓</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
 
 export default function OnboardingV2CountrySelectScreen() {
   const { showAlert } = useAppAlert();
@@ -123,10 +184,10 @@ export default function OnboardingV2CountrySelectScreen() {
 
     // Grid chips stagger
     chipAnims.forEach((a, i) => {
-      const d = 180 + i * 40;
+      const d = 120 + i * 22;
       Animated.parallel([
-        Animated.timing(a.opacity,    { toValue: 1, duration: 280, delay: d, useNativeDriver: true }),
-        Animated.timing(a.translateY, { toValue: 0, duration: 280, delay: d, useNativeDriver: true }),
+        Animated.timing(a.opacity,    { toValue: 1, duration: 220, delay: d, useNativeDriver: true }),
+        Animated.timing(a.translateY, { toValue: 0, duration: 220, delay: d, useNativeDriver: true }),
       ]).start();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,9 +214,9 @@ export default function OnboardingV2CountrySelectScreen() {
     [detectedCountry.code, deviceLanguage]
   );
 
-  const selectCountry = (code: string, name: string) => {
+  const selectCountry = useCallback((code: string, name: string) => {
     updateDraft({ countryCode: code, countryName: name, examId: '', examName: '' });
-  };
+  }, [updateDraft]);
 
   const handleContinue = () => {
     if (!draft.countryCode) {
@@ -284,47 +345,17 @@ export default function OnboardingV2CountrySelectScreen() {
         {/* ── 3-column chip grid ── */}
         <View style={[styles.chipGrid, isTablet && styles.chipGridTablet]}>
           {otherCountries.map((country, i) => {
-            const sel = draft.countryCode === country.code;
             return (
-              <Animated.View
+              <CountryChip
                 key={country.code}
-                style={[
-                  styles.chipWrap,
-                  { opacity: chipAnims[i]?.opacity ?? 1, transform: [{ translateY: chipAnims[i]?.translateY ?? 0 }] },
-                ]}
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.chip,
-                    isTablet && styles.chipTablet,
-                    sel
-                      ? { borderColor: C.teal, borderWidth: 1.5, backgroundColor: 'rgba(13,148,136,0.07)' }
-                      : { borderColor: 'rgba(15,23,42,0.08)', borderWidth: 1, backgroundColor: C.cardBg },
-                  ]}
-                  onPress={() => selectCountry(country.code, country.name)}
-                  activeOpacity={0.78}
-                >
-                  {sel && (
-                    <LinearGradient
-                      colors={[C.btnA, C.btnB]}
-                      start={{x:0,y:0}} end={{x:1,y:0}}
-                      style={styles.chipTopBar}
-                    />
-                  )}
-                  <FlagIcon code={country.code} size={24} />
-                  <Text
-                    style={[styles.chipName, isTablet && styles.chipNameTablet, sel && { color: C.teal, fontWeight: '700' }]}
-                    numberOfLines={1}
-                  >
-                    {country.name}
-                  </Text>
-                  {sel && (
-                    <View style={styles.chipCheckBadge}>
-                      <Text style={styles.chipCheckText}>✓</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
+                code={country.code}
+                name={country.name}
+                selected={draft.countryCode === country.code}
+                isTablet={isTablet}
+                opacity={chipAnims[i]?.opacity ?? new Animated.Value(1)}
+                translateY={chipAnims[i]?.translateY ?? new Animated.Value(0)}
+                onPress={selectCountry}
+              />
             );
           })}
         </View>

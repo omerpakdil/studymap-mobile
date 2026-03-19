@@ -34,7 +34,7 @@ import {
     trackOnboardingStepView,
     trackOnboardingV2Event,
 } from '@/app/utils/onboardingV2Analytics';
-import { getSubscriptionOfferings, initializeRevenueCat } from '@/app/utils/subscriptionManager';
+import { getSubscriptionOfferings } from '@/app/utils/subscriptionManager';
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -119,8 +119,6 @@ export default function OnboardingV2PaywallScreen() {
     void trackOnboardingV2Event('paywall_view', { step_id:'paywall', variant_id:variant });
     void (async () => {
       try {
-        const ok = await initializeRevenueCat();
-        if (!ok) return;
         const offering = await getSubscriptionOfferings();
         const monthly = offering?.availablePackages.find((pkg) => pkg.packageType === 'MONTHLY') ?? null;
         if (!monthly) return;
